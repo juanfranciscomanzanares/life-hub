@@ -1650,6 +1650,32 @@ export default function LifeDashboard({ userEmail = null, onSignOut = null }) {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  // Gesto tactil: arrastrar desde el borde izquierdo abre el menu; deslizar a la izquierda lo cierra
+  useEffect(() => {
+    let x0 = null, y0 = null, fromEdge = false;
+    const onStart = (e) => {
+      const t = e.touches[0];
+      x0 = t.clientX; y0 = t.clientY;
+      fromEdge = t.clientX < 30;
+    };
+    const onEnd = (e) => {
+      if (x0 == null) return;
+      const t = e.changedTouches[0];
+      const dx = t.clientX - x0, dy = t.clientY - y0;
+      if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+        if (dx > 0 && fromEdge) setMobileOpen(true);
+        else if (dx < 0) setMobileOpen(false);
+      }
+      x0 = y0 = null; fromEdge = false;
+    };
+    window.addEventListener("touchstart", onStart, { passive: true });
+    window.addEventListener("touchend", onEnd, { passive: true });
+    return () => {
+      window.removeEventListener("touchstart", onStart);
+      window.removeEventListener("touchend", onEnd);
+    };
+  }, []);
+
   const toggleTask = (id) =>
     setTasks(tasks.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));
 
@@ -1657,6 +1683,11 @@ export default function LifeDashboard({ userEmail = null, onSignOut = null }) {
     <div className="flex min-h-screen bg-slate-950 font-sans text-slate-200">
       {/* Sidebar */}
       <aside
+        style={{
+          paddingTop: "calc(env(safe-area-inset-top) + 1.25rem)",
+          paddingLeft: "calc(env(safe-area-inset-left) + 1.25rem)",
+          paddingBottom: "calc(env(safe-area-inset-bottom) + 1.25rem)",
+        }}
         className={`fixed inset-y-0 left-0 z-30 flex w-64 transform flex-col border-r border-slate-800 bg-slate-900 p-5 transition-transform lg:static lg:translate-x-0 ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
@@ -1745,12 +1776,18 @@ export default function LifeDashboard({ userEmail = null, onSignOut = null }) {
       {/* Contenido principal */}
       <main className="flex-1 overflow-x-hidden">
         {/* Top bar movil */}
-        <div className="flex items-center gap-3 border-b border-slate-800 p-4 lg:hidden">
-          <button onClick={() => setMobileOpen(true)} className="text-slate-300">
-            <Menu size={22} />
+        <div
+          style={{
+            paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)",
+            paddingLeft: "calc(env(safe-area-inset-left) + 1rem)",
+            paddingRight: "calc(env(safe-area-inset-right) + 1rem)",
+          }}
+          className="sticky top-0 z-10 flex items-center gap-3 border-b border-slate-800 bg-slate-950/90 p-4 backdrop-blur lg:hidden"
+        >
+          <button onClick={() => setMobileOpen(true)} className="-m-2 p-2 text-slate-300">
+            <Menu size={24} />
           </button>
-          <span className="font-semibold text-slate-100">Life Hub</span>
-        </div>
+          <span className="font-semibold text-slate-100">Life Hub</span>        </div>
 
         <div key={active} className="mx-auto max-w-6xl p-5 sm:p-8 section-fade">
           {active === "inicio" && <Inicio tasks={tasks} toggleTask={toggleTask} />}
