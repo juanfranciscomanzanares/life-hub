@@ -1,0 +1,1788 @@
+import { useState, useMemo, useEffect } from "react";
+import {
+  Home,
+  Dumbbell,
+  GraduationCap,
+  Table2,
+  Plus,
+  Trash2,
+  Clock,
+  Flame,
+  CheckCircle2,
+  Circle,
+  Target,
+  Menu,
+  X,
+  TrendingUp,
+  Wallet,
+  PiggyBank,
+  CalendarCheck,
+  Brain,
+  Link2,
+  Search,
+  ArrowUpRight,
+  ArrowDownRight,
+  Briefcase,
+  BarChart3,
+  BookOpen,
+  LogOut,
+  Sprout,
+  LineChart,
+  Coins,
+  TrendingDown,
+} from "lucide-react";
+import { usePersisted } from "./lib/store";
+import Inversiones from "./sections/Inversiones.jsx";
+import Salud from "./sections/Salud.jsx";
+import Resumen from "./sections/Resumen.jsx";
+import Gimnasio from "./sections/Gimnasio.jsx";
+import HoyWidget from "./sections/HoyWidget.jsx";
+import { useRoutineNotifier } from "./lib/useRoutineNotifier";
+import { useTheme } from "./lib/useTheme";
+import { useAutoBackup } from "./lib/useAutoBackup";
+import Foco from "./sections/Foco.jsx";
+import Logros from "./sections/Logros.jsx";
+import Analitica from "./sections/Analitica.jsx";
+import Repaso from "./sections/Repaso.jsx";
+import CommandPalette from "./CommandPalette.jsx";
+import QuickAdd from "./QuickAdd.jsx";
+import Onboarding from "./Onboarding.jsx";
+import ToastHost from "./ToastHost.jsx";
+import { removeWithUndo } from "./lib/toast";
+import Adjuntos from "./sections/Adjuntos.jsx";
+import Etiquetas from "./sections/Etiquetas.jsx";
+import Coach from "./sections/Coach.jsx";
+import Proximos from "./sections/Proximos.jsx";
+import Ajustes from "./sections/Ajustes.jsx";
+import { Flag, CalendarDays, Database, HeartPulse, Sparkles, Timer, Trophy, Sun, Moon, Image, Tag, CalendarClock, Settings } from "lucide-react";
+import Metas from "./sections/Metas.jsx";
+import Calendario from "./sections/Calendario.jsx";
+import Datos from "./sections/Datos.jsx";
+
+
+/* ------------------------------------------------------------------ */
+/*  DATOS SIMULADOS (mock data)                                        */
+/* ------------------------------------------------------------------ */
+
+const INITIAL_TASKS = [
+  { id: 1, text: "Entregar práctica de Álgebra", done: false, urgent: true, hour: "10:00" },
+  { id: 2, text: "Sesión de piernas en el gym", done: false, urgent: true, hour: "18:00" },
+  { id: 3, text: "Repasar apuntes de Estadística", done: true, urgent: false, hour: "16:00" },
+  { id: 4, text: "Entrenamiento de tenis de mesa", done: false, urgent: true, hour: "20:30" },
+];
+
+const TIME_STATS = [
+  { label: "Universidad", hours: 18, color: "bg-indigo-500", ring: "text-indigo-400" },
+  { label: "Gimnasio", hours: 6, color: "bg-emerald-500", ring: "text-emerald-400" },
+  { label: "Tenis de Mesa", hours: 4, color: "bg-amber-500", ring: "text-amber-400" },
+  { label: "Ocio / Otros", hours: 12, color: "bg-rose-500", ring: "text-rose-400" },
+];
+
+const SCHEDULE = [
+  { hora: "09:00 - 11:00", lunes: "Álgebra", martes: "Cálculo", miercoles: "Álgebra", jueves: "Prog. I" },
+  { hora: "11:00 - 13:00", lunes: "Estadística", martes: "Prog. I", miercoles: "Estadística", jueves: "Cálculo" },
+  { hora: "13:00 - 14:00", lunes: "Descanso", martes: "Descanso", miercoles: "Descanso", jueves: "Descanso" },
+  { hora: "15:00 - 17:00", lunes: "Lab. Datos", martes: "Física", miercoles: "Lab. Datos", jueves: "Física" },
+];
+
+const SUBJECTS = ["Álgebra", "Cálculo", "Estadística", "Prog. I", "Física", "Lab. Datos"];
+
+const INITIAL_UNI_TASKS = [
+  { id: 1, text: "Ejercicios tema 3", subject: "Álgebra", done: false },
+  { id: 2, text: "Proyecto pandas", subject: "Lab. Datos", done: false },
+  { id: 3, text: "Práctica de límites", subject: "Cálculo", done: true },
+  { id: 4, text: "Test distribuciones", subject: "Estadística", done: false },
+];
+
+const INITIAL_STUDY_HOURS = {
+  "Álgebra": 5,
+  "Cálculo": 4,
+  "Estadística": 3,
+  "Prog. I": 6,
+  "Física": 2,
+  "Lab. Datos": 8,
+};
+
+const INITIAL_TT_DRILLS = [
+  { id: 1, text: "Servicio con efecto lateral", done: true },
+  { id: 2, text: "Topspin de derecha en diagonal", done: false },
+  { id: 3, text: "Bloqueo activo de revés", done: false },
+  { id: 4, text: "Juego de pies (patrón Falkenberg)", done: false },
+  { id: 5, text: "Dejadas cortas y control de red", done: false },
+];
+
+const TT_WEEK = [
+  { dia: "Lun", horas: 1.5 },
+  { dia: "Mar", horas: 0 },
+  { dia: "Mié", horas: 2 },
+  { dia: "Jue", horas: 1 },
+  { dia: "Vie", horas: 0 },
+  { dia: "Sáb", horas: 2.5 },
+  { dia: "Dom", horas: 0 },
+];
+
+/* --- Finanzas --- */
+const FIN_BUDGET = 800;
+const INITIAL_FINANCE = [
+  { id: 1, fecha: "2026-07-21", concepto: "Beca (nómina)", categoria: "Ingreso", monto: 450 },
+  { id: 2, fecha: "2026-07-20", concepto: "Compra semanal", categoria: "Comida", monto: -48 },
+  { id: 3, fecha: "2026-07-19", concepto: "Cuota gimnasio", categoria: "Deporte", monto: -30 },
+  { id: 4, fecha: "2026-07-18", concepto: "Libro de estadística", categoria: "Universidad", monto: -25 },
+  { id: 5, fecha: "2026-07-17", concepto: "Palas y gomas", categoria: "Deporte", monto: -60 },
+  { id: 6, fecha: "2026-07-15", concepto: "Cine con amigos", categoria: "Ocio", monto: -12 },
+];
+const SAVINGS_GOAL = { label: "Portátil nuevo", target: 1200, current: 740 };
+
+/* --- Hábitos --- */
+const HABIT_DAYS = ["L", "M", "X", "J", "V", "S", "D"];
+const INITIAL_HABITS = [
+  { id: 1, name: "Leer 20 min", streak: 12, week: [true, true, true, false, true, true, false] },
+  { id: 2, name: "Beber 2L de agua", streak: 5, week: [true, true, false, true, true, false, false] },
+  { id: 3, name: "Dormir 8h", streak: 3, week: [false, true, true, true, false, false, false] },
+  { id: 4, name: "Sin móvil antes de dormir", streak: 8, week: [true, true, true, true, true, false, false] },
+];
+
+/* --- Segundo Cerebro --- */
+const INITIAL_NOTES = [
+  { id: 1, type: "nota", title: "Sesgo de supervivencia", body: "En análisis de datos: cuidado al filtrar solo los casos 'exitosos', distorsiona conclusiones.", tag: "Estadística" },
+  { id: 2, type: "enlace", title: "Documentación de pandas", body: "https://pandas.pydata.org/docs/", tag: "Lab. Datos" },
+  { id: 3, type: "flashcard", title: "¿Qué es la desviación típica?", body: "Raíz cuadrada de la varianza; mide la dispersión respecto a la media.", tag: "Estadística" },
+  { id: 4, type: "nota", title: "Táctica tenis de mesa", body: "Contra jugadores defensivos: variar el ritmo y forzar el error con cambios de efecto.", tag: "Deporte" },
+];
+
+/* --- Trabajo (Agrosana) --- */
+const WORK_CATS = [
+  "Ingeniería de Datos",
+  "Ciencia de Datos",
+  "Análisis / Reporting",
+  "Reuniones",
+  "Formación",
+  "Documentación",
+  "Otro",
+];
+const INITIAL_WORK = [
+  { id: 1, fecha: "2026-07-21", actividad: "Pipeline ETL de sensores de campo", categoria: "Ingeniería de Datos", horas: 4 },
+  { id: 2, fecha: "2026-07-20", actividad: "Modelo predicción de riego", categoria: "Ciencia de Datos", horas: 3 },
+  { id: 3, fecha: "2026-07-18", actividad: "Dashboard de producción (Power BI)", categoria: "Análisis / Reporting", horas: 2.5 },
+  { id: 4, fecha: "2026-07-15", actividad: "Daily y planificación sprint", categoria: "Reuniones", horas: 1 },
+  { id: 5, fecha: "2026-06-28", actividad: "Limpieza dataset históricos cosecha", categoria: "Ingeniería de Datos", horas: 5 },
+  { id: 6, fecha: "2026-06-20", actividad: "Curso interno de dbt", categoria: "Formación", horas: 3 },
+  { id: 7, fecha: "2026-06-12", actividad: "Análisis correlación clima-rendimiento", categoria: "Ciencia de Datos", horas: 4 },
+  { id: 8, fecha: "2026-05-27", actividad: "Documentar esquema de base de datos", categoria: "Documentación", horas: 2 },
+  { id: 9, fecha: "2026-05-15", actividad: "Primer pipeline de ingesta", categoria: "Ingeniería de Datos", horas: 6 },
+];
+
+const INITIAL_RUNBOOKS = [
+  {
+    id: 1,
+    titulo: "Conectar Python a la base de datos de Agrosana",
+    pasos: "1. Usar psycopg2 / SQLAlchemy.\n2. Credenciales desde variables de entorno (.env).\n3. Probar con SELECT 1 antes de lanzar la query real.",
+    herramientas: "Python · SQLAlchemy",
+  },
+  {
+    id: 2,
+    titulo: "Desplegar un pipeline ETL programado",
+    pasos: "1. Script idempotente.\n2. Programar con cron / Airflow.\n3. Logging + alertas si falla.\n4. Guardar marca de última ejecución.",
+    herramientas: "Airflow · Cron",
+  },
+];
+
+/*  COMPONENTES REUTILIZABLES                                          */
+/* ------------------------------------------------------------------ */
+
+function Card({ children, className = "" }) {
+  return (
+    <div className={`rounded-2xl border border-slate-800 bg-slate-900/60 p-5 shadow-lg ${className}`}>
+      {children}
+    </div>
+  );
+}
+
+function SectionTitle({ icon: Icon, title, subtitle }) {
+  return (
+    <div className="mb-6 flex items-center gap-3">
+      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-500/15 text-indigo-400">
+        <Icon size={22} />
+      </div>
+      <div>
+        <h1 className="text-2xl font-bold text-slate-100">{title}</h1>
+        {subtitle && <p className="text-sm text-slate-400">{subtitle}</p>}
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  SECCIÓN: INICIO                                                    */
+/* ------------------------------------------------------------------ */
+
+function Inicio({ tasks, toggleTask }) {
+  const [work] = usePersisted("lh_work_log", []);
+  const [habits] = usePersisted("lh_habits", []);
+  const [ajustes] = usePersisted("lh_settings", { nombre: "Quico" });
+  const urgent = tasks.filter((t) => t.urgent && !t.done);
+  const doneCount = tasks.filter((t) => t.done).length;
+
+  const ahora = new Date();
+  const saludo = ahora.getHours() < 12 ? "Buenos días" : ahora.getHours() < 20 ? "Buenas tardes" : "Buenas noches";
+  const hoyIdx = (ahora.getDay() + 6) % 7;
+  const lunes = new Date(ahora);
+  lunes.setDate(ahora.getDate() - hoyIdx);
+  const lunesISO = lunes.toISOString().slice(0, 10);
+  const horasSemana = work.filter((w) => w.fecha >= lunesISO).reduce((a, b) => a + Number(b.horas || 0), 0);
+  const racha = habits.reduce((m, h) => Math.max(m, h.streak || 0), 0);
+  const mesActual = ahora.toISOString().slice(0, 7);
+  const BAR_COLORS = ["bg-indigo-500", "bg-emerald-500", "bg-amber-500", "bg-rose-500", "bg-sky-500", "bg-fuchsia-500"];
+  const porTipo = {};
+  work.filter((w) => (w.fecha || "").slice(0, 7) === mesActual).forEach((w) => { porTipo[w.categoria] = (porTipo[w.categoria] || 0) + Number(w.horas || 0); });
+  const stats = Object.entries(porTipo).map(([label, hours], i) => ({ label, hours, color: BAR_COLORS[i % BAR_COLORS.length] }));
+  const totalTipo = stats.reduce((a, b) => a + b.hours, 0) || 1;
+
+  return (
+    <div>
+      <SectionTitle icon={Home} title="Inicio" subtitle={`${saludo}, ${ajustes.nombre || "Quico"}`} />
+
+      <HoyWidget />
+
+      {/* Tarjetas de métricas */}
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Card className="flex items-center gap-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-rose-500/15 text-rose-400">
+            <Flame size={24} />
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-slate-100">{urgent.length}</p>
+            <p className="text-sm text-slate-400">Tareas urgentes</p>
+          </div>
+        </Card>
+        <Card className="flex items-center gap-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-400">
+            <CheckCircle2 size={24} />
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-slate-100">
+              {doneCount}/{tasks.length}
+            </p>
+            <p className="text-sm text-slate-400">Completadas hoy</p>
+          </div>
+        </Card>
+        <Card className="flex items-center gap-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-500/15 text-indigo-400">
+            <Clock size={24} />
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-slate-100">{horasSemana}h</p>
+            <p className="text-sm text-slate-400">Trabajo (semana)</p>
+          </div>
+        </Card>
+        <Card className="flex items-center gap-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/15 text-amber-400">
+            <TrendingUp size={24} />
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-slate-100">{racha}</p>
+            <p className="text-sm text-slate-400">Racha hábitos</p>
+          </div>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {/* Tareas urgentes */}
+        <Card>
+          <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-slate-100">
+            <Flame size={18} className="text-rose-400" /> Tareas urgentes del día
+          </h2>
+          <ul className="space-y-2">
+            {tasks.map((t) => (
+              <li
+                key={t.id}
+                onClick={() => toggleTask(t.id)}
+                className="flex cursor-pointer items-center gap-3 rounded-xl border border-slate-800 bg-slate-800/40 px-4 py-3 transition hover:border-slate-700"
+              >
+                {t.done ? (
+                  <CheckCircle2 size={20} className="shrink-0 text-emerald-400" />
+                ) : (
+                  <Circle size={20} className="shrink-0 text-slate-500" />
+                )}
+                <span className={`flex-1 text-sm ${t.done ? "text-slate-500 line-through" : "text-slate-200"}`}>
+                  {t.text}
+                </span>
+                {t.urgent && !t.done && (
+                  <span className="rounded-full bg-rose-500/15 px-2 py-0.5 text-xs font-medium text-rose-400">
+                    Urgente
+                  </span>
+                )}
+                <span className="text-xs text-slate-500">{t.hour}</span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+
+        {/* Distribución de horas */}
+        <Card>
+          <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-slate-100">
+            <Clock size={18} className="text-indigo-400" /> Horas de trabajo por tipo (mes)
+          </h2>
+          <div className="space-y-4">
+            {stats.length === 0 && <p className="text-sm text-slate-500">Aún no hay horas de trabajo registradas este mes.</p>}
+            {stats.map((s) => (
+              <div key={s.label}>
+                <div className="mb-1 flex justify-between text-sm">
+                  <span className="text-slate-300">{s.label}</span>
+                  <span className="font-medium text-slate-400">{s.hours}h</span>
+                </div>
+                <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-800">
+                  <div
+                    className={`h-full rounded-full ${s.color}`}
+                    style={{ width: `${(s.hours / totalTipo) * 100}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  SECCIÓN: UNIVERSIDAD                                               */
+/* ------------------------------------------------------------------ */
+
+function Universidad() {
+  const [tasks, setTasks] = usePersisted("lh_uni_tasks", INITIAL_UNI_TASKS);
+  const [filter, setFilter] = useState("Todas");
+  const [studyHours, setStudyHours] = usePersisted("lh_study_hours", INITIAL_STUDY_HOURS);
+  const [newTask, setNewTask] = useState("");
+  const [newSubject, setNewSubject] = useState(SUBJECTS[0]);
+
+  const filtered = useMemo(
+    () => (filter === "Todas" ? tasks : tasks.filter((t) => t.subject === filter)),
+    [tasks, filter]
+  );
+
+  const totalStudy = Object.values(studyHours).reduce((a, b) => a + b, 0);
+
+  const addTask = () => {
+    if (!newTask.trim()) return;
+    setTasks([...tasks, { id: Date.now(), text: newTask, subject: newSubject, done: false }]);
+    setNewTask("");
+  };
+
+  const subjectColor = (s) =>
+    ({
+      "Álgebra": "bg-indigo-500/15 text-indigo-300",
+      "Cálculo": "bg-emerald-500/15 text-emerald-300",
+      "Estadística": "bg-amber-500/15 text-amber-300",
+      "Prog. I": "bg-rose-500/15 text-rose-300",
+      "Física": "bg-sky-500/15 text-sky-300",
+      "Lab. Datos": "bg-fuchsia-500/15 text-fuchsia-300",
+    }[s] || "bg-slate-700 text-slate-300");
+
+  return (
+    <div>
+      <SectionTitle
+        icon={GraduationCap}
+        title="Universidad"
+        subtitle="Grado en Ciencia e Ingeniería de Datos"
+      />
+
+      {/* Horario */}
+      <Card className="mb-6 overflow-x-auto p-0">
+        <div className="flex items-center gap-2 px-5 pt-4 text-slate-100">
+          <Table2 size={18} className="text-indigo-400" />
+          <h2 className="text-lg font-semibold">Horario semanal</h2>
+        </div>
+        <table className="mt-3 w-full text-left text-sm">
+          <thead>
+            <tr className="border-b border-slate-800 text-slate-400">
+              <th className="px-5 py-3 font-medium">Hora</th>
+              <th className="px-5 py-3 font-medium">Lunes</th>
+              <th className="px-5 py-3 font-medium">Martes</th>
+              <th className="px-5 py-3 font-medium">Miércoles</th>
+              <th className="px-5 py-3 font-medium">Jueves</th>
+            </tr>
+          </thead>
+          <tbody>
+            {SCHEDULE.map((row, i) => (
+              <tr key={i} className="border-b border-slate-800/60">
+                <td className="px-5 py-3 font-medium text-slate-400">{row.hora}</td>
+                {["lunes", "martes", "miercoles", "jueves"].map((d) => (
+                  <td key={d} className="px-5 py-3">
+                    <span
+                      className={`inline-block rounded-lg px-2.5 py-1 text-xs font-medium ${
+                        row[d] === "Descanso" ? "text-slate-500" : subjectColor(row[d])
+                      }`}
+                    >
+                      {row[d]}
+                    </span>
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Card>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {/* To-Do filtrable */}
+        <Card>
+          <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-slate-100">
+            <CheckCircle2 size={18} className="text-emerald-400" /> Tareas por asignatura
+          </h2>
+
+          <div className="mb-4 flex flex-wrap gap-2">
+            {["Todas", ...SUBJECTS].map((s) => (
+              <button
+                key={s}
+                onClick={() => setFilter(s)}
+                className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+                  filter === s
+                    ? "bg-indigo-500 text-white"
+                    : "bg-slate-800 text-slate-400 hover:bg-slate-700"
+                }`}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+
+          <div className="mb-4 flex gap-2">
+            <input
+              placeholder="Nueva tarea..."
+              value={newTask}
+              onChange={(e) => setNewTask(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addTask()}
+              className="flex-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+            />
+            <select
+              value={newSubject}
+              onChange={(e) => setNewSubject(e.target.value)}
+              className="rounded-lg border border-slate-700 bg-slate-800 px-2 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none"
+            >
+              {SUBJECTS.map((s) => (
+                <option key={s}>{s}</option>
+              ))}
+            </select>
+            <button
+              onClick={addTask}
+              className="rounded-lg bg-indigo-500 px-3 py-2 text-white transition hover:bg-indigo-400"
+            >
+              <Plus size={16} />
+            </button>
+          </div>
+
+          <ul className="space-y-2">
+            {filtered.length === 0 && (
+              <li className="py-4 text-center text-sm text-slate-500">Sin tareas para este filtro.</li>
+            )}
+            {filtered.map((t) => (
+              <li
+                key={t.id}
+                className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-800/40 px-3 py-2.5"
+              >
+                <button
+                  onClick={() =>
+                    setTasks(tasks.map((x) => (x.id === t.id ? { ...x, done: !x.done } : x)))
+                  }
+                >
+                  {t.done ? (
+                    <CheckCircle2 size={18} className="text-emerald-400" />
+                  ) : (
+                    <Circle size={18} className="text-slate-500" />
+                  )}
+                </button>
+                <span className={`flex-1 text-sm ${t.done ? "text-slate-500 line-through" : "text-slate-200"}`}>
+                  {t.text}
+                </span>
+                <span className={`rounded-md px-2 py-0.5 text-xs font-medium ${subjectColor(t.subject)}`}>
+                  {t.subject}
+                </span>
+                <button
+                  onClick={() => removeWithUndo(tasks, setTasks, t.id, "Tarea")}
+                  className="text-slate-500 transition hover:text-rose-400"
+                >
+                  <Trash2 size={15} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        </Card>
+
+        {/* Contador horas de estudio */}
+        <Card>
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
+              <Clock size={18} className="text-amber-400" /> Horas de estudio
+            </h2>
+            <span className="rounded-full bg-amber-500/15 px-3 py-1 text-sm font-semibold text-amber-300">
+              {totalStudy}h totales
+            </span>
+          </div>
+          <div className="space-y-3">
+            {SUBJECTS.map((s) => (
+              <div
+                key={s}
+                className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-800/40 px-4 py-2.5"
+              >
+                <span className={`rounded-md px-2 py-0.5 text-xs font-medium ${subjectColor(s)}`}>{s}</span>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() =>
+                      setStudyHours({ ...studyHours, [s]: Math.max(0, studyHours[s] - 1) })
+                    }
+                    className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-700 text-slate-200 transition hover:bg-slate-600"
+                  >
+                    −
+                  </button>
+                  <span className="w-10 text-center text-sm font-semibold text-slate-100">
+                    {studyHours[s]}h
+                  </span>
+                  <button
+                    onClick={() => setStudyHours({ ...studyHours, [s]: studyHours[s] + 1 })}
+                    className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-500 text-white transition hover:bg-indigo-400"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  SECCIÓN: TENIS DE MESA                                             */
+/* ------------------------------------------------------------------ */
+
+function TenisDeMesa() {
+  const [drills, setDrills] = usePersisted("lh_tt_drills", INITIAL_TT_DRILLS);
+  const [notes, setNotes] = usePersisted(
+    "lh_tt_notes",
+    "Recordatorio: mantener el codo alto en el topspin de derecha y no adelantar el peso demasiado pronto."
+  );
+  const [partidos, setPartidos] = usePersisted("lh_tt_matches", []);
+  const [pForm, setPForm] = useState({ rival: "", pf: "", pc: "" });
+  const victorias = partidos.filter((m) => Number(m.pf) > Number(m.pc)).length;
+  const winPct = partidos.length ? Math.round((victorias / partidos.length) * 100) : 0;
+  const addPartido = () => {
+    if (!pForm.rival.trim()) return;
+    setPartidos([{ id: Date.now(), fecha: new Date().toISOString().slice(0, 10), rival: pForm.rival, pf: Number(pForm.pf) || 0, pc: Number(pForm.pc) || 0 }, ...partidos]);
+    setPForm({ rival: "", pf: "", pc: "" });
+  };
+  const maxH = Math.max(...TT_WEEK.map((d) => d.horas), 1);
+  const totalWeek = TT_WEEK.reduce((a, b) => a + b.horas, 0);
+
+  return (
+    <div>
+      <SectionTitle icon={Target} title="Tenis de Mesa" subtitle="Entrenamiento técnico y seguimiento" />
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {/* Horas semanales */}
+        <Card>
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
+              <Clock size={18} className="text-amber-400" /> Horas de entrenamiento
+            </h2>
+            <span className="rounded-full bg-amber-500/15 px-3 py-1 text-sm font-semibold text-amber-300">
+              {totalWeek}h esta semana
+            </span>
+          </div>
+          <div className="flex h-40 items-end justify-between gap-2">
+            {TT_WEEK.map((d) => (
+              <div key={d.dia} className="flex flex-1 flex-col items-center gap-2">
+                <div className="flex w-full flex-1 items-end">
+                  <div
+                    className="w-full rounded-t-lg bg-gradient-to-t from-amber-600 to-amber-400 transition-all"
+                    style={{ height: `${(d.horas / maxH) * 100}%` }}
+                    title={`${d.horas}h`}
+                  />
+                </div>
+                <span className="text-xs text-slate-400">{d.dia}</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        {/* Ejercicios técnicos */}
+        <Card>
+          <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-slate-100">
+            <Target size={18} className="text-emerald-400" /> Ejercicios técnicos
+          </h2>
+          <ul className="space-y-2">
+            {drills.map((d) => (
+              <li
+                key={d.id}
+                onClick={() =>
+                  setDrills(drills.map((x) => (x.id === d.id ? { ...x, done: !x.done } : x)))
+                }
+                className="flex cursor-pointer items-center gap-3 rounded-xl border border-slate-800 bg-slate-800/40 px-4 py-3 transition hover:border-slate-700"
+              >
+                {d.done ? (
+                  <CheckCircle2 size={18} className="text-emerald-400" />
+                ) : (
+                  <Circle size={18} className="text-slate-500" />
+                )}
+                <span className={`text-sm ${d.done ? "text-slate-500 line-through" : "text-slate-200"}`}>
+                  {d.text}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+
+        {/* Notas */}
+        <Card className="lg:col-span-2">
+          <h2 className="mb-3 text-lg font-semibold text-slate-100">Notas de entrenamiento</h2>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={5}
+            placeholder="Escribe tus observaciones, correcciones técnicas, tácticas contra rivales..."
+            className="w-full resize-none rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+          />
+        </Card>
+
+        <Card className="lg:col-span-2">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-slate-100">Partidos</h2>
+            <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-sm font-semibold text-emerald-300">{winPct}% victorias ({victorias}/{partidos.length})</span>
+          </div>
+          <div className="mb-3 flex flex-wrap items-end gap-2">
+            <input placeholder="Rival" value={pForm.rival} onChange={(e) => setPForm({ ...pForm, rival: e.target.value })} className="flex-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none" />
+            <input type="number" placeholder="Sets a favor" value={pForm.pf} onChange={(e) => setPForm({ ...pForm, pf: e.target.value })} className="w-32 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none" />
+            <input type="number" placeholder="Sets en contra" value={pForm.pc} onChange={(e) => setPForm({ ...pForm, pc: e.target.value })} className="w-32 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none" />
+            <button onClick={addPartido} className="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-400">Añadir</button>
+          </div>
+          <ul className="space-y-2">
+            {partidos.length === 0 && <li className="py-2 text-center text-sm text-slate-500">Sin partidos registrados.</li>}
+            {partidos.map((m) => {
+              const win = Number(m.pf) > Number(m.pc);
+              return (
+                <li key={m.id} className="flex items-center gap-3 rounded-lg border border-slate-800 bg-slate-800/40 px-3 py-2 text-sm">
+                  <span className={`rounded px-2 py-0.5 text-xs font-semibold ${win ? "bg-emerald-500/15 text-emerald-300" : "bg-rose-500/15 text-rose-300"}`}>{win ? "Victoria" : "Derrota"}</span>
+                  <span className="flex-1 text-slate-200">vs {m.rival}</span>
+                  <span className="font-mono text-slate-300">{m.pf}-{m.pc}</span>
+                  <span className="text-xs text-slate-500">{m.fecha}</span>
+                  <button onClick={() => removeWithUndo(partidos, setPartidos, m.id, "Partido")} className="text-slate-500 hover:text-rose-400"><Trash2 size={15} /></button>
+                </li>
+              );
+            })}
+          </ul>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  SECCIÓN: FINANZAS                                                  */
+/* ------------------------------------------------------------------ */
+
+function Finanzas() {
+  const [rows, setRows] = usePersisted("lh_finance", INITIAL_FINANCE);
+  const [form, setForm] = useState({ concepto: "", categoria: "Ocio", monto: "" });
+  const [tipo, setTipo] = useState("gasto");
+
+  const income = rows.filter((r) => r.monto > 0).reduce((a, b) => a + b.monto, 0);
+  const expenses = rows.filter((r) => r.monto < 0).reduce((a, b) => a + Math.abs(b.monto), 0);
+  const balance = income - expenses;
+  const budgetPct = Math.min(100, (expenses / FIN_BUDGET) * 100);
+  const [savings, setSavings] = usePersisted("lh_savings", [{ id: 1, label: "Portátil nuevo", target: 1200, current: 740 }]);
+  const [subs, setSubs] = usePersisted("lh_subs", []);
+  const [sForm, setSForm] = useState({ label: "", target: "" });
+  const [subForm, setSubForm] = useState({ nombre: "", monto: "", dia: "" });
+  const totalSubs = subs.reduce((a, b) => a + Number(b.monto || 0), 0);
+  const addSaving = () => { if (!sForm.label.trim() || !sForm.target) return; setSavings([...savings, { id: Date.now(), label: sForm.label, target: Number(sForm.target), current: 0 }]); setSForm({ label: "", target: "" }); };
+  const addSub = () => { if (!subForm.nombre.trim()) return; setSubs([...subs, { id: Date.now(), nombre: subForm.nombre, monto: Number(subForm.monto) || 0, dia: Number(subForm.dia) || 1 }]); setSubForm({ nombre: "", monto: "", dia: "" }); };
+
+  const CATS = ["Comida", "Universidad", "Deporte", "Ocio", "Transporte", "Ingreso"];
+
+  const [budgets, setBudgets] = usePersisted("lh_budgets", {});
+  const mesF = new Date().toISOString().slice(0, 7);
+  const gastoPorCat = useMemo(() => {
+    const m = {};
+    rows.filter((r) => r.monto < 0 && (r.fecha || "").slice(0, 7) === mesF).forEach((r) => { m[r.categoria] = (m[r.categoria] || 0) + Math.abs(r.monto); });
+    return m;
+  }, [rows, mesF]);
+  const CAT_COLORS = { Comida: "#f43f5e", Universidad: "#6366f1", Deporte: "#10b981", Ocio: "#f59e0b", Transporte: "#0ea5e9", Banco: "#14b8a6" };
+  const catColor = (c) => CAT_COLORS[c] || "#94a3b8";
+  const gastoCats = Object.entries(gastoPorCat).sort((a, b) => b[1] - a[1]);
+  const totalGastoMes = gastoCats.reduce((a, b) => a + b[1], 0);
+  const [finOrden, setFinOrden] = useState({ campo: "fecha", dir: "desc" });
+  const rowsFin = useMemo(() => {
+    const arr = [...rows];
+    const { campo, dir } = finOrden;
+    arr.sort((a, b) => (campo === "monto" ? (Number(a.monto) || 0) - (Number(b.monto) || 0) : String(a[campo] || "").localeCompare(String(b[campo] || ""))));
+    if (dir === "desc") arr.reverse();
+    return arr;
+  }, [rows, finOrden]);
+  const finSort = (c) => setFinOrden((o) => ({ campo: c, dir: o.campo === c && o.dir === "asc" ? "desc" : "asc" }));
+  const updateFin = (id, campo, valor) => setRows(rows.map((r) => (r.id === id ? { ...r, [campo]: campo === "monto" ? Number(valor) || 0 : valor } : r)));
+
+  const add = () => {
+    if (!form.concepto || !form.monto) return;
+    const signed = tipo === "gasto" ? -Math.abs(Number(form.monto)) : Math.abs(Number(form.monto));
+    setRows([
+      { id: Date.now(), fecha: new Date().toISOString().slice(0, 10), concepto: form.concepto, categoria: tipo === "gasto" ? form.categoria : "Ingreso", monto: signed },
+      ...rows,
+    ]);
+    setForm({ concepto: "", categoria: "Ocio", monto: "" });
+  };
+
+  const inputCls =
+    "rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none";
+
+  return (
+    <div>
+      <SectionTitle icon={Wallet} title="Finanzas" subtitle="Controla ingresos, gastos y ahorro" />
+
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <Card className="flex items-center gap-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-400">
+            <ArrowUpRight size={24} />
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-slate-100">{income}€</p>
+            <p className="text-sm text-slate-400">Ingresos</p>
+          </div>
+        </Card>
+        <Card className="flex items-center gap-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-rose-500/15 text-rose-400">
+            <ArrowDownRight size={24} />
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-slate-100">{expenses}€</p>
+            <p className="text-sm text-slate-400">Gastos</p>
+          </div>
+        </Card>
+        <Card className="flex items-center gap-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-500/15 text-indigo-400">
+            <Wallet size={24} />
+          </div>
+          <div>
+            <p className={`text-2xl font-bold ${balance >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+              {balance}€
+            </p>
+            <p className="text-sm text-slate-400">Balance</p>
+          </div>
+        </Card>
+      </div>
+
+      <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Card>
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-slate-100">Presupuesto mensual</h2>
+            <span className="text-sm text-slate-400">
+              {expenses}€ / {FIN_BUDGET}€
+            </span>
+          </div>
+          <div className="h-3 w-full overflow-hidden rounded-full bg-slate-800">
+            <div
+              className={`h-full rounded-full ${budgetPct > 85 ? "bg-rose-500" : "bg-emerald-500"}`}
+              style={{ width: `${budgetPct}%` }}
+            />
+          </div>
+          <p className="mt-2 text-xs text-slate-500">
+            Te quedan {Math.max(0, FIN_BUDGET - expenses)}€ de presupuesto este mes.
+          </p>
+        </Card>
+
+        <Card>
+          <div className="mb-3 flex items-center gap-2">
+            <PiggyBank size={18} className="text-fuchsia-400" />
+            <h2 className="text-lg font-semibold text-slate-100">Objetivos de ahorro</h2>
+          </div>
+          <div className="mb-3 flex flex-wrap gap-2">
+            <input placeholder="Objetivo (p. ej. Fondo emergencia)" value={sForm.label} onChange={(e) => setSForm({ ...sForm, label: e.target.value })} className={`flex-1 ${inputCls}`} />
+            <input type="number" placeholder="Meta €" value={sForm.target} onChange={(e) => setSForm({ ...sForm, target: e.target.value })} className={`w-24 ${inputCls}`} />
+            <button onClick={addSaving} className="rounded-lg bg-indigo-500 px-3 py-2 text-sm font-semibold text-white transition hover:bg-indigo-400">+</button>
+          </div>
+          <div className="space-y-3">
+            {savings.map((sv) => {
+              const pct = sv.target > 0 ? Math.min(100, (sv.current / sv.target) * 100) : 0;
+              return (
+                <div key={sv.id}>
+                  <div className="mb-1 flex items-center justify-between text-sm">
+                    <span className="text-slate-300">{sv.label}</span>
+                    <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                      <input type="number" value={sv.current} onChange={(e) => setSavings(savings.map((x) => (x.id === sv.id ? { ...x, current: Number(e.target.value) || 0 } : x)))} className="w-16 rounded border border-slate-700 bg-slate-800 px-1 py-0.5 text-right text-slate-100 focus:outline-none" />
+                      / {sv.target}€
+                      <button onClick={() => removeWithUndo(savings, setSavings, sv.id, "Objetivo")} className="text-slate-500 hover:text-rose-400"><Trash2 size={13} /></button>
+                    </div>
+                  </div>
+                  <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-800"><div className="h-full rounded-full bg-gradient-to-r from-fuchsia-500 to-indigo-500" style={{ width: `${pct}%` }} /></div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      </div>
+
+      <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Card>
+          <h2 className="mb-4 text-lg font-semibold text-slate-100">Gasto por categoría (mes)</h2>
+          {totalGastoMes === 0 ? (
+            <p className="text-sm text-slate-500">Sin gastos este mes.</p>
+          ) : (
+            <div className="flex items-center gap-6">
+              <svg viewBox="0 0 36 36" className="h-32 w-32 -rotate-90">
+                {(() => { let off = 0; return gastoCats.map(([cat, v]) => { const len = (v / totalGastoMes) * 100; const el = <circle key={cat} cx="18" cy="18" r="15.9155" fill="none" stroke={catColor(cat)} strokeWidth="4" strokeDasharray={`${len} ${100 - len}`} strokeDashoffset={-off} />; off += len; return el; }); })()}
+              </svg>
+              <div className="flex-1 space-y-1 text-sm">
+                {gastoCats.map(([cat, v]) => (
+                  <div key={cat} className="flex items-center gap-2">
+                    <span className="h-3 w-3 rounded-full" style={{ background: catColor(cat) }} />
+                    <span className="text-slate-300">{cat}</span>
+                    <span className="ml-auto font-medium text-slate-400">{v}€</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </Card>
+
+        <Card>
+          <h2 className="mb-4 text-lg font-semibold text-slate-100">Presupuesto por categoría</h2>
+          <div className="space-y-3">
+            {CATS.filter((c) => c !== "Ingreso").map((cat) => {
+              const gastado = gastoPorCat[cat] || 0;
+              const pres = Number(budgets[cat]) || 0;
+              const pct = pres > 0 ? Math.min(100, (gastado / pres) * 100) : 0;
+              const over = pres > 0 && gastado > pres;
+              return (
+                <div key={cat}>
+                  <div className="mb-1 flex items-center justify-between text-sm">
+                    <span className="text-slate-300">{cat}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className={over ? "text-rose-400" : "text-slate-400"}>{gastado}€ /</span>
+                      <input type="number" value={budgets[cat] || ""} onChange={(e) => setBudgets({ ...budgets, [cat]: Number(e.target.value) || 0 })} placeholder="0" className="w-16 rounded border border-slate-700 bg-slate-800 px-2 py-0.5 text-right text-xs text-slate-100 focus:border-indigo-500 focus:outline-none" />
+                      <span className="text-slate-500">€</span>
+                    </div>
+                  </div>
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-slate-800">
+                    <div className={`h-full rounded-full ${over ? "bg-rose-500" : pct > 85 ? "bg-amber-500" : "bg-emerald-500"}`} style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <p className="mt-3 text-xs text-slate-500">Define un tope por categoría; se marca en rojo si lo superas este mes.</p>
+        </Card>
+      </div>
+
+      <Card className="mb-4">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-slate-100">Suscripciones y gastos fijos</h2>
+          <span className="rounded-full bg-rose-500/15 px-3 py-1 text-sm font-semibold text-rose-300">{totalSubs}€/mes</span>
+        </div>
+        <div className="mb-3 flex flex-wrap items-end gap-2">
+          <input placeholder="Nombre (Netflix, gym...)" value={subForm.nombre} onChange={(e) => setSubForm({ ...subForm, nombre: e.target.value })} className={`flex-1 ${inputCls}`} />
+          <input type="number" placeholder="€/mes" value={subForm.monto} onChange={(e) => setSubForm({ ...subForm, monto: e.target.value })} className={`w-24 ${inputCls}`} />
+          <input type="number" placeholder="Día" value={subForm.dia} onChange={(e) => setSubForm({ ...subForm, dia: e.target.value })} className={`w-20 ${inputCls}`} />
+          <button onClick={addSub} className="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-400">Añadir</button>
+        </div>
+        <ul className="space-y-2">
+          {subs.length === 0 && <li className="py-1 text-center text-sm text-slate-500">Sin suscripciones. Añade tus gastos fijos.</li>}
+          {subs.map((sub) => (
+            <li key={sub.id} className="flex items-center gap-3 rounded-lg border border-slate-800 bg-slate-800/40 px-3 py-2 text-sm">
+              <span className="flex-1 text-slate-200">{sub.nombre}</span>
+              <span className="text-xs text-slate-500">día {sub.dia}</span>
+              <span className="font-semibold text-rose-300">{sub.monto}€</span>
+              <button onClick={() => removeWithUndo(subs, setSubs, sub.id, "Suscripción")} className="text-slate-500 hover:text-rose-400"><Trash2 size={14} /></button>
+            </li>
+          ))}
+        </ul>
+      </Card>
+
+      <Card className="mb-4">
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="flex overflow-hidden rounded-lg border border-slate-700">
+            <button
+              onClick={() => setTipo("gasto")}
+              className={`px-4 py-2 text-sm font-medium transition ${tipo === "gasto" ? "bg-rose-500 text-white" : "bg-slate-800 text-slate-400"}`}
+            >
+              Gasto
+            </button>
+            <button
+              onClick={() => setTipo("ingreso")}
+              className={`px-4 py-2 text-sm font-medium transition ${tipo === "ingreso" ? "bg-emerald-500 text-white" : "bg-slate-800 text-slate-400"}`}
+            >
+              Ingreso
+            </button>
+          </div>
+          <input
+            placeholder="Concepto"
+            value={form.concepto}
+            onChange={(e) => setForm({ ...form, concepto: e.target.value })}
+            className={`flex-1 ${inputCls}`}
+          />
+          {tipo === "gasto" && (
+            <select
+              value={form.categoria}
+              onChange={(e) => setForm({ ...form, categoria: e.target.value })}
+              className={inputCls}
+            >
+              {CATS.filter((c) => c !== "Ingreso").map((c) => (
+                <option key={c}>{c}</option>
+              ))}
+            </select>
+          )}
+          <input
+            type="number"
+            placeholder="€"
+            value={form.monto}
+            onChange={(e) => setForm({ ...form, monto: e.target.value })}
+            className={`w-24 ${inputCls}`}
+          />
+          <button
+            onClick={add}
+            className="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-400"
+          >
+            Añadir
+          </button>
+        </div>
+      </Card>
+
+      <Card className="overflow-x-auto p-0">
+        <table className="w-full text-left text-sm">
+          <thead>
+            <tr className="border-b border-slate-800 text-slate-400">
+              {[["fecha", "Fecha", ""], ["concepto", "Concepto", ""], ["categoria", "Categoría", ""], ["monto", "Importe", "text-right"]].map(([c, l, cl]) => (
+                <th key={c} onClick={() => finSort(c)} className={`cursor-pointer select-none px-5 py-3 font-medium hover:text-slate-200 ${cl}`}>
+                  {l}{finOrden.campo === c ? (finOrden.dir === "asc" ? " ▲" : " ▼") : ""}
+                </th>
+              ))}
+              <th className="px-5 py-3" />
+            </tr>
+          </thead>
+          <tbody>
+            {rowsFin.map((r) => (
+              <tr key={r.id} className="border-b border-slate-800/60 transition hover:bg-slate-800/40">
+                <td className="px-3 py-2 text-slate-400"><input type="date" value={r.fecha} onChange={(e) => updateFin(r.id, "fecha", e.target.value)} className="w-32 rounded bg-transparent px-1 py-1 hover:bg-slate-800 focus:bg-slate-800 focus:outline-none" /></td>
+                <td className="px-3 py-2 font-medium text-slate-100"><input value={r.concepto} onChange={(e) => updateFin(r.id, "concepto", e.target.value)} className="w-40 rounded bg-transparent px-1 py-1 hover:bg-slate-800 focus:bg-slate-800 focus:outline-none" /></td>
+                <td className="px-3 py-2">
+                  <select value={r.categoria} onChange={(e) => updateFin(r.id, "categoria", e.target.value)} className="rounded bg-slate-800 px-2 py-1 text-xs text-slate-300 focus:outline-none">
+                    {CATS.map((c) => <option key={c}>{c}</option>)}
+                  </select>
+                </td>
+                <td className={`px-3 py-2 text-right font-semibold ${r.monto >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                  <input type="number" value={r.monto} onChange={(e) => updateFin(r.id, "monto", e.target.value)} className="w-20 rounded bg-transparent px-1 py-1 text-right hover:bg-slate-800 focus:bg-slate-800 focus:outline-none" />€
+                </td>
+                <td className="px-5 py-3 text-right">
+                  <button
+                    onClick={() => removeWithUndo(rows, setRows, r.id, "Movimiento")}
+                    className="text-slate-500 transition hover:text-rose-400"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Card>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  SECCIÓN: HÁBITOS & RACHAS                                          */
+/* ------------------------------------------------------------------ */
+
+function Habitos() {
+  const [habits, setHabits] = usePersisted("lh_habits", INITIAL_HABITS);
+  const [newHabit, setNewHabit] = useState("");
+
+  const toggleDay = (hid, day) =>
+    setHabits(
+      habits.map((h) =>
+        h.id === hid ? { ...h, week: h.week.map((v, i) => (i === day ? !v : v)) } : h
+      )
+    );
+
+  const addHabit = () => {
+    if (!newHabit.trim()) return;
+    setHabits([...habits, { id: Date.now(), name: newHabit, streak: 0, week: [false, false, false, false, false, false, false] }]);
+    setNewHabit("");
+  };
+
+  const bestStreak = Math.max(...habits.map((h) => h.streak), 0);
+  const todayIdx = 3; // jueves (demo)
+  const doneToday = habits.filter((h) => h.week[todayIdx]).length;
+
+  return (
+    <div>
+      <SectionTitle icon={CalendarCheck} title="Hábitos & Rachas" subtitle="Construye consistencia día a día" />
+
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <Card className="flex items-center gap-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/15 text-amber-400">
+            <Flame size={24} />
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-slate-100">{bestStreak} días</p>
+            <p className="text-sm text-slate-400">Mejor racha</p>
+          </div>
+        </Card>
+        <Card className="flex items-center gap-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-400">
+            <CheckCircle2 size={24} />
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-slate-100">
+              {doneToday}/{habits.length}
+            </p>
+            <p className="text-sm text-slate-400">Hechos hoy</p>
+          </div>
+        </Card>
+        <Card className="flex items-center gap-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-500/15 text-indigo-400">
+            <CalendarCheck size={24} />
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-slate-100">{habits.length}</p>
+            <p className="text-sm text-slate-400">Hábitos activos</p>
+          </div>
+        </Card>
+      </div>
+
+      <Card className="mb-4">
+        <div className="flex gap-2">
+          <input
+            placeholder="Nuevo hábito..."
+            value={newHabit}
+            onChange={(e) => setNewHabit(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && addHabit()}
+            className="flex-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+          />
+          <button
+            onClick={addHabit}
+            className="flex items-center gap-2 rounded-lg bg-indigo-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-400"
+          >
+            <Plus size={16} /> Añadir
+          </button>
+        </div>
+      </Card>
+
+      <Card className="space-y-4">
+        {habits.map((h) => (
+          <div key={h.id} className="flex flex-col gap-3 border-b border-slate-800/60 pb-4 last:border-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3">
+              <span className="flex items-center gap-1 rounded-lg bg-amber-500/15 px-2 py-1 text-xs font-semibold text-amber-400">
+                <Flame size={13} /> {h.streak}
+              </span>
+              <span className="font-medium text-slate-100">{h.name}</span>
+            </div>
+            <div className="flex gap-1.5">
+              {HABIT_DAYS.map((d, i) => (
+                <button
+                  key={i}
+                  onClick={() => toggleDay(h.id, i)}
+                  title={d}
+                  className={`flex h-9 w-9 items-center justify-center rounded-lg text-xs font-medium transition ${
+                    h.week[i]
+                      ? "bg-emerald-500 text-white"
+                      : "bg-slate-800 text-slate-500 hover:bg-slate-700"
+                  }`}
+                >
+                  {d}
+                </button>
+              ))}
+              <button
+                onClick={() => setHabits(habits.filter((x) => x.id !== h.id))}
+                className="ml-1 flex h-9 w-9 items-center justify-center text-slate-500 transition hover:text-rose-400"
+              >
+                <Trash2 size={15} />
+              </button>
+            </div>
+          </div>
+        ))}
+      </Card>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  SECCIÓN: SEGUNDO CEREBRO                                           */
+/* ------------------------------------------------------------------ */
+
+function SegundoCerebro() {
+  const [items, setItems] = usePersisted("lh_notes", INITIAL_NOTES);
+  const [query, setQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState("todos");
+  const [revealed, setRevealed] = useState({});
+  const [form, setForm] = useState({ type: "nota", title: "", body: "", tag: "General" });
+  const [showForm, setShowForm] = useState(false);
+
+  const filtered = items.filter((it) => {
+    const matchType = typeFilter === "todos" || it.type === typeFilter;
+    const q = query.toLowerCase();
+    const matchQuery =
+      it.title.toLowerCase().includes(q) || it.body.toLowerCase().includes(q) || it.tag.toLowerCase().includes(q);
+    return matchType && matchQuery;
+  });
+
+  const typeMeta = {
+    nota: { label: "Nota", color: "bg-indigo-500/15 text-indigo-300", icon: Brain },
+    enlace: { label: "Enlace", color: "bg-sky-500/15 text-sky-300", icon: Link2 },
+    flashcard: { label: "Flashcard", color: "bg-fuchsia-500/15 text-fuchsia-300", icon: Search },
+  };
+
+  const add = () => {
+    if (!form.title.trim()) return;
+    setItems([{ id: Date.now(), ...form }, ...items]);
+    setForm({ type: "nota", title: "", body: "", tag: "General" });
+    setShowForm(false);
+  };
+
+  const inputCls =
+    "w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none";
+
+  return (
+    <div>
+      <SectionTitle icon={Brain} title="Segundo Cerebro" subtitle="Notas, enlaces y flashcards en un solo sitio" />
+
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="relative flex-1">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+          <input
+            placeholder="Buscar en tu conocimiento..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="w-full rounded-lg border border-slate-700 bg-slate-800 py-2 pl-9 pr-3 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+          />
+        </div>
+        <div className="flex gap-2">
+          {["todos", "nota", "enlace", "flashcard"].map((t) => (
+            <button
+              key={t}
+              onClick={() => setTypeFilter(t)}
+              className={`rounded-full px-3 py-1.5 text-xs font-medium capitalize transition ${
+                typeFilter === t ? "bg-indigo-500 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700"
+              }`}
+            >
+              {t === "todos" ? "Todos" : typeMeta[t].label}
+            </button>
+          ))}
+          <button
+            onClick={() => setShowForm((s) => !s)}
+            className="flex items-center gap-1 rounded-full bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-400"
+          >
+            <Plus size={14} /> Nuevo
+          </button>
+        </div>
+      </div>
+
+      {showForm && (
+        <Card className="mb-4 space-y-3">
+          <div className="flex gap-2">
+            {Object.keys(typeMeta).map((t) => (
+              <button
+                key={t}
+                onClick={() => setForm({ ...form, type: t })}
+                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                  form.type === t ? "bg-indigo-500 text-white" : "bg-slate-800 text-slate-400"
+                }`}
+              >
+                {typeMeta[t].label}
+              </button>
+            ))}
+          </div>
+          <input
+            placeholder={form.type === "flashcard" ? "Pregunta" : "Título"}
+            value={form.title}
+            onChange={(e) => setForm({ ...form, title: e.target.value })}
+            className={inputCls}
+          />
+          <textarea
+            placeholder={form.type === "flashcard" ? "Respuesta" : form.type === "enlace" ? "URL" : "Contenido"}
+            value={form.body}
+            onChange={(e) => setForm({ ...form, body: e.target.value })}
+            rows={2}
+            className={`resize-none ${inputCls}`}
+          />
+          <div className="flex gap-2">
+            <input
+              placeholder="Etiqueta"
+              value={form.tag}
+              onChange={(e) => setForm({ ...form, tag: e.target.value })}
+              className={inputCls}
+            />
+            <button
+              onClick={add}
+              className="shrink-0 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-400"
+            >
+              Guardar
+            </button>
+          </div>
+        </Card>
+      )}
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {filtered.length === 0 && (
+          <p className="col-span-full py-8 text-center text-sm text-slate-500">Nada encontrado.</p>
+        )}
+        {filtered.map((it) => {
+          const meta = typeMeta[it.type];
+          const Icon = meta.icon;
+          const isCard = it.type === "flashcard";
+          const isLink = it.type === "enlace";
+          return (
+            <Card key={it.id} className="flex flex-col">
+              <div className="mb-2 flex items-center justify-between">
+                <span className={`flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium ${meta.color}`}>
+                  <Icon size={12} /> {meta.label}
+                </span>
+                <div className="flex items-center gap-2">
+                  {it.type === "nota" && (
+                    <button onClick={() => setItems(items.map((x) => (x.id === it.id ? { ...x, type: "flashcard" } : x)))} title="Convertir en flashcard" className="text-slate-600 transition hover:text-fuchsia-400">
+                      <Brain size={14} />
+                    </button>
+                  )}
+                  <button
+                    onClick={() => removeWithUndo(items, setItems, it.id, "Elemento")}
+                    className="text-slate-600 transition hover:text-rose-400"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>
+              <h3 className="mb-1 font-semibold text-slate-100">{it.title}</h3>
+              {isLink ? (
+                <a href={it.body} target="_blank" rel="noreferrer" className="break-all text-sm text-sky-400 hover:underline">
+                  {it.body}
+                </a>
+              ) : isCard ? (
+                <button
+                  onClick={() => setRevealed({ ...revealed, [it.id]: !revealed[it.id] })}
+                  className="mt-1 rounded-lg border border-dashed border-slate-700 px-3 py-2 text-left text-sm text-slate-300 transition hover:border-slate-600"
+                >
+                  {revealed[it.id] ? it.body : "Pulsa para ver la respuesta"}
+                </button>
+              ) : (
+                <p className="text-sm text-slate-400">{it.body}</p>
+              )}
+              <span className="mt-3 self-start rounded-md bg-slate-800 px-2 py-0.5 text-xs text-slate-400">
+                #{it.tag}
+              </span>
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  SECCIÓN: TRABAJO (AGROSANA)                                        */
+/* ------------------------------------------------------------------ */
+
+const MONTH_NAMES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+
+function monthKey(fecha) {
+  return fecha.slice(0, 7); // "2026-07"
+}
+function monthLabel(key) {
+  const [y, m] = key.split("-");
+  return `${MONTH_NAMES[Number(m) - 1]} ${y.slice(2)}`;
+}
+function lastNMonths(n) {
+  const now = new Date();
+  const arr = [];
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    arr.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+  }
+  return arr;
+}
+
+function Trabajo() {
+  const [log, setLog] = usePersisted("lh_work_log", INITIAL_WORK);
+  const [runbooks, setRunbooks] = usePersisted("lh_runbooks", INITIAL_RUNBOOKS);
+  const [form, setForm] = useState({ fecha: "", actividad: "", categoria: WORK_CATS[0], horas: "" });
+  const [rbForm, setRbForm] = useState({ titulo: "", pasos: "", herramientas: "" });
+  const [showRb, setShowRb] = useState(false);
+  const [crono, setCrono] = useState(null);
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (!crono) return;
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [crono]);
+  const toggleCrono = () => {
+    if (!crono) { setCrono(Date.now()); return; }
+    const horas = Math.max(0.01, Math.round(((Date.now() - crono) / 3600000) * 100) / 100);
+    setLog([{ id: Date.now(), fecha: new Date().toISOString().slice(0, 10), actividad: form.actividad || "Sesión cronometrada", categoria: form.categoria, horas }, ...log]);
+    setCrono(null);
+    setForm({ ...form, actividad: "" });
+  };
+  const cronoTxt = crono ? new Date(Date.now() - crono).toISOString().slice(11, 19) : "00:00:00";
+
+  const analytics = useMemo(() => {
+    const months = lastNMonths(6);
+    const byMonth = Object.fromEntries(months.map((m) => [m, 0]));
+    log.forEach((e) => {
+      const k = monthKey(e.fecha);
+      if (k in byMonth) byMonth[k] += Number(e.horas) || 0;
+    });
+    const series = months.map((m) => ({ key: m, label: monthLabel(m), horas: byMonth[m] }));
+    const currentKey = months[months.length - 1];
+    const prevKey = months[months.length - 2];
+    const current = byMonth[currentKey] || 0;
+    const prev = byMonth[prevKey] || 0;
+    const diffPct = prev > 0 ? Math.round(((current - prev) / prev) * 100) : null;
+
+    const catHours = {};
+    let currentCount = 0;
+    log.forEach((e) => {
+      if (monthKey(e.fecha) === currentKey) {
+        catHours[e.categoria] = (catHours[e.categoria] || 0) + (Number(e.horas) || 0);
+        currentCount += 1;
+      }
+    });
+    const maxBar = Math.max(...series.map((s) => s.horas), 1);
+    return { series, current, prev, diffPct, catHours, currentCount, currentKey, maxBar };
+  }, [log]);
+
+  const addEntry = () => {
+    if (!form.actividad || !form.horas) return;
+    setLog([
+      {
+        id: Date.now(),
+        fecha: form.fecha || new Date().toISOString().slice(0, 10),
+        actividad: form.actividad,
+        categoria: form.categoria,
+        horas: Number(form.horas) || 0,
+      },
+      ...log,
+    ]);
+    setForm({ fecha: "", actividad: "", categoria: WORK_CATS[0], horas: "" });
+  };
+
+  const addRunbook = () => {
+    if (!rbForm.titulo.trim()) return;
+    setRunbooks([{ id: Date.now(), ...rbForm }, ...runbooks]);
+    setRbForm({ titulo: "", pasos: "", herramientas: "" });
+    setShowRb(false);
+  };
+
+  const inputCls =
+    "rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none";
+
+  const catColor = (c) =>
+    ({
+      "Ingeniería de Datos": "bg-indigo-500/15 text-indigo-300",
+      "Ciencia de Datos": "bg-emerald-500/15 text-emerald-300",
+      "Análisis / Reporting": "bg-amber-500/15 text-amber-300",
+      "Reuniones": "bg-rose-500/15 text-rose-300",
+      "Formación": "bg-sky-500/15 text-sky-300",
+      "Documentación": "bg-fuchsia-500/15 text-fuchsia-300",
+    }[c] || "bg-slate-700 text-slate-300");
+
+  const catTotalCurrent = Object.values(analytics.catHours).reduce((a, b) => a + b, 0) || 1;
+
+  return (
+    <div>
+      <SectionTitle icon={Sprout} title="Trabajo · Agrosana" subtitle="Prácticas de Ingeniería y Ciencia de Datos" />
+
+      {/* KPIs del mes */}
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <Card className="flex items-center gap-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-500/15 text-indigo-400">
+            <Clock size={24} />
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-slate-100">{analytics.current}h</p>
+            <p className="text-sm text-slate-400">Este mes ({monthLabel(analytics.currentKey)})</p>
+          </div>
+        </Card>
+        <Card className="flex items-center gap-4">
+          <div
+            className={`flex h-12 w-12 items-center justify-center rounded-xl ${
+              analytics.diffPct === null || analytics.diffPct >= 0
+                ? "bg-emerald-500/15 text-emerald-400"
+                : "bg-rose-500/15 text-rose-400"
+            }`}
+          >
+            <TrendingUp size={24} />
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-slate-100">
+              {analytics.diffPct === null ? "—" : `${analytics.diffPct > 0 ? "+" : ""}${analytics.diffPct}%`}
+            </p>
+            <p className="text-sm text-slate-400">vs mes anterior ({analytics.prev}h)</p>
+          </div>
+        </Card>
+        <Card className="flex items-center gap-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/15 text-amber-400">
+            <BarChart3 size={24} />
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-slate-100">{analytics.currentCount}</p>
+            <p className="text-sm text-slate-400">Actividades este mes</p>
+          </div>
+        </Card>
+      </div>
+
+      <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {/* Gráfico mensual */}
+        <Card>
+          <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-slate-100">
+            <BarChart3 size={18} className="text-indigo-400" /> Horas por mes (últimos 6)
+          </h2>
+          <div className="flex h-44 items-end justify-between gap-2">
+            {analytics.series.map((s) => (
+              <div key={s.key} className="flex flex-1 flex-col items-center gap-2">
+                <span className="text-xs font-medium text-slate-400">{s.horas || ""}</span>
+                <div className="flex w-full flex-1 items-end">
+                  <div
+                    className="w-full rounded-t-lg bg-gradient-to-t from-indigo-600 to-indigo-400 transition-all"
+                    style={{ height: `${(s.horas / analytics.maxBar) * 100}%` }}
+                    title={`${s.horas}h`}
+                  />
+                </div>
+                <span className="text-xs text-slate-500">{s.label}</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        {/* Reparto por categoría del mes */}
+        <Card>
+          <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-slate-100">
+            <TrendingUp size={18} className="text-emerald-400" /> Reparto del mes por tipo
+          </h2>
+          {Object.keys(analytics.catHours).length === 0 ? (
+            <p className="py-6 text-center text-sm text-slate-500">Sin actividades este mes todavía.</p>
+          ) : (
+            <div className="space-y-3">
+              {Object.entries(analytics.catHours)
+                .sort((a, b) => b[1] - a[1])
+                .map(([cat, h]) => (
+                  <div key={cat}>
+                    <div className="mb-1 flex justify-between text-sm">
+                      <span className={`rounded-md px-2 py-0.5 text-xs font-medium ${catColor(cat)}`}>{cat}</span>
+                      <span className="text-slate-400">{h}h</span>
+                    </div>
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-slate-800">
+                      <div
+                        className="h-full rounded-full bg-emerald-500"
+                        style={{ width: `${(h / catTotalCurrent) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+            </div>
+          )}
+        </Card>
+      </div>
+
+      {/* Alta de actividad */}
+      <Card className="mb-4">
+        <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-slate-100">
+          <Briefcase size={18} className="text-indigo-400" /> Registrar tiempo
+        </h2>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+          <input type="date" value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} className={inputCls} />
+          <input
+            placeholder="Actividad"
+            value={form.actividad}
+            onChange={(e) => setForm({ ...form, actividad: e.target.value })}
+            className={`col-span-2 ${inputCls}`}
+          />
+          <select value={form.categoria} onChange={(e) => setForm({ ...form, categoria: e.target.value })} className={inputCls}>
+            {WORK_CATS.map((c) => (
+              <option key={c}>{c}</option>
+            ))}
+          </select>
+          <input
+            type="number"
+            step="0.5"
+            placeholder="Horas"
+            value={form.horas}
+            onChange={(e) => setForm({ ...form, horas: e.target.value })}
+            className={inputCls}
+          />
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-3 rounded-lg border border-slate-800 bg-slate-800/40 p-3">
+          <button onClick={toggleCrono} className={`rounded-lg px-4 py-2 text-sm font-semibold text-white transition ${crono ? "bg-rose-500 hover:bg-rose-400" : "bg-indigo-500 hover:bg-indigo-400"}`}>
+            {crono ? "Parar y registrar" : "▶ Empezar cronómetro"}
+          </button>
+          {crono && <span className="font-mono text-xl tabular-nums text-slate-100">{cronoTxt}</span>}
+          <span className="text-xs text-slate-500">Cronometra la actividad en curso (usa el campo Actividad y la categoría).</span>
+        </div>
+        <div className="mt-3 flex justify-end">
+          <button onClick={addEntry} className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-400">
+            Añadir actividad
+          </button>
+        </div>
+      </Card>
+
+      {/* Tabla de registro */}
+      <Card className="mb-6 overflow-x-auto p-0">
+        <table className="w-full text-left text-sm">
+          <thead>
+            <tr className="border-b border-slate-800 text-slate-400">
+              <th className="px-5 py-3 font-medium">Fecha</th>
+              <th className="px-5 py-3 font-medium">Actividad</th>
+              <th className="px-5 py-3 font-medium">Categoría</th>
+              <th className="px-5 py-3 text-right font-medium">Horas</th>
+              <th className="px-5 py-3" />
+            </tr>
+          </thead>
+          <tbody>
+            {log.map((e) => (
+              <tr key={e.id} className="border-b border-slate-800/60 transition hover:bg-slate-800/40">
+                <td className="px-5 py-3 text-slate-400">{e.fecha}</td>
+                <td className="px-5 py-3 font-medium text-slate-100">{e.actividad}</td>
+                <td className="px-5 py-3">
+                  <span className={`rounded-md px-2 py-0.5 text-xs font-medium ${catColor(e.categoria)}`}>{e.categoria}</span>
+                </td>
+                <td className="px-5 py-3 text-right text-slate-300">{e.horas}h</td>
+                <td className="px-5 py-3 text-right">
+                  <button onClick={() => removeWithUndo(log, setLog, e.id, "Actividad")} className="text-slate-500 transition hover:text-rose-400">
+                    <Trash2 size={16} />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Card>
+
+      {/* Base de conocimiento: cómo lo hice */}
+      <Card>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
+            <BookOpen size={18} className="text-fuchsia-400" /> Cómo lo hice (procedimientos)
+          </h2>
+          <button
+            onClick={() => setShowRb((s) => !s)}
+            className="flex items-center gap-1 rounded-lg bg-indigo-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-indigo-400"
+          >
+            <Plus size={14} /> Nuevo
+          </button>
+        </div>
+
+        {showRb && (
+          <div className="mb-4 space-y-2 rounded-xl border border-slate-800 bg-slate-800/40 p-4">
+            <input placeholder="Título (p. ej. Desplegar modelo en producción)" value={rbForm.titulo} onChange={(e) => setRbForm({ ...rbForm, titulo: e.target.value })} className={`w-full ${inputCls}`} />
+            <textarea placeholder="Pasos / notas..." rows={3} value={rbForm.pasos} onChange={(e) => setRbForm({ ...rbForm, pasos: e.target.value })} className={`w-full resize-none ${inputCls}`} />
+            <div className="flex gap-2">
+              <input placeholder="Herramientas (Python, dbt...)" value={rbForm.herramientas} onChange={(e) => setRbForm({ ...rbForm, herramientas: e.target.value })} className={`flex-1 ${inputCls}`} />
+              <button onClick={addRunbook} className="shrink-0 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-400">
+                Guardar
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="space-y-3">
+          {runbooks.map((r) => (
+            <div key={r.id} className="rounded-xl border border-slate-800 bg-slate-800/40 p-4">
+              <div className="mb-1 flex items-start justify-between gap-2">
+                <h3 className="font-semibold text-slate-100">{r.titulo}</h3>
+                <button onClick={() => removeWithUndo(runbooks, setRunbooks, r.id, "Procedimiento")} className="shrink-0 text-slate-500 transition hover:text-rose-400">
+                  <Trash2 size={15} />
+                </button>
+              </div>
+              <p className="whitespace-pre-line text-sm text-slate-400">{r.pasos}</p>
+              {r.herramientas && (
+                <span className="mt-2 inline-block rounded-md bg-slate-800 px-2 py-0.5 text-xs text-slate-400">🛠 {r.herramientas}</span>
+              )}
+            </div>
+          ))}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  APP PRINCIPAL + SIDEBAR                                            */
+/* ------------------------------------------------------------------ */
+
+const NAV = [
+  { id: "inicio", label: "Inicio", icon: Home },
+  { id: "trabajo", label: "Trabajo · Agrosana", icon: Sprout },
+  { id: "gimnasio", label: "Gimnasio", icon: Dumbbell },
+  { id: "universidad", label: "Universidad", icon: GraduationCap },
+  { id: "tenis", label: "Tenis de Mesa", icon: Target },
+  { id: "salud", label: "Salud", icon: HeartPulse },
+  { id: "finanzas", label: "Finanzas", icon: Wallet },
+  { id: "inversiones", label: "Inversiones", icon: LineChart },
+  { id: "habitos", label: "Hábitos", icon: CalendarCheck },
+  { id: "metas", label: "Metas", icon: Flag },
+  { id: "resumen", label: "Resumen semanal", icon: Sparkles },
+  { id: "coach", label: "Coach", icon: Sparkles },
+  { id: "calendario", label: "Calendario", icon: CalendarDays },
+  { id: "proximos", label: "Próximos", icon: CalendarClock },
+  { id: "cerebro", label: "Segundo Cerebro", icon: Brain },
+  { id: "foco", label: "Modo foco", icon: Timer },
+  { id: "logros", label: "Logros", icon: Trophy },
+  { id: "analitica", label: "Analítica", icon: BarChart3 },
+  { id: "repaso", label: "Repaso", icon: Brain },
+  { id: "adjuntos", label: "Adjuntos", icon: Image },
+  { id: "etiquetas", label: "Etiquetas", icon: Tag },
+  { id: "datos", label: "Datos", icon: Database },
+  { id: "ajustes", label: "Ajustes", icon: Settings },
+];
+
+export default function LifeDashboard({ userEmail = null, onSignOut = null }) {
+  const [active, setActive] = useState("inicio");
+  const [tasks, setTasks] = usePersisted("lh_tasks", INITIAL_TASKS);
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  useRoutineNotifier();
+  useAutoBackup();
+  const { theme, toggle: toggleTheme } = useTheme();
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  useEffect(() => {
+    const onKey = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); setPaletteOpen(true); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const toggleTask = (id) =>
+    setTasks(tasks.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));
+
+  return (
+    <div className="flex min-h-screen bg-slate-950 font-sans text-slate-200">
+      {/* Sidebar */}
+      <aside
+        className={`fixed inset-y-0 left-0 z-30 flex w-64 transform flex-col border-r border-slate-800 bg-slate-900 p-5 transition-transform lg:static lg:translate-x-0 ${
+          mobileOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        <div className="mb-8 flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-fuchsia-500 font-bold text-white">
+            Q
+          </div>
+          <div>
+            <p className="font-bold text-slate-100">Life Hub</p>
+            <p className="text-xs text-slate-500">Panel personal</p>
+          </div>
+          <button className="ml-auto text-slate-400 lg:hidden" onClick={() => setMobileOpen(false)}>
+            <X size={20} />
+          </button>
+        </div>
+
+        <nav className="flex-1 space-y-1 overflow-y-auto">
+          {NAV.map((item) => {
+            const Icon = item.icon;
+            const isActive = active === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => {
+                  setActive(item.id);
+                  setMobileOpen(false);
+                }}
+                className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition ${
+                  isActive
+                    ? "bg-indigo-500/15 text-indigo-300"
+                    : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+                }`}
+              >
+                <Icon size={19} />
+                {item.label}
+                {isActive && <span className="ml-auto h-2 w-2 rounded-full bg-indigo-400" />}
+              </button>
+            );
+          })}
+        </nav>
+
+        <div className="mt-4 space-y-3">
+          <div className="flex gap-2">
+            <button onClick={toggleTheme} className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-slate-800 bg-slate-800/40 px-3 py-2 text-xs font-medium text-slate-300 transition hover:border-indigo-500">
+              {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />} {theme === "dark" ? "Claro" : "Oscuro"}
+            </button>
+            <button onClick={() => setPaletteOpen(true)} className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-slate-800 bg-slate-800/40 px-3 py-2 text-xs font-medium text-slate-300 transition hover:border-indigo-500">
+              <Search size={15} /> Buscar
+            </button>
+          </div>
+          <div className="rounded-xl border border-slate-800 bg-slate-800/40 p-4">
+            <p className="text-xs text-slate-400">Frase del d&iacute;a</p>
+            <p className="mt-1 text-sm font-medium text-slate-200">
+              "La disciplina es el puente entre metas y logros."
+            </p>
+          </div>
+          {userEmail && (
+            <div className="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-800/40 px-3 py-2">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs text-slate-400">{userEmail}</p>
+                <p className="text-[10px] text-emerald-400">&#9679; Sincronizado</p>
+              </div>
+              {onSignOut && (
+                <button
+                  onClick={onSignOut}
+                  title="Cerrar sesi&oacute;n"
+                  className="shrink-0 text-slate-500 transition hover:text-rose-400"
+                >
+                  <LogOut size={16} />
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </aside>
+
+      {/* Overlay movil */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-20 bg-black/50 lg:hidden"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      {/* Contenido principal */}
+      <main className="flex-1 overflow-x-hidden">
+        {/* Top bar movil */}
+        <div className="flex items-center gap-3 border-b border-slate-800 p-4 lg:hidden">
+          <button onClick={() => setMobileOpen(true)} className="text-slate-300">
+            <Menu size={22} />
+          </button>
+          <span className="font-semibold text-slate-100">Life Hub</span>
+        </div>
+
+        <div key={active} className="mx-auto max-w-6xl p-5 sm:p-8 section-fade">
+          {active === "inicio" && <Inicio tasks={tasks} toggleTask={toggleTask} />}
+          {active === "trabajo" && <Trabajo />}
+          {active === "gimnasio" && <Gimnasio />}
+          {active === "universidad" && <Universidad />}
+          {active === "tenis" && <TenisDeMesa />}
+          {active === "salud" && <Salud />}
+          {active === "finanzas" && <Finanzas />}
+          {active === "inversiones" && <Inversiones />}
+          {active === "habitos" && <Habitos />}
+          {active === "metas" && <Metas />}
+          {active === "resumen" && <Resumen />}
+          {active === "coach" && <Coach onNavigate={setActive} />}
+          {active === "calendario" && <Calendario />}
+          {active === "proximos" && <Proximos />}
+          {active === "cerebro" && <SegundoCerebro />}
+          {active === "foco" && <Foco />}
+          {active === "logros" && <Logros />}
+          {active === "analitica" && <Analitica />}
+          {active === "repaso" && <Repaso />}
+          {active === "adjuntos" && <Adjuntos />}
+          {active === "etiquetas" && <Etiquetas />}
+          {active === "datos" && <Datos />}
+          {active === "ajustes" && <Ajustes />}
+        </div>
+      </main>
+
+      <CommandPalette open={paletteOpen} setOpen={setPaletteOpen} sections={NAV} onNavigate={(id) => setActive(id)} />
+      <QuickAdd />
+      <Onboarding />
+      <ToastHost />
+    </div>
+  );
+}

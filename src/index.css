@@ -1,0 +1,53 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: #020617;
+}
+
+/* --- Tema claro (inversión automática, se puede afinar después) --- */
+html[data-theme="light"] {
+  filter: invert(1) hue-rotate(180deg);
+  background: #cbd5e1;
+}
+/* No invertir imágenes ni elementos marcados para que se vean normales */
+html[data-theme="light"] img,
+html[data-theme="light"] [data-noinvert] {
+  filter: invert(1) hue-rotate(180deg);
+}
+
+/* --- Transición suave al cambiar de sección --- */
+.section-fade {
+  animation: lh-fade 0.25s ease;
+}
+@keyframes lh-fade {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* --- Accesibilidad: foco visible por teclado --- */
+:focus-visible {
+  outline: 2px solid #818cf8;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .section-fade {
+    animation: none;
+  }
+}

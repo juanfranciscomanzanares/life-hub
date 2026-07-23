@@ -1,0 +1,281 @@
+import { useState, useMemo } from "react";
+import { CalendarDays, ChevronLeft, ChevronRight, Plus, Trash2, Repeat } from "lucide-react";
+import { usePersisted } from "../lib/store";
+import { removeWithUndo } from "../lib/toast";
+import { Card, SectionTitle, MONTHS } from "../lib/ui";
+
+const WEEKDAYS = ["L", "M", "X", "J", "V", "S", "D"];
+const WEEKDAYS_FULL = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+
+const TYPE_STYLE = {
+  Gym: "bg-emerald-500/20 text-emerald-300",
+  Tenis: "bg-amber-500/20 text-amber-300",
+  Universidad: "bg-sky-500/20 text-sky-300",
+  Trabajo: "bg-indigo-500/20 text-indigo-300",
+  Finanzas: "bg-rose-500/20 text-rose-300",
+  "Inversión": "bg-teal-500/20 text-teal-300",
+  Evento: "bg-fuchsia-500/20 text-fuchsia-300",
+  Otro: "bg-slate-600/40 text-slate-300",
+};
+
+const ROUTINE_TYPES = ["Gym", "Tenis", "Universidad", "Trabajo", "Otro"];
+
+const INITIAL_ROUTINE = [
+  { id: 1, dia: 0, hora: "09:00", titulo: "Clases", tipo: "Universidad" },
+  { id: 2, dia: 0, hora: "18:00", titulo: "Gym (piernas)", tipo: "Gym" },
+  { id: 3, dia: 1, hora: "09:00", titulo: "Clases", tipo: "Universidad" },
+  { id: 4, dia: 1, hora: "20:00", titulo: "Entreno tenis de mesa", tipo: "Tenis" },
+  { id: 5, dia: 2, hora: "15:00", titulo: "Agrosana", tipo: "Trabajo" },
+  { id: 6, dia: 3, hora: "19:00", titulo: "Gym (torso)", tipo: "Gym" },
+  { id: 7, dia: 4, hora: "20:00", titulo: "Entreno tenis de mesa", tipo: "Tenis" },
+];
+
+
+// --- Horario y exámenes UM · GCID 26/27 (1er cuatrimestre) ---
+// Mejor lectura de los PDF oficiales; revisa y ajusta si algo no cuadra.
+// dia: 0=Lunes ... 4=Viernes
+const UM_ROUTINE = [
+  // Fundamentos de Computadores (1º)
+  { dia: 1, hora: "10:00", titulo: "Fund. Computadores (teoría)", tipo: "Universidad" },
+  { dia: 2, hora: "12:00", titulo: "Fund. Computadores (prácticas)", tipo: "Universidad" },
+  // Deep Learning (3º)
+  { dia: 0, hora: "16:30", titulo: "Deep Learning (teoría)", tipo: "Universidad" },
+  { dia: 2, hora: "18:30", titulo: "Deep Learning (lab)", tipo: "Universidad" },
+  // Infraestructura Comp. Altas Prestaciones (3º)
+  { dia: 0, hora: "18:30", titulo: "Infra. Altas Prestaciones (teoría)", tipo: "Universidad" },
+  { dia: 1, hora: "18:30", titulo: "Infra. Altas Prestaciones (lab)", tipo: "Universidad" },
+  // Empresa y Emprendimiento (4º)
+  { dia: 0, hora: "15:00", titulo: "Empresa y Emprendimiento (teoría)", tipo: "Universidad" },
+  { dia: 0, hora: "17:00", titulo: "Empresa y Emprendimiento (prácticas)", tipo: "Universidad" },
+  // Ciberseguridad (4º)
+  { dia: 2, hora: "15:00", titulo: "Ciberseguridad (teoría)", tipo: "Universidad" },
+  { dia: 2, hora: "17:00", titulo: "Ciberseguridad (prácticas)", tipo: "Universidad" },
+  // Gestión de Proyectos en Ing. de Datos (4º)
+  { dia: 1, hora: "17:00", titulo: "Gestión de Proyectos (teoría)", tipo: "Universidad" },
+  { dia: 2, hora: "19:00", titulo: "Gestión de Proyectos (prácticas)", tipo: "Universidad" },
+];
+const UM_EXAMS = [
+  { fecha: "2026-12-17", titulo: "Examen: Empresa y Emprendimiento (mañana)" },
+  { fecha: "2026-12-21", titulo: "Examen: Deep Learning (tarde)" },
+  { fecha: "2027-01-07", titulo: "Examen: Ciberseguridad (mañana)" },
+  { fecha: "2027-01-11", titulo: "Examen: Fundamentos de Computadores (tarde)" },
+  { fecha: "2027-01-14", titulo: "Examen: Gestión de Proyectos (mañana)" },
+  { fecha: "2027-01-15", titulo: "Examen: Infra. Altas Prestaciones (tarde)" },
+];
+
+export default function Calendario() {
+  const now = new Date();
+  const [year, setYear] = useState(now.getFullYear());
+  const [month, setMonth] = useState(now.getMonth());
+  const [events, setEvents] = usePersisted("lh_events", []);
+  const [routine, setRoutine] = usePersisted("lh_routine", INITIAL_ROUTINE);
+  const [form, setForm] = useState({ fecha: "", titulo: "" });
+  const [rForm, setRForm] = useState({ dia: 0, hora: "18:00", titulo: "", tipo: "Gym" });
+
+  const [gym] = usePersisted("lh_gym", []);
+  const [work] = usePersisted("lh_work_log", []);
+  const [finance] = usePersisted("lh_finance", []);
+  const [contribs] = usePersisted("lh_contribs", []);
+
+  // Eventos con fecha concreta
+  const byDate = useMemo(() => {
+    const map = {};
+    const push = (fecha, tipo, label) => {
+      if (!fecha) return;
+      (map[fecha] = map[fecha] || []).push({ tipo, label });
+    };
+    gym.forEach((g) => push(g.fecha, "Gym", g.ejercicio));
+    work.forEach((w) => push(w.fecha, "Trabajo", `${w.actividad} (${w.horas}h)`));
+    finance.forEach((f) => push(f.fecha, "Finanzas", `${f.concepto} ${f.monto > 0 ? "+" : ""}${f.monto}€`));
+    contribs.forEach((c) => push(c.fecha, "Inversión", `${c.destino} +${c.monto}€`));
+    events.forEach((e) => push(e.fecha, "Evento", e.titulo));
+    return map;
+  }, [gym, work, finance, contribs, events]);
+
+  // Rutina indexada por día de la semana (0 = lunes)
+  const routineByDay = useMemo(() => {
+    const map = {};
+    routine.forEach((r) => (map[r.dia] = map[r.dia] || []).push(r));
+    Object.values(map).forEach((list) => list.sort((a, b) => a.hora.localeCompare(b.hora)));
+    return map;
+  }, [routine]);
+
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstWeekday = (new Date(year, month, 1).getDay() + 6) % 7;
+  const cells = [];
+  for (let i = 0; i < firstWeekday; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+
+  const iso = (d) => `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  const weekdayOf = (d) => (new Date(year, month, d).getDay() + 6) % 7;
+  const isToday = (d) => year === now.getFullYear() && month === now.getMonth() && d === now.getDate();
+
+  const prev = () => { if (month === 0) { setMonth(11); setYear(year - 1); } else setMonth(month - 1); };
+  const next = () => { if (month === 11) { setMonth(0); setYear(year + 1); } else setMonth(month + 1); };
+
+  const addEvent = () => {
+    if (!form.fecha || !form.titulo.trim()) return;
+    setEvents([...events, { id: Date.now(), fecha: form.fecha, titulo: form.titulo }]);
+    setForm({ fecha: "", titulo: "" });
+  };
+  const addRoutine = () => {
+    if (!rForm.titulo.trim()) return;
+    setRoutine([...routine, { id: Date.now(), dia: Number(rForm.dia), hora: rForm.hora, titulo: rForm.titulo, tipo: rForm.tipo }]);
+    setRForm({ dia: 0, hora: "18:00", titulo: "", tipo: "Gym" });
+  };
+
+  const cargarUM = () => {
+    const rKey = (x) => `${x.dia}-${x.hora}-${x.titulo}`;
+    const exist = new Set(routine.map(rKey));
+    const nuevas = UM_ROUTINE.filter((x) => !exist.has(rKey(x))).map((x, i) => ({ id: Date.now() + i, ...x }));
+    if (nuevas.length) setRoutine([...routine, ...nuevas]);
+    const eKey = (x) => `${x.fecha}-${x.titulo}`;
+    const evExist = new Set(events.map(eKey));
+    const nuevosEv = UM_EXAMS.filter((x) => !evExist.has(eKey(x))).map((x, i) => ({ id: Date.now() + 1000 + i, ...x }));
+    if (nuevosEv.length) setEvents([...events, ...nuevosEv]);
+    alert(`Cargado: ${nuevas.length} clases y ${nuevosEv.length} exámenes. Revisa las horas por si acaso.`);
+  };
+
+  const lunesSem = new Date(now);
+  lunesSem.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+  const semana = [...Array(7)].map((_, i) => {
+    const d = new Date(lunesSem);
+    d.setDate(lunesSem.getDate() + i);
+    const isoD = d.toISOString().slice(0, 10);
+    const rout = (routineByDay[i] || []).map((r) => ({ hora: r.hora, tipo: r.tipo, label: r.titulo }));
+    const ev = (byDate[isoD] || []).map((e) => ({ hora: "", tipo: e.tipo, label: e.label }));
+    return { fecha: isoD, dia: d.getDate(), nombre: WEEKDAYS_FULL[i], esHoy: isoD === now.toISOString().slice(0, 10), items: [...rout, ...ev].sort((a, b) => (a.hora || "99").localeCompare(b.hora || "99")) };
+  });
+
+  const inputCls =
+    "rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none";
+
+  return (
+    <div>
+      <SectionTitle icon={CalendarDays} title="Calendario" subtitle="Tu rutina semanal y todo tu mes en un vistazo" />
+
+      {/* Editor de rutina semanal */}
+      <Card className="mb-6">
+        <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-slate-100">
+          <Repeat size={18} className="text-indigo-400" /> Rutina semanal fija
+        </h2>
+        <div className="mb-4 flex flex-wrap items-end gap-2">
+          <select value={rForm.dia} onChange={(e) => setRForm({ ...rForm, dia: e.target.value })} className={inputCls}>
+            {WEEKDAYS_FULL.map((d, i) => <option key={i} value={i}>{d}</option>)}
+          </select>
+          <input type="time" value={rForm.hora} onChange={(e) => setRForm({ ...rForm, hora: e.target.value })} className={inputCls} />
+          <input placeholder="Actividad (Gym piernas, clases...)" value={rForm.titulo} onChange={(e) => setRForm({ ...rForm, titulo: e.target.value })} className={`flex-1 ${inputCls}`} />
+          <select value={rForm.tipo} onChange={(e) => setRForm({ ...rForm, tipo: e.target.value })} className={inputCls}>
+            {ROUTINE_TYPES.map((t) => <option key={t}>{t}</option>)}
+          </select>
+          <button onClick={addRoutine} className="flex items-center gap-1 rounded-lg bg-indigo-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-400"><Plus size={15} /> Añadir</button>
+        </div>
+
+        <div className="mb-4">
+          <button onClick={cargarUM} className="rounded-lg border border-sky-700/60 bg-sky-500/10 px-4 py-2 text-sm font-semibold text-sky-200 transition hover:bg-sky-500/20">
+            Cargar horario y exámenes UM (GCID 26/27)
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          {WEEKDAYS_FULL.map((dname, i) => (
+            <div key={i} className="rounded-xl border border-slate-800 bg-slate-800/30 p-3">
+              <p className="mb-2 text-xs font-semibold text-slate-400">{dname}</p>
+              <div className="space-y-1.5">
+                {(routineByDay[i] || []).length === 0 && <p className="text-xs text-slate-600">—</p>}
+                {(routineByDay[i] || []).map((r) => (
+                  <div key={r.id} className={`flex items-center justify-between gap-1 rounded px-2 py-1 text-xs ${TYPE_STYLE[r.tipo] || TYPE_STYLE.Otro}`}>
+                    <span className="truncate"><span className="font-semibold">{r.hora}</span> {r.titulo}</span>
+                    <button onClick={() => removeWithUndo(routine, setRoutine, r.id, "Actividad")} className="shrink-0 opacity-70 hover:opacity-100"><Trash2 size={12} /></button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+
+      {/* Evento puntual */}
+      <Card className="mb-4">
+        <div className="flex flex-wrap items-end gap-2">
+          <input type="date" value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} className={inputCls} />
+          <input placeholder="Evento puntual (examen, cita, viaje...)" value={form.titulo} onChange={(e) => setForm({ ...form, titulo: e.target.value })} className={`flex-1 ${inputCls}`} />
+          <button onClick={addEvent} className="flex items-center gap-1 rounded-lg bg-fuchsia-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-fuchsia-400"><Plus size={15} /> Añadir</button>
+        </div>
+      </Card>
+
+      {/* Vista de la semana actual */}
+      <Card className="mb-6">
+        <h2 className="mb-4 text-lg font-semibold text-slate-100">Esta semana</h2>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+          {semana.map((d) => (
+            <div key={d.fecha} className={`rounded-xl border p-2 ${d.esHoy ? "border-indigo-500 bg-indigo-500/10" : "border-slate-800 bg-slate-800/30"}`}>
+              <p className="mb-2 text-xs font-semibold text-slate-400">{d.nombre} {d.dia}</p>
+              <div className="space-y-1">
+                {d.items.length === 0 && <p className="text-[10px] text-slate-600">—</p>}
+                {d.items.map((it, j) => (
+                  <div key={j} className={`truncate rounded px-1.5 py-0.5 text-[10px] ${TYPE_STYLE[it.tipo] || TYPE_STYLE.Otro}`} title={`${it.hora} ${it.label}`}>
+                    {it.hora && <span className="font-semibold">{it.hora} </span>}{it.label}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      {/* Calendario mensual */}
+      <Card>
+        <div className="mb-4 flex items-center justify-between">
+          <button onClick={prev} className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700"><ChevronLeft size={18} /></button>
+          <h2 className="text-lg font-semibold text-slate-100">{MONTHS[month]} {year}</h2>
+          <button onClick={next} className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700"><ChevronRight size={18} /></button>
+        </div>
+
+        <div className="grid grid-cols-7 gap-1.5">
+          {WEEKDAYS.map((d) => <div key={d} className="pb-1 text-center text-xs font-semibold text-slate-500">{d}</div>)}
+          {cells.map((d, i) => {
+            if (d === null) return <div key={`e${i}`} />;
+            const oneoff = byDate[iso(d)] || [];
+            const rout = (routineByDay[weekdayOf(d)] || []).map((r) => ({ tipo: r.tipo, label: `${r.hora} ${r.titulo}` }));
+            const list = [...rout, ...oneoff];
+            return (
+              <div key={d} className={`min-h-[92px] rounded-lg border p-1.5 ${isToday(d) ? "border-indigo-500 bg-indigo-500/10" : "border-slate-800 bg-slate-800/30"}`}>
+                <div className="mb-1 text-right text-xs font-medium text-slate-400">{d}</div>
+                <div className="space-y-1">
+                  {list.slice(0, 4).map((ev, j) => (
+                    <div key={j} title={`${ev.tipo}: ${ev.label}`} className={`truncate rounded px-1 py-0.5 text-[10px] ${TYPE_STYLE[ev.tipo] || TYPE_STYLE.Otro}`}>{ev.label}</div>
+                  ))}
+                  {list.length > 4 && <div className="text-[10px] text-slate-500">+{list.length - 4} más</div>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-3 text-xs">
+          {Object.keys(TYPE_STYLE).map((t) => (
+            <span key={t} className="flex items-center gap-1.5 text-slate-400">
+              <span className={`h-2.5 w-2.5 rounded-full ${TYPE_STYLE[t].split(" ")[0]}`} /> {t}
+            </span>
+          ))}
+        </div>
+      </Card>
+
+      {events.length > 0 && (
+        <Card className="mt-4">
+          <h3 className="mb-3 text-sm font-semibold text-slate-300">Eventos puntuales</h3>
+          <ul className="space-y-2">
+            {events.slice().sort((a, b) => a.fecha.localeCompare(b.fecha)).map((e) => (
+              <li key={e.id} className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-800/40 px-3 py-2 text-sm">
+                <span className="text-slate-200"><span className="text-slate-500">{e.fecha}</span> · {e.titulo}</span>
+                <button onClick={() => removeWithUndo(events, setEvents, e.id, "Evento")} className="text-slate-500 hover:text-rose-400"><Trash2 size={15} /></button>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+    </div>
+  );
+}
