@@ -15,6 +15,73 @@
   </head>
   <body>
     <div id="root"></div>
+    <!--
+      Red de seguridad temprana. El ErrorBoundary de React solo existe una vez
+      React ha montado; si un módulo falla al importarse (o el bundle no carga),
+      nunca llega a montarse y quedaría una pantalla en negro sin explicación.
+      Este script se ejecuta antes que el bundle y pinta el error a mano.
+    -->
+    <script>
+      (function () {
+        function pintar(titulo, detalle) {
+          var root = document.getElementById("root");
+          if (!root || root.childElementCount > 0) return; // React ya pintó algo
+          root.innerHTML =
+            '<div style="min-height:100vh;background:#020617;color:#e2e8f0;padding:16px;font-family:system-ui,-apple-system,sans-serif">' +
+            '<div style="max-width:32rem;margin:0 auto;background:#0f172a;border:1px solid #881337;border-radius:16px;padding:20px">' +
+            '<h1 style="color:#fda4af;font-size:18px;margin:0 0 12px">No se pudo cargar la app</h1>' +
+            '<p style="color:#94a3b8;font-size:14px;margin:0 0 12px">' + titulo + "</p>" +
+            '<pre style="background:#020617;color:#fda4af;font-size:12px;padding:12px;border-radius:8px;white-space:pre-wrap;word-break:break-word;max-height:40vh;overflow:auto">' +
+            detalle +
+            "</pre>" +
+            '<button id="lh-reset" style="width:100%;margin-top:12px;background:#6366f1;color:#fff;border:0;border-radius:8px;padding:10px;font-size:14px;font-weight:600">Reiniciar app (borra caché)</button>' +
+            "</div></div>";
+          var b = document.getElementById("lh-reset");
+          if (b)
+            b.onclick = function () {
+              var tareas = [];
+              if (navigator.serviceWorker)
+                tareas.push(
+                  navigator.serviceWorker.getRegistrations().then(function (rs) {
+                    return Promise.all(rs.map(function (r) { return r.unregister(); }));
+                  })
+                );
+              if (window.caches)
+                tareas.push(
+                  caches.keys().then(function (ks) {
+                    return Promise.all(ks.map(function (k) { return caches.delete(k); }));
+                  })
+                );
+              Promise.all(tareas)["catch"](function () {})["then"](function () {
+                location.replace(location.origin + "/?fresh=" + Date.now());
+              });
+            };
+        }
+
+        function texto(e) {
+          if (!e) return "(sin detalle)";
+          // En WebKit (iPhone) e.stack no incluye el mensaje: lo ponemos aparte.
+          return (
+            (e.name || "Error") + ": " + (e.message || String(e)) +
+            "\n\n" + (e.stack || "") + "\n\n" + navigator.userAgent
+          );
+        }
+
+        window.addEventListener("error", function (ev) {
+          pintar("Ha fallado la carga de un archivo o un módulo.", texto(ev.error) || ev.message);
+        });
+        window.addEventListener("unhandledrejection", function (ev) {
+          pintar("Ha fallado una operación en segundo plano.", texto(ev.reason));
+        });
+        // Si a los 15s no se ha pintado nada, algo se quedó colgado.
+        setTimeout(function () {
+          pintar(
+            "La app tardó demasiado en arrancar. Suele arreglarse borrando la caché.",
+            "Tiempo de espera agotado.\n\n" + navigator.userAgent
+          );
+        }, 15000);
+      })();
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
