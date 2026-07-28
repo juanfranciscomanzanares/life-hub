@@ -113,18 +113,40 @@ const SUBJECTS = [
   "Prácticas Externas",
 ];
 
+/* Teoría (grupo completo, sin ambigüedad de subgrupo). Cada fila es una franja
+   horaria; solo se rellena la columna del día en que cae esa clase. */
 const SCHEDULE_C1 = [
-  { subject: "Empresa y Emprendimiento", curso: "4º", dia: "Lunes", hora: "15:00 - 17:00", tipo: "Teoría", aula: "A05" },
-  { subject: "Infraest. Comp. Altas Prest.", curso: "3º", dia: "Lunes", hora: "18:30 - 20:30", tipo: "Teoría", aula: "A.04 Bis" },
-  { subject: "Gestión de Proyectos", curso: "4º", dia: "Martes", hora: "17:00 - 18:00", tipo: "Teoría", aula: "A05" },
-  { subject: "Ciberseguridad", curso: "4º", dia: "Miércoles", hora: "15:00 - 17:00", tipo: "Teoría", aula: "A05" },
-  { subject: "Fund. Computadores", curso: "1º", dia: "Jueves", hora: "10:00 - 11:00", tipo: "Teoría", aula: "A.04 Bis" },
-  { subject: "Prácticas Externas", curso: "4º", dia: "—", hora: "Horario en empresa", tipo: "Optativa", aula: "—" },
+  { hora: "10:00 - 11:00", dia: "jueves", subject: "Fund. Computadores", curso: "1º", aula: "A.04 Bis" },
+  { hora: "15:00 - 17:00", dia: "lunes", subject: "Empresa y Emprendimiento", curso: "4º", aula: "A05" },
+  { hora: "15:00 - 17:00", dia: "miercoles", subject: "Ciberseguridad", curso: "4º", aula: "A05" },
+  { hora: "17:00 - 19:00", dia: "martes", subject: "Gestión de Proyectos", curso: "4º", aula: "A05" },
+  { hora: "18:30 - 20:30", dia: "lunes", subject: "Infraest. Comp. Altas Prest.", curso: "3º", aula: "A.04 Bis" },
 ];
 
 const SCHEDULE_C2 = [
-  { subject: "Deep Learning", curso: "3º", dia: "Lunes", hora: "16:30 - 18:30", tipo: "Teoría", aula: "A.04 Bis" },
-  { subject: "TFG", curso: "4º", dia: "—", hora: "Tutorías con tutor/a", tipo: "Trabajo Fin de Grado", aula: "—" },
+  { hora: "16:30 - 18:30", dia: "lunes", subject: "Deep Learning", curso: "3º", aula: "A.04 Bis" },
+];
+
+/* Sin horario de aula: prácticas en empresa / tutorías con el tutor. */
+const SIN_HORARIO_FIJO = {
+  C1: [{ subject: "Prácticas Externas", curso: "4º", nota: "Horario acordado con la empresa" }],
+  C2: [{ subject: "TFG", curso: "4º", nota: "Tutorías con tu tutor/a" }],
+};
+
+/* Prácticas de laboratorio: van por subgrupo (1 o 2), que aún no sabes cuál te
+   toca — se confirma en el Aula Virtual o el Campus antes de empezar el curso.
+   Sacado de las filas de horario entre teorías, cruzando los dos horarios
+   propuestos por asignatura. */
+const PRACTICAS_C1 = [
+  { subject: "Fund. Computadores", sub1: "Martes 12:00 - 13:00 (Lab 1.7)", sub2: "Miércoles 12:20 - 14:20 (Lab 2.1)" },
+  { subject: "Infraest. Comp. Altas Prest.", sub1: "Martes 18:30 - 20:30 (Lab 1.0)", sub2: "Jueves 16:30 - 18:30 (Lab 2.8)" },
+  { subject: "Empresa y Emprendimiento", sub1: "Lunes 17:00 - 18:00", sub2: "Martes 19:00 - 20:00" },
+  { subject: "Ciberseguridad", sub1: "Miércoles 17:00 - 18:00", sub2: "Lunes 17:00 - 18:00" },
+  { subject: "Gestión de Proyectos", sub1: "Martes 19:00 - 20:00", sub2: "Miércoles 17:00 - 18:00" },
+];
+
+const PRACTICAS_C2 = [
+  { subject: "Deep Learning", sub1: "Lunes 18:30 - 19:30 (Lab 1.0)", sub2: "Miércoles 18:30 - 19:30 (Lab 2.6)" },
 ];
 
 /* Convocatoria I (calendario de exámenes GCID 2026/27) */
@@ -363,38 +385,84 @@ function Universidad() {
       "Prácticas Externas": "bg-teal-500/15 text-teal-300",
     }[s] || "bg-slate-700 text-slate-300");
 
-  const HorarioCuatrimestre = ({ titulo, clases }) => (
-    <Card className="overflow-x-auto p-0">
-      <div className="flex items-center gap-2 px-5 pt-4 text-slate-100">
-        <Table2 size={18} className="text-indigo-400" />
-        <h2 className="text-lg font-semibold">{titulo}</h2>
-      </div>
-      <table className="mt-3 w-full text-left text-sm">
-        <thead>
-          <tr className="border-b border-slate-800 text-slate-400">
-            <th className="px-5 py-3 font-medium">Día</th>
-            <th className="px-5 py-3 font-medium">Hora</th>
-            <th className="px-5 py-3 font-medium">Asignatura</th>
-            <th className="px-5 py-3 font-medium">Curso</th>
-            <th className="px-5 py-3 font-medium">Aula</th>
-          </tr>
-        </thead>
-        <tbody>
-          {clases.map((c, i) => (
-            <tr key={i} className="border-b border-slate-800/60">
-              <td className="px-5 py-3 font-medium text-slate-400">{c.dia}</td>
-              <td className="px-5 py-3 text-slate-300">{c.hora}</td>
-              <td className="px-5 py-3">
-                <span className={`inline-block rounded-lg px-2.5 py-1 text-xs font-medium ${subjectColor(c.subject)}`}>
-                  {c.subject}
-                </span>
-              </td>
-              <td className="px-5 py-3 text-slate-400">{c.curso}</td>
-              <td className="px-5 py-3 text-slate-400">{c.aula}</td>
+  const DIAS = [
+    { key: "lunes", label: "Lunes" },
+    { key: "martes", label: "Martes" },
+    { key: "miercoles", label: "Miércoles" },
+    { key: "jueves", label: "Jueves" },
+  ];
+
+  const HorarioCuatrimestre = ({ titulo, clases, sinHorario }) => {
+    const filas = [...clases].sort((a, b) => a.hora.localeCompare(b.hora));
+    return (
+      <Card className="overflow-x-auto p-0">
+        <div className="flex items-center gap-2 px-5 pt-4 text-slate-100">
+          <Table2 size={18} className="text-indigo-400" />
+          <h2 className="text-lg font-semibold">{titulo}</h2>
+        </div>
+        <table className="mt-3 w-full text-left text-sm">
+          <thead>
+            <tr className="border-b border-slate-800 text-slate-400">
+              <th className="px-5 py-3 font-medium">Hora</th>
+              {DIAS.map((d) => (
+                <th key={d.key} className="px-5 py-3 font-medium">{d.label}</th>
+              ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {filas.map((c, i) => (
+              <tr key={i} className="border-b border-slate-800/60">
+                <td className="px-5 py-3 font-medium text-slate-400">{c.hora}</td>
+                {DIAS.map((d) => (
+                  <td key={d.key} className="px-5 py-3">
+                    {c.dia === d.key ? (
+                      <span className={`inline-block rounded-lg px-2.5 py-1 text-xs font-medium ${subjectColor(c.subject)}`}>
+                        {c.subject} <span className="opacity-70">· {c.curso}</span>
+                      </span>
+                    ) : (
+                      <span className="text-slate-700">—</span>
+                    )}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {sinHorario?.length > 0 && (
+          <div className="border-t border-slate-800 px-5 py-3 text-xs text-slate-500">
+            {sinHorario.map((s, i) => (
+              <div key={i} className="flex items-center gap-2 py-0.5">
+                <span className={`rounded-md px-2 py-0.5 font-medium ${subjectColor(s.subject)}`}>{s.subject}</span>
+                <span>· {s.nota} (sin franja fija en el horario de aula)</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+    );
+  };
+
+  const PracticasCuatrimestre = ({ titulo, filas }) => (
+    <Card>
+      <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-slate-100">
+        <Table2 size={16} className="text-emerald-400" /> {titulo}
+      </h2>
+      <p className="mb-3 text-xs text-slate-500">
+        Van por subgrupo (1 o 2); confirma cuál te toca en el Aula Virtual o el Campus antes de que
+        empiece el curso.
+      </p>
+      <ul className="space-y-2">
+        {filas.map((p, i) => (
+          <li key={i} className="rounded-xl border border-slate-800 bg-slate-800/40 px-4 py-2.5 text-sm">
+            <span className={`mr-2 rounded-md px-2 py-0.5 text-xs font-medium ${subjectColor(p.subject)}`}>
+              {p.subject}
+            </span>
+            <div className="mt-1.5 text-xs text-slate-400">
+              Subgrupo 1: {p.sub1} · Subgrupo 2: {p.sub2}
+            </div>
+          </li>
+        ))}
+      </ul>
     </Card>
   );
 
@@ -406,10 +474,24 @@ function Universidad() {
         subtitle="Grado en Ciencia e Ingeniería de Datos · Curso 2026/2027"
       />
 
-      {/* Horarios por cuatrimestre */}
+      {/* Horarios por cuatrimestre (teoría) */}
       <div className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <HorarioCuatrimestre titulo="Horario · 1er Cuatrimestre" clases={SCHEDULE_C1} />
-        <HorarioCuatrimestre titulo="Horario · 2º Cuatrimestre" clases={SCHEDULE_C2} />
+        <HorarioCuatrimestre
+          titulo="Horario · 1er Cuatrimestre"
+          clases={SCHEDULE_C1}
+          sinHorario={SIN_HORARIO_FIJO.C1}
+        />
+        <HorarioCuatrimestre
+          titulo="Horario · 2º Cuatrimestre"
+          clases={SCHEDULE_C2}
+          sinHorario={SIN_HORARIO_FIJO.C2}
+        />
+      </div>
+
+      {/* Prácticas de laboratorio por subgrupo */}
+      <div className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <PracticasCuatrimestre titulo="Prácticas · 1er Cuatrimestre" filas={PRACTICAS_C1} />
+        <PracticasCuatrimestre titulo="Prácticas · 2º Cuatrimestre" filas={PRACTICAS_C2} />
       </div>
 
       {/* Exámenes */}
