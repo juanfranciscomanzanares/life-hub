@@ -12,6 +12,9 @@ import {
   fechasEntrenadas,
   nuevoId,
   grupoDe,
+  catalogo,
+  descripcionDe,
+  esPersonalizado,
 } from "./gym";
 
 // Fila del formato ANTIGUO: series era un número y las cuatro eran idénticas.
@@ -171,5 +174,61 @@ describe("utilidades", () => {
     expect(grupoDe("Sentadilla")).toBe("Piernas");
     expect(grupoDe("Press banca")).toBe("Pecho");
     expect(grupoDe("Ejercicio inventado")).toBe("Otro");
+  });
+});
+
+describe("ejercicios propios", () => {
+  const mios = [
+    { id: 1, nombre: "Press en multipower", grupo: "Pecho", descripcion: "Banco a 30 grados" },
+    { id: 2, nombre: "Movilidad de cadera", grupo: "Otro", descripcion: "" },
+  ];
+
+  it("sin ejercicios propios, el catálogo es el de serie", () => {
+    const c = catalogo();
+    expect(c.Pecho).toContain("Press banca");
+    // "Otro" solo aparece si tienes ejercicios propios que no encajan.
+    expect(c).not.toHaveProperty("Otro");
+  });
+
+  it("mete los tuyos en su grupo, junto a los de serie", () => {
+    const c = catalogo(mios);
+    expect(c.Pecho).toContain("Press banca"); // sigue estando el de serie
+    expect(c.Pecho).toContain("Press en multipower"); // y el tuyo
+    expect(c.Otro).toEqual(["Movilidad de cadera"]);
+  });
+
+  it("un grupo inventado cae en Otro", () => {
+    const c = catalogo([{ id: 3, nombre: "Cosa rara", grupo: "Grupo que no existe" }]);
+    expect(c.Otro).toContain("Cosa rara");
+  });
+
+  it("no duplica si repites el nombre de uno de serie", () => {
+    const c = catalogo([{ id: 4, nombre: "Sentadilla", grupo: "Piernas" }]);
+    expect(c.Piernas.filter((n) => n === "Sentadilla")).toHaveLength(1);
+  });
+
+  it("ignora los que no tienen nombre", () => {
+    const c = catalogo([{ id: 5, grupo: "Pecho" }, null].filter(Boolean));
+    expect(c.Pecho).toEqual(catalogo().Pecho);
+  });
+
+  it("grupoDe y descripcionDe reconocen los tuyos", () => {
+    expect(grupoDe("Press en multipower", mios)).toBe("Pecho");
+    expect(descripcionDe("Press en multipower", mios)).toBe("Banco a 30 grados");
+    expect(esPersonalizado("Press en multipower", mios)).toBe(true);
+    expect(esPersonalizado("Press banca", mios)).toBe(false);
+  });
+
+  it("los de serie no tienen descripción", () => {
+    expect(descripcionDe("Press banca", mios)).toBe("");
+  });
+
+  it("borrar un ejercicio propio no afecta al histórico ya registrado", () => {
+    // El histórico guarda el NOMBRE, no una referencia, justamente para esto.
+    const filas = [{ fecha: "2026-07-01", ejercicio: "Press en multipower", sets: [{ peso: 60, reps: 8 }] }];
+    expect(evolucion(filas, "Press en multipower")).toHaveLength(1);
+    expect(recordsPorEjercicio(filas)[0][0]).toBe("Press en multipower");
+    // Y su grupo pasa a "Otro" al no encontrarlo, sin romper nada.
+    expect(grupoDe("Press en multipower", [])).toBe("Otro");
   });
 });

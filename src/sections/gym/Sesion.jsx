@@ -1,11 +1,12 @@
 import { useState, useMemo } from "react";
 import { Plus, Trash2, Copy, Dumbbell } from "lucide-react";
+import { usePersisted } from "../../lib/store";
 import { removeWithUndo } from "../../lib/toast";
 import { Card } from "../../lib/ui";
 import {
-  EJERCICIOS,
-  GRUPOS,
+  catalogo,
   grupoDe,
+  descripcionDe,
   nuevoId,
   nuevaSerie,
   setsDe,
@@ -18,8 +19,14 @@ import {
   Cada serie tiene SU peso y SUS repeticiones, que es lo que faltaba antes.
 */
 export default function Sesion({ fecha, setFecha, filas, setFilas }) {
+  const [propios] = usePersisted("lh_gym_ejercicios", []);
   const [anadiendo, setAnadiendo] = useState(false);
-  const [grupoAbierto, setGrupoAbierto] = useState(GRUPOS[0]);
+
+  // Catálogo de serie + los tuyos, en una sola lista.
+  const porGrupo = useMemo(() => catalogo(propios), [propios]);
+  const grupos = useMemo(() => Object.keys(porGrupo), [porGrupo]);
+  const [grupoAbierto, setGrupoAbierto] = useState(grupos[0]);
+  const grupoActivo = porGrupo[grupoAbierto] ? grupoAbierto : grupos[0];
 
   const delDia = useMemo(
     () => filas.filter((f) => f.fecha === fecha).map((f) => ({ ...f, sets: setsDe(f) })),
@@ -115,11 +122,16 @@ export default function Sesion({ fecha, setFecha, filas, setFilas }) {
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-semibold text-slate-100">{fila.ejercicio}</p>
                   <p className="text-xs text-slate-500">
-                    {grupoDe(fila.ejercicio)} · {fila.sets.length}{" "}
+                    {grupoDe(fila.ejercicio, propios)} · {fila.sets.length}{" "}
                     {fila.sets.length === 1 ? "serie" : "series"} ·{" "}
                     {volumen(fila.sets).toLocaleString("es-ES")} kg
                     {mejor && mejor.peso > 0 && ` · mejor ${mejor.peso}kg x${mejor.reps}`}
                   </p>
+                  {descripcionDe(fila.ejercicio, propios) && (
+                    <p className="mt-1 whitespace-pre-wrap text-xs text-slate-400">
+                      {descripcionDe(fila.ejercicio, propios)}
+                    </p>
+                  )}
                 </div>
                 <button
                   onClick={() => removeWithUndo(filas, setFilas, fila.id, "Ejercicio")}
@@ -217,12 +229,12 @@ export default function Sesion({ fecha, setFecha, filas, setFilas }) {
       {anadiendo ? (
         <Card>
           <div className="mb-3 flex flex-wrap gap-1.5">
-            {GRUPOS.map((g) => (
+            {grupos.map((g) => (
               <button
                 key={g}
                 onClick={() => setGrupoAbierto(g)}
                 className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-                  grupoAbierto === g
+                  grupoActivo === g
                     ? "bg-indigo-500 text-white"
                     : "border border-slate-700 bg-slate-800 text-slate-300 hover:border-indigo-500"
                 }`}
@@ -232,15 +244,19 @@ export default function Sesion({ fecha, setFecha, filas, setFilas }) {
             ))}
           </div>
           <div className="flex flex-wrap gap-1.5">
-            {EJERCICIOS[grupoAbierto].map((nombre) => (
-              <button
-                key={nombre}
-                onClick={() => anadirEjercicio(nombre)}
-                className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs text-slate-300 transition hover:border-indigo-500"
-              >
-                + {nombre}
-              </button>
-            ))}
+            {(porGrupo[grupoActivo] ?? []).map((nombre) => {
+              const desc = descripcionDe(nombre, propios);
+              return (
+                <button
+                  key={nombre}
+                  onClick={() => anadirEjercicio(nombre)}
+                  title={desc || undefined}
+                  className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs text-slate-300 transition hover:border-indigo-500"
+                >
+                  + {nombre}
+                </button>
+              );
+            })}
           </div>
           <button
             onClick={() => setAnadiendo(false)}

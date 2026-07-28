@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Dumbbell, CalendarDays, ListChecks, TrendingUp } from "lucide-react";
+import { Dumbbell, CalendarDays, ListChecks, TrendingUp, BookOpen } from "lucide-react";
 import { usePersisted } from "../lib/store";
 import { SectionTitle, todayISO } from "../lib/ui";
 import { nuevoId, nuevaSerie, setsDe } from "../lib/gym";
 import Sesion from "./gym/Sesion.jsx";
 import Rutinas from "./gym/Rutinas.jsx";
 import Progreso from "./gym/Progreso.jsx";
+import Ejercicios from "./gym/Ejercicios.jsx";
 
 /*
   Gimnasio en tres pestañas:
@@ -24,6 +25,7 @@ import Progreso from "./gym/Progreso.jsx";
 const PESTANAS = [
   { id: "sesion", nombre: "Sesión", icono: CalendarDays },
   { id: "rutinas", nombre: "Rutinas", icono: ListChecks },
+  { id: "ejercicios", nombre: "Ejercicios", icono: BookOpen },
   { id: "progreso", nombre: "Progreso", icono: TrendingUp },
 ];
 
@@ -102,6 +104,7 @@ export default function Gimnasio() {
         <Sesion fecha={fecha} setFecha={setFecha} filas={filas} setFilas={setFilas} />
       )}
       {pestana === "rutinas" && <Rutinas onEmpezar={empezarRutina} />}
+      {pestana === "ejercicios" && <Ejercicios />}
       {pestana === "progreso" && <Progreso filas={filas} onVerDia={verDia} />}
     </div>
   );

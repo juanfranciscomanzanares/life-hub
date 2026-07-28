@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Plus, Trash2, Play, ListChecks, ChevronDown, ChevronRight } from "lucide-react";
 import { usePersisted } from "../../lib/store";
 import { removeWithUndo } from "../../lib/toast";
 import { Card } from "../../lib/ui";
-import { EJERCICIOS, GRUPOS, grupoDe, nuevoId } from "../../lib/gym";
+import { catalogo, grupoDe, descripcionDe, nuevoId } from "../../lib/gym";
 
 /*
   Rutinas propias: le pones nombre y eliges los ejercicios, con series y
@@ -12,9 +12,15 @@ import { EJERCICIOS, GRUPOS, grupoDe, nuevoId } from "../../lib/gym";
 */
 export default function Rutinas({ onEmpezar }) {
   const [rutinas, setRutinas] = usePersisted("lh_gym_rutinas", []);
+  const [propios] = usePersisted("lh_gym_ejercicios", []);
   const [editando, setEditando] = useState(null); // id de la rutina abierta
   const [nombreNueva, setNombreNueva] = useState("");
-  const [grupoAbierto, setGrupoAbierto] = useState(GRUPOS[0]);
+
+  // Catálogo de serie + los tuyos, en una sola lista.
+  const porGrupo = useMemo(() => catalogo(propios), [propios]);
+  const grupos = useMemo(() => Object.keys(porGrupo), [porGrupo]);
+  const [grupoAbierto, setGrupoAbierto] = useState(grupos[0]);
+  const grupoActivo = porGrupo[grupoAbierto] ? grupoAbierto : grupos[0];
 
   const crear = () => {
     const nombre = nombreNueva.trim();
@@ -33,7 +39,7 @@ export default function Rutinas({ onEmpezar }) {
     actualizar(rutina.id, {
       ejercicios: [
         ...rutina.ejercicios,
-        { id: nuevoId(), nombre, grupo: grupoDe(nombre), series: 4, reps: 10 },
+        { id: nuevoId(), nombre, grupo: grupoDe(nombre, propios), series: 4, reps: 10 },
       ],
     });
   };
@@ -123,7 +129,11 @@ export default function Rutinas({ onEmpezar }) {
                           <div key={ej.id} className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-800/60 px-3 py-2">
                             <div className="min-w-0 flex-1">
                               <p className="truncate text-sm font-medium text-slate-100">{ej.nombre}</p>
-                              <p className="text-xs text-slate-500">{ej.grupo}</p>
+                              <p className="text-xs text-slate-500">
+                                {ej.grupo}
+                                {descripcionDe(ej.nombre, propios) &&
+                                  ` · ${descripcionDe(ej.nombre, propios)}`}
+                              </p>
                             </div>
                             <label className="text-xs text-slate-400">
                               <span className="sr-only">Series objetivo de {ej.nombre}</span>
@@ -165,12 +175,12 @@ export default function Rutinas({ onEmpezar }) {
                       <ListChecks size={16} /> Añadir ejercicios
                     </p>
                     <div className="mb-3 flex flex-wrap gap-1.5">
-                      {GRUPOS.map((g) => (
+                      {grupos.map((g) => (
                         <button
                           key={g}
                           onClick={() => setGrupoAbierto(g)}
                           className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-                            grupoAbierto === g
+                            grupoActivo === g
                               ? "bg-indigo-500 text-white"
                               : "border border-slate-700 bg-slate-800 text-slate-300 hover:border-indigo-500"
                           }`}
@@ -180,13 +190,15 @@ export default function Rutinas({ onEmpezar }) {
                       ))}
                     </div>
                     <div className="flex flex-wrap gap-1.5">
-                      {EJERCICIOS[grupoAbierto].map((nombre) => {
+                      {(porGrupo[grupoActivo] ?? []).map((nombre) => {
                         const puesto = rutina.ejercicios.some((e) => e.nombre === nombre);
+                        const desc = descripcionDe(nombre, propios);
                         return (
                           <button
                             key={nombre}
                             onClick={() => anadirEjercicio(rutina, nombre)}
                             disabled={puesto}
+                            title={desc || undefined}
                             className={`rounded-lg border px-3 py-1.5 text-xs transition ${
                               puesto
                                 ? "border-emerald-800 bg-emerald-500/10 text-emerald-300"

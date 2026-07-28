@@ -29,10 +29,55 @@ export const EJERCICIOS = {
   Cardio: ["Cinta (correr)", "Bicicleta estática", "Elíptica", "Remo (máquina)", "Salto a la comba", "Escaladora", "HIIT"],
 };
 
-export const GRUPOS = Object.keys(EJERCICIOS);
+export const GRUPOS_BASE = Object.keys(EJERCICIOS);
 
-export function grupoDe(nombre) {
-  return GRUPOS.find((g) => EJERCICIOS[g].includes(nombre)) || "Otro";
+// "Otro" existe para los ejercicios que te inventes y no encajen en un grupo.
+export const GRUPOS = [...GRUPOS_BASE, "Otro"];
+
+/*
+  Ejercicios propios.
+
+  Se guardan en la clave `lh_gym_ejercicios` con la forma:
+    { id, nombre, grupo, descripcion }
+
+  y se fusionan con el catálogo predeterminado en todos los sitios donde eliges
+  un ejercicio, para que no haya dos listas separadas. Si uno propio se llama
+  igual que uno de serie, no se duplica: manda el tuyo, porque su descripción
+  es la que has escrito tú.
+*/
+export function catalogo(personalizados = []) {
+  const mapa = {};
+  GRUPOS.forEach((g) => {
+    mapa[g] = [...(EJERCICIOS[g] || [])];
+  });
+
+  personalizados.forEach((e) => {
+    if (!e?.nombre) return;
+    const grupo = mapa[e.grupo] ? e.grupo : "Otro";
+    if (!mapa[grupo].includes(e.nombre)) mapa[grupo].push(e.nombre);
+  });
+
+  // Los grupos vacíos no se enseñan: sin ejercicios propios, "Otro" sobra.
+  Object.keys(mapa).forEach((g) => {
+    if (mapa[g].length === 0) delete mapa[g];
+  });
+  return mapa;
+}
+
+export function grupoDe(nombre, personalizados = []) {
+  const propio = personalizados.find((e) => e.nombre === nombre);
+  if (propio) return mapaTieneGrupo(propio.grupo) ? propio.grupo : "Otro";
+  return GRUPOS_BASE.find((g) => EJERCICIOS[g].includes(nombre)) || "Otro";
+}
+
+const mapaTieneGrupo = (g) => GRUPOS.includes(g);
+
+export function descripcionDe(nombre, personalizados = []) {
+  return personalizados.find((e) => e.nombre === nombre)?.descripcion || "";
+}
+
+export function esPersonalizado(nombre, personalizados = []) {
+  return personalizados.some((e) => e.nombre === nombre);
 }
 
 const num = (v) => Number(v) || 0;
