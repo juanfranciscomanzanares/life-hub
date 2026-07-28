@@ -9,6 +9,11 @@ import { supabase, cloudEnabled } from "./supabase";
     dispositivos.
   - Resolución de conflictos por marca de tiempo: si editas en dos sitios, gana
     la versión más reciente (updated_at).
+
+  Cada clave guarda TODO su contenido en un único JSON, así que escribir es caro:
+  añadir una fila al gimnasio reescribe el array entero. Por eso las escrituras
+  van agrupadas (debounce) y las lecturas y suscripciones se comparten entre
+  componentes.
 */
 
 const metaKey = (key) => "lh_meta:" + key;
@@ -27,8 +32,18 @@ function loadLocal(key, initial) {
 function saveLocal(key, value) {
   try {
     window.localStorage.setItem(key, JSON.stringify(value));
+    return true;
   } catch {
-    /* almacenamiento no disponible */
+    /*
+      Se llenó localStorage (el tope ronda los 5 MB) o el navegador lo bloquea.
+      Antes esto se tragaba en silencio y el usuario creía estar guardando. Al
+      menos dejamos rastro; en la nube sí se sigue guardando.
+    */
+    console.warn(
+      `No se pudo guardar "${key}" en el navegador (¿almacenamiento lleno?). ` +
+        "Con la nube activada tus datos siguen a salvo."
+    );
+    return false;
   }
 }
 
@@ -45,15 +60,90 @@ async function loadCloud(key) {
   return data || undefined;
 }
 
+/*
+  Lecturas compartidas.
+
+  Claves como lh_work_log se usan desde 10 componentes, y cada uno lanzaba su
+  propia consulta idéntica al arrancar: ~80 consultas en vez de 27. Aquí se
+  reutiliza la petición que ya esté en vuelo para esa clave.
+*/
+const lecturasEnCurso = new Map();
+
+export function loadCloudCompartido(key) {
+  const enCurso = lecturasEnCurso.get(key);
+  if (enCurso) return enCurso;
+
+  const promesa = loadCloud(key);
+  lecturasEnCurso.set(key, promesa);
+  // then(ok, ko) en vez de finally: así una lectura fallida no genera además
+  // un rechazo sin gestionar por esta rama.
+  const limpiar = () => {
+    if (lecturasEnCurso.get(key) === promesa) lecturasEnCurso.delete(key);
+  };
+  promesa.then(limpiar, limpiar);
+  return promesa;
+}
+
 async function saveCloud(key, value, ts) {
+  /*
+    getSession() en lugar de getUser(): getUser() consulta al servidor de auth,
+    así que cada guardado eran DOS viajes de red. getSession() lee la sesión ya
+    guardada en el dispositivo.
+  */
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession();
+  const user = session?.user;
   if (!user) return;
   const { error } = await supabase
     .from("app_state")
     .upsert({ key, value, user_id: user.id, updated_at: ts });
   if (error) console.warn("Supabase save error:", error.message);
+}
+
+/*
+  Escrituras agrupadas.
+
+  Sin esto, escribir una nota de 20 caracteres subía el blob completo 20 veces.
+  El agrupado es POR CLAVE (no por componente), así que si dos componentes usan
+  la misma clave sus cambios se funden en una sola subida.
+*/
+export const RETARDO_GUARDADO = 600;
+const guardadosPendientes = new Map();
+
+export function guardarEnNubeConRetraso(key, valor, ts) {
+  const previo = guardadosPendientes.get(key);
+  if (previo) clearTimeout(previo.temporizador);
+
+  const temporizador = setTimeout(() => {
+    const pendiente = guardadosPendientes.get(key);
+    guardadosPendientes.delete(key);
+    if (pendiente) saveCloud(key, pendiente.valor, pendiente.ts);
+  }, RETARDO_GUARDADO);
+
+  guardadosPendientes.set(key, { valor, ts, temporizador });
+}
+
+// Sube ya lo que esté esperando. Se llama al cerrar u ocultar la pestaña.
+export function vaciarGuardadosPendientes() {
+  for (const [key, pendiente] of guardadosPendientes) {
+    clearTimeout(pendiente.temporizador);
+    saveCloud(key, pendiente.valor, pendiente.ts);
+  }
+  guardadosPendientes.clear();
+}
+
+/*
+  En el móvil el sistema congela o mata la pestaña sin avisar, así que hay que
+  vaciar al ocultarse. Aunque se pierda el envío, no se pierde el dato: queda en
+  localStorage con su marca de tiempo y al volver a abrir la app se detecta que
+  lo local es más nuevo y se sube.
+*/
+if (typeof window !== "undefined") {
+  window.addEventListener("pagehide", vaciarGuardadosPendientes);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") vaciarGuardadosPendientes();
+  });
 }
 
 /*
@@ -118,24 +208,27 @@ export function usePersisted(key, initial) {
     }
 
     // Al cargar: comparar marcas de tiempo y quedarse con la más reciente
-    loadCloud(key).then((remote) => {
-      if (!active) return;
-      const localTs = getTs(key);
-      if (remote && (!localTs || remote.updated_at > localTs)) {
-        serialized.current = JSON.stringify(remote.value);
-        setTs(key, remote.updated_at);
-        setValue(remote.value);
-      } else if (localTs && (!remote || localTs > remote.updated_at)) {
-        // Lo local es más nuevo: lo subimos
-        saveCloud(key, JSON.parse(serialized.current), localTs);
-      }
-      hydrated.current = true;
-    }).catch((e) => {
-      // Sin conexión seguimos con lo que haya en localStorage; lo importante es
-      // marcar hydrated para que los cambios posteriores sí intenten subirse.
-      console.warn("No se pudo cargar de la nube:", key, e?.message || e);
-      if (active) hydrated.current = true;
-    });
+    loadCloudCompartido(key)
+      .then((remote) => {
+        if (!active) return;
+        const localTs = getTs(key);
+        if (remote && (!localTs || remote.updated_at > localTs)) {
+          serialized.current = JSON.stringify(remote.value);
+          setTs(key, remote.updated_at);
+          setValue(remote.value);
+        } else if (localTs && (!remote || localTs > remote.updated_at)) {
+          // Lo local es más nuevo: lo subimos (agrupado, para que los demás
+          // componentes de esta misma clave no repitan el mismo upsert).
+          guardarEnNubeConRetraso(key, JSON.parse(serialized.current), localTs);
+        }
+        hydrated.current = true;
+      })
+      .catch((e) => {
+        // Sin conexión seguimos con lo que haya en localStorage; lo importante es
+        // marcar hydrated para que los cambios posteriores sí intenten subirse.
+        console.warn("No se pudo cargar de la nube:", key, e?.message || e);
+        if (active) hydrated.current = true;
+      });
 
     const desuscribir = suscribirClave(key, (payload) => {
       const row = payload.new;
@@ -155,13 +248,15 @@ export function usePersisted(key, initial) {
   }, [key]);
 
   useEffect(() => {
+    // Local va siempre inmediato: es síncrono y es la red de seguridad si se
+    // cierra la pestaña antes de que salga la subida.
     saveLocal(key, value);
     const s = JSON.stringify(value);
     if (s !== serialized.current) {
       const ts = new Date().toISOString();
       serialized.current = s;
       setTs(key, ts);
-      if (cloudEnabled && hydrated.current) saveCloud(key, value, ts);
+      if (cloudEnabled && hydrated.current) guardarEnNubeConRetraso(key, value, ts);
     }
   }, [key, value]);
 
