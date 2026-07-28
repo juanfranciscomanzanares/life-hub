@@ -203,6 +203,28 @@ describe("enlaces de las federaciones", () => {
     expect(temporadasConRanking(enlaces)).toEqual(["2025-2026", "2024-2025"]);
   });
 
+  it("no confunde los rankings de opens con los de ligas regionales", () => {
+    /*
+      En la misma página conviven dos columnas:
+      - "RANKING JUGADORES LIGAS": ligas REGIONALES murcianas, que no interesan
+        porque la liga que se juega es la nacional de la RFETM. Se llaman
+        "22 Ranking 9 mayo 2026", sin la palabra "tras".
+      - "RANKING INDIVIDUAL TRAS PRUEBA": los opens y campeonatos autonómicos.
+
+      Y ojo con "Ranking FINAL tras TOP 8": con un filtro de "Ranking tras"
+      literal se quedaba fuera, y es el ranking final de la temporada.
+    */
+    const html = `<h3>TEMPORADA 2025-2026</h3>
+      <a href="https://drive.google.com/file/d/L1/view">22 Ranking 9 mayo 2026</a>
+      <a href="https://drive.google.com/file/d/L2/view">16 Ranking 7 marzo 2026</a>
+      <a href="https://drive.google.com/file/d/P1/view">Ranking Final tras TOP 8 Autonómico</a>
+      <a href="https://drive.google.com/file/d/P2/view">Ranking tras I OPEN 2025 26</a>`;
+
+    const nombres = extraerEnlacesRanking(html).map((e) => e.nombre);
+    expect(nombres).toEqual(["Ranking Final tras TOP 8 Autonómico", "Ranking tras I OPEN 2025 26"]);
+    expect(nombres.some((n) => /^\d+\s+Ranking/.test(n))).toBe(false);
+  });
+
   it("unifica cómo se escribe la temporada en cada fuente", () => {
     // El acta pone "2025/2026" y la URL de la RFETM "2025-2026".
     expect(normalizarTemporada("2025/2026")).toBe("2025-2026");

@@ -316,7 +316,19 @@ export function extraerEnlacesActa(html) {
 }
 
 /*
-  Enlaces "Ranking tras ..." de la página de la federación murciana.
+  Enlaces de los rankings de PRUEBAS (opens) de la federación murciana.
+
+  Cuidado con no mezclar dos cosas que conviven en la misma página:
+
+  - "RANKING JUGADORES LIGAS": las ligas REGIONALES murcianas. No interesan,
+    porque la liga que se juega es la nacional de la RFETM. Se llaman
+    "22 Ranking 9 mayo 2026", sin la palabra "tras".
+  - "RANKING INDIVIDUAL TRAS PRUEBA": los opens y campeonatos autonómicos, que
+    es lo que sí queremos. Todos llevan "tras".
+
+  Por eso el filtro es "Ranking ... tras" y no "Ranking tras" a secas: hay uno
+  que se llama "Ranking FINAL tras TOP 8 Autonómico" y con la versión estricta
+  se quedaba fuera, que además es el ranking final de la temporada.
 
   Van agrupados bajo cabeceras "TEMPORADA 2025-2026", así que se recorre el HTML
   en orden y cada enlace hereda la última cabecera vista. Sin esto no habría
@@ -325,7 +337,7 @@ export function extraerEnlacesActa(html) {
 */
 export function extraerEnlacesRanking(html) {
   const re =
-    /TEMPORADA\s*(\d{4})\s*[-/]\s*(\d{2,4})|<a[^>]*href="https:\/\/drive\.google\.com\/file\/d\/([^/]+)\/[^"]*"[^>]*>([^<]*Ranking tras[^<]*)<\/a>/gi;
+    /TEMPORADA\s*(\d{4})\s*[-/]\s*(\d{2,4})|<a[^>]*href="https:\/\/drive\.google\.com\/file\/d\/([^/]+)\/[^"]*"[^>]*>([^<]*Ranking[^<]*tras[^<]*)<\/a>/gi;
 
   const enlaces = [];
   let temporada = "";
