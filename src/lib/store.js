@@ -20,6 +20,20 @@ const metaKey = (key) => "lh_meta:" + key;
 const getTs = (key) => localStorage.getItem(metaKey(key)) || "";
 const setTs = (key, ts) => localStorage.setItem(metaKey(key), ts);
 
+/*
+  Marca de "cambiado y aún sin confirmar en el servidor".
+
+  La marca de tiempo la pone ahora Postgres, pero mientras estás sin conexión no
+  hay ninguna: solo tenemos una provisional del reloj del dispositivo. Si ese
+  reloj va atrasado, la comparación por fecha decidiría que lo remoto es más
+  nuevo y tus cambios locales se perderían al reconectar. Con esta marca, un
+  cambio local pendiente se sube siempre, sin depender de relojes.
+*/
+const pendienteKey = (key) => "lh_pend:" + key;
+const hayPendiente = (key) => localStorage.getItem(pendienteKey(key)) === "1";
+const marcarPendiente = (key) => localStorage.setItem(pendienteKey(key), "1");
+const limpiarPendiente = (key) => localStorage.removeItem(pendienteKey(key));
+
 function loadLocal(key, initial) {
   try {
     const raw = window.localStorage.getItem(key);
@@ -84,7 +98,7 @@ export function loadCloudCompartido(key) {
   return promesa;
 }
 
-async function saveCloud(key, value, ts) {
+async function saveCloud(key, value) {
   /*
     getSession() en lugar de getUser(): getUser() consulta al servidor de auth,
     así que cada guardado eran DOS viajes de red. getSession() lee la sesión ya
@@ -95,10 +109,24 @@ async function saveCloud(key, value, ts) {
   } = await supabase.auth.getSession();
   const user = session?.user;
   if (!user) return;
-  const { error } = await supabase
+
+  /*
+    No mandamos updated_at: lo pone un trigger de Postgres y nos lo devolvemos
+    con select(), para guardar en local la hora AUTORITATIVA del servidor. Así
+    la comparación entre dispositivos no depende de que sus relojes coincidan.
+  */
+  const { data, error } = await supabase
     .from("app_state")
-    .upsert({ key, value, user_id: user.id, updated_at: ts });
-  if (error) console.warn("Supabase save error:", error.message);
+    .upsert({ key, value, user_id: user.id })
+    .select("updated_at")
+    .single();
+
+  if (error) {
+    console.warn("Supabase save error:", error.message);
+    return; // sigue pendiente: se reintentará al volver a abrir la app
+  }
+  if (data?.updated_at) setTs(key, data.updated_at);
+  limpiarPendiente(key);
 }
 
 /*
@@ -111,24 +139,24 @@ async function saveCloud(key, value, ts) {
 export const RETARDO_GUARDADO = 600;
 const guardadosPendientes = new Map();
 
-export function guardarEnNubeConRetraso(key, valor, ts) {
+export function guardarEnNubeConRetraso(key, valor) {
   const previo = guardadosPendientes.get(key);
   if (previo) clearTimeout(previo.temporizador);
 
   const temporizador = setTimeout(() => {
     const pendiente = guardadosPendientes.get(key);
     guardadosPendientes.delete(key);
-    if (pendiente) saveCloud(key, pendiente.valor, pendiente.ts);
+    if (pendiente) saveCloud(key, pendiente.valor);
   }, RETARDO_GUARDADO);
 
-  guardadosPendientes.set(key, { valor, ts, temporizador });
+  guardadosPendientes.set(key, { valor, temporizador });
 }
 
 // Sube ya lo que esté esperando. Se llama al cerrar u ocultar la pestaña.
 export function vaciarGuardadosPendientes() {
   for (const [key, pendiente] of guardadosPendientes) {
     clearTimeout(pendiente.temporizador);
-    saveCloud(key, pendiente.valor, pendiente.ts);
+    saveCloud(key, pendiente.valor);
   }
   guardadosPendientes.clear();
 }
@@ -136,8 +164,7 @@ export function vaciarGuardadosPendientes() {
 /*
   En el móvil el sistema congela o mata la pestaña sin avisar, así que hay que
   vaciar al ocultarse. Aunque se pierda el envío, no se pierde el dato: queda en
-  localStorage con su marca de tiempo y al volver a abrir la app se detecta que
-  lo local es más nuevo y se sube.
+  localStorage marcado como pendiente y se sube al volver a abrir la app.
 */
 if (typeof window !== "undefined") {
   window.addEventListener("pagehide", vaciarGuardadosPendientes);
@@ -207,19 +234,23 @@ export function usePersisted(key, initial) {
       return;
     }
 
-    // Al cargar: comparar marcas de tiempo y quedarse con la más reciente
+    // Al cargar: decidir entre lo local y lo remoto.
     loadCloudCompartido(key)
       .then((remote) => {
         if (!active) return;
         const localTs = getTs(key);
-        if (remote && (!localTs || remote.updated_at > localTs)) {
+
+        if (hayPendiente(key)) {
+          /*
+            Hay un cambio local sin confirmar (se hizo sin conexión, o la subida
+            no llegó a salir). Se sube sin mirar fechas: su marca es provisional
+            y del reloj del dispositivo, así que compararla no es fiable.
+          */
+          guardarEnNubeConRetraso(key, JSON.parse(serialized.current));
+        } else if (remote && (!localTs || remote.updated_at > localTs)) {
           serialized.current = JSON.stringify(remote.value);
           setTs(key, remote.updated_at);
           setValue(remote.value);
-        } else if (localTs && (!remote || localTs > remote.updated_at)) {
-          // Lo local es más nuevo: lo subimos (agrupado, para que los demás
-          // componentes de esta misma clave no repitan el mismo upsert).
-          guardarEnNubeConRetraso(key, JSON.parse(serialized.current), localTs);
         }
         hydrated.current = true;
       })
@@ -253,10 +284,14 @@ export function usePersisted(key, initial) {
     saveLocal(key, value);
     const s = JSON.stringify(value);
     if (s !== serialized.current) {
-      const ts = new Date().toISOString();
       serialized.current = s;
-      setTs(key, ts);
-      if (cloudEnabled && hydrated.current) guardarEnNubeConRetraso(key, value, ts);
+      // Marca provisional del reloj local: solo sirve para saber que hay algo
+      // más nuevo que lo remoto. La definitiva la pone el servidor al subir.
+      setTs(key, new Date().toISOString());
+      if (cloudEnabled && hydrated.current) {
+        marcarPendiente(key);
+        guardarEnNubeConRetraso(key, value);
+      }
     }
   }, [key, value]);
 

@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 /*
-  Estos tests fijan las tres propiedades de las que depende que la app aguante
-  años de datos, porque cada clave guarda TODO su contenido en un único JSON:
+  Estos tests fijan las propiedades de las que depende que la app aguante años
+  de datos, porque cada clave guarda TODO su contenido en un único JSON:
 
   1. Un solo canal de tiempo real por clave (regresión del crash
      "cannot add postgres_changes callbacks ... after subscribe()").
@@ -10,7 +10,19 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
      blob completo.
   3. Las lecturas se comparten: 10 componentes con la misma clave no lanzan 10
      consultas idénticas al arrancar.
+  4. La hora la pone el servidor, no el reloj del dispositivo.
 */
+
+const HORA_SERVIDOR = "2026-07-28T12:00:00.000Z";
+
+// El entorno de tests es "node": no hay localStorage y store.js lo usa para las
+// marcas de tiempo y de pendiente.
+const almacen = new Map();
+globalThis.localStorage = {
+  getItem: (k) => (almacen.has(k) ? almacen.get(k) : null),
+  setItem: (k, v) => almacen.set(k, String(v)),
+  removeItem: (k) => almacen.delete(k),
+};
 
 const canales = [];
 const porTopic = new Map();
@@ -60,7 +72,9 @@ vi.mock("./supabase", () => ({
         select() { return this; },
         eq(_col, key) { consultas.push(key); return this; },
         async maybeSingle() { return respuestaLectura; },
-        async upsert(fila) { upserts.push(fila); return { error: null }; },
+        upsert(fila) { upserts.push(fila); return this; },
+        // Tras escribir, el servidor devuelve la hora que ha puesto el trigger.
+        async single() { return { data: { updated_at: HORA_SERVIDOR }, error: null }; },
       };
     },
   },
@@ -78,6 +92,7 @@ beforeEach(() => {
   canales.length = 0;
   consultas.length = 0;
   upserts.length = 0;
+  almacen.clear();
   respuestaLectura = { data: null, error: null };
 });
 
@@ -133,9 +148,7 @@ describe("guardarEnNubeConRetraso (escrituras agrupadas)", () => {
     vi.useFakeTimers();
 
     // Simula escribir "hola" letra a letra.
-    ["h", "ho", "hol", "hola"].forEach((texto, i) =>
-      guardarEnNubeConRetraso("lh_notes", texto, "2026-01-01T00:00:0" + i + "Z")
-    );
+    ["h", "ho", "hol", "hola"].forEach((texto) => guardarEnNubeConRetraso("lh_notes", texto));
 
     expect(upserts).toHaveLength(0); // nada sale antes de tiempo
 
@@ -146,11 +159,32 @@ describe("guardarEnNubeConRetraso (escrituras agrupadas)", () => {
     expect(upserts[0].user_id).toBe("u1");
   });
 
+  it("no envía updated_at: esa hora la pone el servidor", async () => {
+    vi.useFakeTimers();
+
+    guardarEnNubeConRetraso("lh_gym", ["a"]);
+    await vi.advanceTimersByTimeAsync(RETARDO_GUARDADO + 10);
+
+    expect(upserts[0]).not.toHaveProperty("updated_at");
+    // Y la hora devuelta por el servidor queda guardada en local.
+    expect(localStorage.getItem("lh_meta:lh_gym")).toBe(HORA_SERVIDOR);
+  });
+
+  it("limpia la marca de pendiente cuando la subida tiene éxito", async () => {
+    vi.useFakeTimers();
+    localStorage.setItem("lh_pend:lh_tasks", "1");
+
+    guardarEnNubeConRetraso("lh_tasks", ["x"]);
+    await vi.advanceTimersByTimeAsync(RETARDO_GUARDADO + 10);
+
+    expect(localStorage.getItem("lh_pend:lh_tasks")).toBe(null);
+  });
+
   it("funde en una sola subida los cambios de varios componentes con la misma clave", async () => {
     vi.useFakeTimers();
 
-    guardarEnNubeConRetraso("lh_gym", ["a"], "2026-01-01T00:00:00Z");
-    guardarEnNubeConRetraso("lh_gym", ["a", "b"], "2026-01-01T00:00:01Z");
+    guardarEnNubeConRetraso("lh_gym", ["a"]);
+    guardarEnNubeConRetraso("lh_gym", ["a", "b"]);
 
     await vi.advanceTimersByTimeAsync(RETARDO_GUARDADO + 10);
 
@@ -161,8 +195,8 @@ describe("guardarEnNubeConRetraso (escrituras agrupadas)", () => {
   it("no mezcla claves distintas", async () => {
     vi.useFakeTimers();
 
-    guardarEnNubeConRetraso("lh_gym", 1, "2026-01-01T00:00:00Z");
-    guardarEnNubeConRetraso("lh_health", 2, "2026-01-01T00:00:00Z");
+    guardarEnNubeConRetraso("lh_gym", 1);
+    guardarEnNubeConRetraso("lh_health", 2);
 
     await vi.advanceTimersByTimeAsync(RETARDO_GUARDADO + 10);
 
@@ -172,7 +206,7 @@ describe("guardarEnNubeConRetraso (escrituras agrupadas)", () => {
   it("vaciarGuardadosPendientes sube inmediatamente lo que esté esperando", async () => {
     vi.useFakeTimers();
 
-    guardarEnNubeConRetraso("lh_tasks", ["pendiente"], "2026-01-01T00:00:00Z");
+    guardarEnNubeConRetraso("lh_tasks", ["pendiente"]);
     expect(upserts).toHaveLength(0);
 
     vaciarGuardadosPendientes(); // lo que hace al ocultarse la pestaña

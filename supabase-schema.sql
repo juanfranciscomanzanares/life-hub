@@ -13,6 +13,30 @@ create table if not exists public.app_state (
   primary key (user_id, key)
 );
 
+-- ------------------------------------------------------------
+--  La marca de tiempo la pone SIEMPRE el servidor.
+--
+--  Antes la enviaba el cliente con new Date().toISOString(). Como los
+--  conflictos se resuelven con "gana la marca mayor", bastaba con que el reloj
+--  del móvil fuera unos minutos adelantado para que el móvil ganara siempre,
+--  aunque su cambio fuera más antiguo. Con un solo dispositivo daba igual; con
+--  dos, es pérdida de datos silenciosa.
+-- ------------------------------------------------------------
+create or replace function public.app_state_marcar_hora()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at := now();
+  return new;
+end;
+$$;
+
+drop trigger if exists app_state_hora on public.app_state;
+create trigger app_state_hora
+  before insert or update on public.app_state
+  for each row execute function public.app_state_marcar_hora();
+
 -- Seguridad a nivel de fila: cada usuario solo ve y edita SUS datos.
 alter table public.app_state enable row level security;
 
