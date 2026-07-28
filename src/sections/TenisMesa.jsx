@@ -291,6 +291,82 @@ export default function TenisMesa() {
         </Card>
       ) : (
         <div className="space-y-4">
+          {/*
+            Los opens van ARRIBA a propósito. Estaban al final, detrás de los
+            anillos, cuatro gráficos, el cara a cara y una tabla de 38 partidos,
+            así que había que bajar muchísimo para verlos y parecía que no se
+            cargaban. Son pocas filas y es donde se anota la ronda.
+
+            Basta con que se hayan revisado pruebas: la ronda se anota aunque el
+            ranking no se haya podido leer o no aparezcas en él.
+          */}
+          {pruebas.length > 0 && (
+            <Card>
+              <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-slate-100">
+                <Trophy size={18} className="text-amber-400" /> Opens regionales
+              </h2>
+              <p className="mb-3 text-xs text-slate-500">
+                El puesto y los puntos son del <b>ranking acumulado</b> tras cada prueba, no el
+                resultado de ese torneo: es lo único que publica la federación. Hasta dónde
+                llegaste en cada cuadro lo anotas tú.
+              </p>
+              <div className="space-y-2">
+                {pruebas.map((p) => {
+                  // La ronda se guarda por temporada y prueba, no por el id del
+                  // ranking: así también se puede anotar en las pruebas cuyo
+                  // ranking no se ha podido leer.
+                  const clave = `${activa}|${p.prueba}`;
+                  const e = ESTADOS[p.estado] ?? ESTADOS.error;
+                  return (
+                    <div
+                      key={p.prueba}
+                      className="flex flex-wrap items-center gap-3 rounded-lg bg-slate-800/60 px-3 py-2"
+                    >
+                      <span
+                        className={`flex h-9 w-12 shrink-0 items-center justify-center rounded-lg text-sm font-bold ${
+                          p.puesto
+                            ? "bg-amber-500/15 text-amber-400"
+                            : "bg-slate-700/40 text-slate-600"
+                        }`}
+                        title={p.puesto ? "Puesto en el ranking acumulado" : e.texto}
+                      >
+                        {p.puesto ? `${p.puesto}º` : "—"}
+                      </span>
+
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm text-slate-100">{p.prueba}</p>
+                        <p className={`text-xs ${p.puesto ? "text-slate-500" : e.clase}`}>
+                          {p.puesto ? `${p.acumulado} pts acumulados` : e.texto}
+                        </p>
+                      </div>
+
+                      <label className="sr-only" htmlFor={`ronda-${clave}`}>
+                        Ronda alcanzada en {p.prueba}
+                      </label>
+                      <select
+                        id={`ronda-${clave}`}
+                        name={`ronda-${clave}`}
+                        value={rondas[clave] ?? ""}
+                        onChange={(ev) => setRondas({ ...rondas, [clave]: ev.target.value })}
+                        className={`rounded-lg border bg-slate-800 px-2 py-1.5 text-xs focus:border-indigo-500 focus:outline-none ${
+                          rondas[clave]
+                            ? "border-indigo-700 text-indigo-300"
+                            : "border-slate-700 text-slate-500"
+                        }`}
+                      >
+                        {RONDAS.map((r) => (
+                          <option key={r} value={r}>
+                            {r || "¿hasta dónde llegaste?"}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+          )}
+
           {dePartidos.length > 0 && (
             <>
               <Card>
@@ -520,74 +596,6 @@ export default function TenisMesa() {
             </>
           )}
 
-          {/* Basta con que se hayan revisado pruebas: la ronda se anota aunque
-              el ranking no se haya podido leer o no aparezcas en él. */}
-          {pruebas.length > 0 && (
-            <Card>
-              <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-slate-100">
-                <Trophy size={18} className="text-amber-400" /> Opens regionales
-              </h2>
-              <p className="mb-3 text-xs text-slate-500">
-                El puesto y los puntos son del <b>ranking acumulado</b> tras cada prueba, no el
-                resultado de ese torneo: es lo único que publica la federación. Hasta dónde
-                llegaste en cada cuadro lo anotas tú.
-              </p>
-              <div className="space-y-2">
-                {pruebas.map((p) => {
-                  // La ronda se guarda por temporada y prueba, no por el id del
-                  // ranking: así también se puede anotar en las pruebas cuyo
-                  // ranking no se ha podido leer.
-                  const clave = `${activa}|${p.prueba}`;
-                  const e = ESTADOS[p.estado] ?? ESTADOS.error;
-                  return (
-                    <div
-                      key={p.prueba}
-                      className="flex flex-wrap items-center gap-3 rounded-lg bg-slate-800/60 px-3 py-2"
-                    >
-                      <span
-                        className={`flex h-9 w-12 shrink-0 items-center justify-center rounded-lg text-sm font-bold ${
-                          p.puesto
-                            ? "bg-amber-500/15 text-amber-400"
-                            : "bg-slate-700/40 text-slate-600"
-                        }`}
-                        title={p.puesto ? "Puesto en el ranking acumulado" : e.texto}
-                      >
-                        {p.puesto ? `${p.puesto}º` : "—"}
-                      </span>
-
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm text-slate-100">{p.prueba}</p>
-                        <p className={`text-xs ${p.puesto ? "text-slate-500" : e.clase}`}>
-                          {p.puesto ? `${p.acumulado} pts acumulados` : e.texto}
-                        </p>
-                      </div>
-
-                      <label className="sr-only" htmlFor={`ronda-${clave}`}>
-                        Ronda alcanzada en {p.prueba}
-                      </label>
-                      <select
-                        id={`ronda-${clave}`}
-                        name={`ronda-${clave}`}
-                        value={rondas[clave] ?? ""}
-                        onChange={(ev) => setRondas({ ...rondas, [clave]: ev.target.value })}
-                        className={`rounded-lg border bg-slate-800 px-2 py-1.5 text-xs focus:border-indigo-500 focus:outline-none ${
-                          rondas[clave]
-                            ? "border-indigo-700 text-indigo-300"
-                            : "border-slate-700 text-slate-500"
-                        }`}
-                      >
-                        {RONDAS.map((r) => (
-                          <option key={r} value={r}>
-                            {r || "¿hasta dónde llegaste?"}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  );
-                })}
-              </div>
-            </Card>
-          )}
         </div>
       )}
     </div>
