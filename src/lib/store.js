@@ -56,6 +56,55 @@ async function saveCloud(key, value, ts) {
   if (error) console.warn("Supabase save error:", error.message);
 }
 
+/*
+  Suscripciones de tiempo real COMPARTIDAS por clave.
+
+  Antes cada llamada a usePersisted abría su propio canal con el topic
+  "app_state:<clave>". Pero muchas claves se usan desde varios componentes a la
+  vez (lh_work_log en 10 sitios, lh_gym en 8...), y supabase.channel(topic)
+  devuelve el canal YA EXISTENTE cuando el topic coincide. El segundo componente
+  recibía un canal ya suscrito y .on() lanzaba:
+
+    "cannot add postgres_changes callbacks for realtime:app_state:X after subscribe()"
+
+  Era una carrera: solo fallaba si el primer canal llegaba al estado "joined"
+  antes de que montara el segundo, por eso aparecía en unos dispositivos y en
+  otros no. Ahora hay un único canal por clave y los oyentes se reparten el
+  mensaje; el canal se cierra cuando se va el último.
+*/
+const suscripciones = new Map();
+let contadorTopic = 0;
+
+// Exportada para poder testear el reparto de canales (ver store.test.js).
+export function suscribirClave(key, oyente) {
+  let entrada = suscripciones.get(key);
+
+  if (!entrada) {
+    entrada = { canal: null, oyentes: new Set() };
+    // Sufijo incremental: si un canal anterior aún se está cerrando, el topic
+    // nuevo no colisiona con él.
+    entrada.canal = supabase
+      .channel(`app_state:${key}:${++contadorTopic}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "app_state", filter: "key=eq." + key },
+        (payload) => entrada.oyentes.forEach((fn) => fn(payload))
+      )
+      .subscribe();
+    suscripciones.set(key, entrada);
+  }
+
+  entrada.oyentes.add(oyente);
+
+  return () => {
+    entrada.oyentes.delete(oyente);
+    if (entrada.oyentes.size === 0) {
+      suscripciones.delete(key);
+      supabase.removeChannel(entrada.canal);
+    }
+  };
+}
+
 export function usePersisted(key, initial) {
   const [value, setValue] = useState(() => loadLocal(key, initial));
   const hydrated = useRef(false);
@@ -81,28 +130,26 @@ export function usePersisted(key, initial) {
         saveCloud(key, JSON.parse(serialized.current), localTs);
       }
       hydrated.current = true;
+    }).catch((e) => {
+      // Sin conexión seguimos con lo que haya en localStorage; lo importante es
+      // marcar hydrated para que los cambios posteriores sí intenten subirse.
+      console.warn("No se pudo cargar de la nube:", key, e?.message || e);
+      if (active) hydrated.current = true;
     });
 
-    const channel = supabase
-      .channel("app_state:" + key)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "app_state", filter: "key=eq." + key },
-        (payload) => {
-          const row = payload.new;
-          if (!row || row.value === undefined) return;
-          if (row.updated_at && row.updated_at > getTs(key)) {
-            serialized.current = JSON.stringify(row.value);
-            setTs(key, row.updated_at);
-            setValue(row.value);
-          }
-        }
-      )
-      .subscribe();
+    const desuscribir = suscribirClave(key, (payload) => {
+      const row = payload.new;
+      if (!row || row.value === undefined) return;
+      if (row.updated_at && row.updated_at > getTs(key)) {
+        serialized.current = JSON.stringify(row.value);
+        setTs(key, row.updated_at);
+        setValue(row.value);
+      }
+    });
 
     return () => {
       active = false;
-      supabase.removeChannel(channel);
+      desuscribir();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
