@@ -60,6 +60,45 @@ En la app, **Tenis de Mesa → Ajustes**:
 
 ---
 
+## 0.1 Aula Virtual UMU (tareas)
+
+La sección **Universidad** puede traer tus tareas activas del Aula Virtual (Sakai,
+no Moodle). Usa la API REST oficial de Sakai (EntityBroker, `/direct/`), no
+scraping de HTML.
+
+### Desplegar la función
+
+```bash
+supabase functions deploy aula-virtual-sync
+```
+
+No necesita secretos: no hay ninguna clave de aplicación que guardar, porque
+cada sincronización manda tu propio usuario y contraseña de la UMU en el
+cuerpo de la petición, solo para iniciar sesión en el Aula Virtual en ese
+instante. La función no los guarda en ningún sitio (ni logs, ni base de
+datos); el campo de contraseña en la app se vacía justo después de cada
+intento, se haya podido sincronizar o no.
+
+### Cómo funciona
+
+1. `POST /direct/session.json?_username=..&_password=..` crea una sesión
+   (igual que el formulario web) y devuelve una cookie.
+2. `GET /direct/assignment/my.json` con esa cookie trae tus tareas de
+   **todos** los sitios en los que tienes matrícula, pasados y presentes —
+   por eso sirve para probar con el curso 2025/2026 aunque las asignaturas de
+   2026/2027 todavía no estén publicadas.
+3. `GET /direct/site.json` trae el nombre de cada asignatura, para no
+   mostrar solo el id interno del sitio.
+
+### Si falla
+
+El error que devuelve la función es literalmente lo que respondió el Aula
+Virtual (código HTTP o motivo), así que sirve para depurar: usuario o
+contraseña mal, o una cuenta con un inicio de sesión que esta vía no cubre
+(verificación en dos pasos, por ejemplo).
+
+---
+
 ## 1. Leer tu banco (open banking / PSD2) — GoCardless Bank Account Data
 
 Permite **leer** tus movimientos y saldos (no mover dinero). Gratis para uso
@@ -165,6 +204,7 @@ primera vez:
 
 | Integración            | ¿Dónde vive?        | ¿Clave secreta? |
 |------------------------|---------------------|-----------------|
+| Aula Virtual (tareas)  | Edge Function       | No (va por petición) |
 | Precios cripto         | Navegador (directo) | No              |
 | Precios acciones/ETF   | Edge Function       | Sí              |
 | Banco (GoCardless)     | Edge Function       | Sí              |

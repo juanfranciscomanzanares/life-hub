@@ -32,6 +32,7 @@ import {
   TrendingDown,
 } from "lucide-react";
 import { usePersisted } from "./lib/store";
+import { sincronizarAulaVirtual } from "./lib/aulaVirtual";
 import HoyWidget from "./sections/HoyWidget.jsx";
 import { useRoutineNotifier } from "./lib/useRoutineNotifier";
 import { useTheme } from "./lib/useTheme";
@@ -361,6 +362,28 @@ function Universidad() {
   const [newTask, setNewTask] = useState("");
   const [newSubject, setNewSubject] = useState(SUBJECTS[0]);
 
+  const [aulaTareas, setAulaTareas] = usePersisted("lh_aula_tareas", []);
+  const [aulaUltimaSync, setAulaUltimaSync] = usePersisted("lh_aula_ultima_sync", null);
+  const [usuarioUMU, setUsuarioUMU] = useState("");
+  const [contrasenaUMU, setContrasenaUMU] = useState("");
+  const [sincronizando, setSincronizando] = useState(false);
+  const [errorAula, setErrorAula] = useState("");
+
+  const sincronizarAula = async () => {
+    setSincronizando(true);
+    setErrorAula("");
+    try {
+      const tareas = await sincronizarAulaVirtual({ usuario: usuarioUMU, contrasena: contrasenaUMU });
+      setAulaTareas(tareas);
+      setAulaUltimaSync(new Date().toISOString());
+    } catch (e) {
+      setErrorAula(e.message || "No se pudo sincronizar.");
+    } finally {
+      setContrasenaUMU(""); // nunca se guarda: se descarta se haya podido usar o no
+      setSincronizando(false);
+    }
+  };
+
   const filtered = useMemo(
     () => (filter === "Todas" ? tasks : tasks.filter((t) => t.subject === filter)),
     [tasks, filter]
@@ -544,18 +567,75 @@ function Universidad() {
         </p>
       </Card>
 
-      {/* Aula Virtual (futuro) */}
-      <Card className="mb-6 border border-dashed border-slate-700">
+      {/* Aula Virtual */}
+      <Card className="mb-6">
         <h2 className="mb-2 flex items-center gap-2 text-lg font-semibold text-slate-100">
-          <Link2 size={18} className="text-sky-400" /> Aula Virtual UMU (próximamente)
+          <Link2 size={18} className="text-sky-400" /> Aula Virtual UMU
         </h2>
-        <p className="text-sm text-slate-400">
-          La UMU no ofrece una API pública para el Aula Virtual (Moodle), así que una integración directa
-          requeriría iniciar sesión con tus credenciales institucionales y leer las tareas mediante scraping,
-          o usar el feed iCal de tareas/calendario si Moodle lo tiene habilitado en tu perfil (Preferencias →
-          Calendario → exportar). La vía más viable sería un pequeño servicio (Edge Function) que inicie sesión
-          por ti y sincronice las tareas activas contra esta sección, similar a como ya sincronizas el banco.
+        <p className="mb-4 text-xs text-slate-500">
+          Inicia sesión con tu usuario y contraseña de la UMU para traer tus tareas. Solo se usan para
+          entrar en el Aula Virtual en el momento de sincronizar: no se guardan en ningún sitio (ni aquí,
+          ni en el servidor). Como las asignaturas de 2026/2027 aún no están publicadas, prueba primero con
+          el curso 2025/2026.
         </p>
+
+        <div className="mb-4 flex flex-wrap gap-2">
+          <input
+            placeholder="Usuario UMU (p. ej. tu-niu o correo @um.es)"
+            value={usuarioUMU}
+            onChange={(e) => setUsuarioUMU(e.target.value)}
+            autoComplete="username"
+            className="flex-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+          />
+          <input
+            type="password"
+            placeholder="Contraseña"
+            value={contrasenaUMU}
+            onChange={(e) => setContrasenaUMU(e.target.value)}
+            autoComplete="current-password"
+            onKeyDown={(e) => e.key === "Enter" && !sincronizando && sincronizarAula()}
+            className="flex-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+          />
+          <button
+            onClick={sincronizarAula}
+            disabled={sincronizando || !usuarioUMU || !contrasenaUMU}
+            className="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {sincronizando ? "Sincronizando…" : "Sincronizar"}
+          </button>
+        </div>
+
+        {errorAula && (
+          <p className="mb-4 rounded-lg border border-rose-900 bg-rose-950/40 px-3 py-2 text-sm text-rose-300">
+            {errorAula}
+          </p>
+        )}
+
+        {aulaUltimaSync && (
+          <p className="mb-3 text-xs text-slate-500">
+            Última sincronización: {new Date(aulaUltimaSync).toLocaleString("es-ES")} ·{" "}
+            {aulaTareas.length} tarea{aulaTareas.length === 1 ? "" : "s"}
+          </p>
+        )}
+
+        {aulaTareas.length > 0 && (
+          <ul className="space-y-2">
+            {aulaTareas.map((t) => (
+              <li
+                key={t.id}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-800 bg-slate-800/40 px-4 py-2.5"
+              >
+                <div>
+                  <p className="text-sm text-slate-200">{t.titulo}</p>
+                  <p className="text-xs text-slate-500">{t.asignatura}</p>
+                </div>
+                <span className="text-xs text-slate-400">
+                  {t.entrega ? `Entrega: ${t.entrega}` : "Sin fecha de entrega"}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
       </Card>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
