@@ -152,8 +152,20 @@ export default function App() {
       });
       setOcupado(false);
       if (error) return setAviso(traducirError(error.message));
-      if (!data.session)
-        setAviso("Cuenta creada. Revisa tu correo para confirmarla y luego entra con tu contraseña.");
+      if (data.session) return; // alta inmediata: onAuthStateChange entra solo
+
+      /*
+        Supabase no revela si un correo ya está registrado (evita que alguien
+        sondee qué cuentas existen): ante un duplicado devuelve "éxito" sin
+        sesión y sin enviar nada. La única pista es que identities llega vacío.
+        Sin distinguirlo, el usuario se queda esperando un correo que no existe.
+      */
+      const yaExiste = Array.isArray(data.user?.identities) && data.user.identities.length === 0;
+      setAviso(
+        yaExiste
+          ? "Ese correo ya tiene cuenta. Entra con tu contraseña; si no la recuerdas, cámbiala desde Supabase."
+          : "Cuenta creada. Revisa tu correo para confirmarla y luego entra con tu contraseña."
+      );
     };
 
     const enviarEnlace = async () => {
