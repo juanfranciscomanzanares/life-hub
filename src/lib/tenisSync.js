@@ -1,10 +1,10 @@
 import { supabase, cloudEnabled } from "./supabase";
 import {
-  extraerEnlacesActa,
   extraerEnlacesRanking,
-  parsearActa,
   buscarEnRanking,
-  normalizarTemporada,
+  urlJugador,
+  parsearPaginaJugador,
+  parsearTotalesJugador,
 } from "./tenis";
 
 /*
@@ -39,66 +39,41 @@ async function porTandas(urls, alProgresar) {
   return salida;
 }
 
-/*
-  URL de los resultados de un grupo. Con `equipo` devuelve solo los encuentros
-  de ese equipo, que es la diferencia entre bajar 20 actas o las 110 del grupo.
-*/
-export function urlGrupo({ temporada, liga = "NA==", grupo, sexo = "M", equipo = "" }) {
-  const base = `https://www.rfetm.es/public/resultados/${temporada}/view.php`;
-  const params = `liga=${liga}&grupo=${grupo}&subgrupo=S&jornada=0&sexo=${sexo}`;
-  return equipo ? `${base}?${params}&equipo=${equipo}` : `${base}?${params}`;
-}
-
 export const URL_RANKINGS = "https://ftmrm.es/es/section/rankings-jugadores";
 
 /*
   Partidos de liga de una temporada.
 
-  `actasHechas` son los ids ya descargados: solo se piden los nuevos, así que
-  sincronizar a mitad de temporada cuesta una o dos actas, no veinte.
+  Se usa la página de resultados POR JUGADOR de la RFETM: una sola petición
+  devuelve la temporada entera más los totales oficiales. La alternativa era
+  descargar unas veinte actas en PDF y juntarlas, que es más lento, castiga más
+  a la federación y da menos información.
+
+  Los totales oficiales se guardan aparte para poder contrastar: si algún día el
+  parseo se desalinea, se verá porque dejarán de cuadrar con lo calculado.
 */
-export async function sincronizarLiga({ config, actasHechas = [], alProgresar }) {
-  const [pagina] = await puente([urlGrupo(config)]);
-  if (pagina?.error) throw new Error(`No se pudo leer el grupo: ${pagina.error}`);
+export async function sincronizarLiga({ config }) {
+  const url = urlJugador(config.temporada, config.licencia, config.tempoNum);
+  const [pagina] = await puente([url]);
+  if (pagina?.error) throw new Error(`No se pudo leer tu ficha: ${pagina.error}`);
 
-  const enlaces = extraerEnlacesActa(pagina.texto);
-  if (enlaces.length === 0)
-    throw new Error("No encontré actas en esa página. Revisa la división, el grupo y la temporada.");
+  const crudos = parsearPaginaJugador(pagina.texto, config.licencia);
+  const oficiales = parsearTotalesJugador(pagina.texto);
 
-  const hechas = new Set(actasHechas.map(String));
-  const nuevos = enlaces.filter((e) => !hechas.has(String(e.id)));
-  if (nuevos.length === 0) return { partidos: [], actas: [], total: enlaces.length, nuevas: 0 };
-
-  const textos = await porTandas(
-    nuevos.map((e) => e.url),
-    alProgresar
-  );
-
-  const partidos = [];
-  const actas = [];
-  const fallos = [];
-
-  textos.forEach((t, i) => {
-    const enlace = nuevos[i];
-    if (t?.error || !t?.texto) {
-      fallos.push(enlace.id);
-      return;
-    }
-    const acta = parsearActa(t.texto, config.licencia);
-    // El acta se marca como hecha aunque no jugaras: así no se vuelve a pedir.
-    actas.push(enlace.id);
-    acta.partidos.forEach((p) =>
-      partidos.push({
-        ...p,
-        id: `${enlace.id}-${p.jornada}-${p.licenciaRival}`,
-        actaId: enlace.id,
-        temporada: normalizarTemporada(p.temporada) || config.temporada,
-        origen: "liga",
-      })
+  if (crudos.length === 0)
+    throw new Error(
+      "No encontré partidos tuyos en esa temporada. Revisa el número de licencia y la temporada."
     );
-  });
 
-  return { partidos, actas, total: enlaces.length, nuevas: nuevos.length, fallos };
+  const partidos = crudos.map((p) => ({
+    ...p,
+    // Fecha y rival identifican el partido de forma estable entre sincronizaciones.
+    id: `${config.temporada}-${p.fecha}-${p.licenciaRival}-${p.miLetra}`,
+    temporada: config.temporada,
+    origen: "liga",
+  }));
+
+  return { partidos, oficiales };
 }
 
 /*

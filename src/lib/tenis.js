@@ -159,6 +159,153 @@ export function parsearActa(texto, licencia) {
   return { ...cabecera, dobles, partidos: mios };
 }
 
+/*
+  ---------------------------------------------------------------------------
+  Página de resultados POR JUGADOR de la RFETM.
+
+    https://rfetm.es/resultados/<temporada>/view.php?jugador=<licencia>&tempo=<b64>
+
+  Es la fuente principal para la liga: una sola petición devuelve la temporada
+  entera (38 partidos en 2025/26) más los totales oficiales, frente a bajar unas
+  veinte actas en PDF. Las actas siguen sirviendo si alguna vez hace falta el
+  contexto del encuentro (sede, alineación completa), pero para las estadísticas
+  esta página es estrictamente mejor.
+
+  Cada fila trae dos regalos: el enlace del jugador lleva class="winner" o
+  "looser", así que el resultado no hay que deducirlo; y la jornada va en el
+  href del enlace de la competición.
+  ---------------------------------------------------------------------------
+*/
+
+/*
+  Las etiquetas se sustituyen por un ESPACIO, no por nada. Con cadena vacía,
+  <td>38</td><td>17</td> se convertía en "3817" y los totales salían disparatados
+  (38172 partidos jugados).
+*/
+const quitarEtiquetas = (h) =>
+  String(h)
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+/* Totales oficiales que publica la federación. Sirven para contrastar. */
+export function parsearTotalesJugador(html) {
+  const texto = quitarEtiquetas(html);
+
+  const partidos = texto.match(
+    /PARTIDOS JUGADOS\s*PARTIDOS GANADOS\s*PARTIDOS PERDIDOS\s*PORCENTAJE\s*(\d+)\s*(\d+)\s*(\d+)\s*(\d+)\s*%/i
+  );
+  const favor = texto.match(
+    /A FAVOR:\s*(\d+)\s*EN CONTRA:\s*(\d+)\s*A FAVOR:\s*(\d+)\s*EN CONTRA:\s*(\d+)/i
+  );
+
+  return {
+    jugados: partidos ? Number(partidos[1]) : null,
+    ganados: partidos ? Number(partidos[2]) : null,
+    perdidos: partidos ? Number(partidos[3]) : null,
+    porcentaje: partidos ? Number(partidos[4]) : null,
+    puntosAFavor: favor ? Number(favor[1]) : null,
+    puntosEnContra: favor ? Number(favor[2]) : null,
+    juegosAFavor: favor ? Number(favor[3]) : null,
+    juegosEnContra: favor ? Number(favor[4]) : null,
+  };
+}
+
+/*
+  Partidos individuales de la página del jugador.
+
+  Ojo con las fechas: van con rowspan="2" porque los dos partidos de un mismo
+  encuentro comparten celda. La segunda fila del par no la lleva, así que se
+  arrastra la última vista.
+*/
+export function parsearPaginaJugador(html, licencia) {
+  const lic = String(licencia);
+  const partidos = [];
+  let fecha = "";
+  let jornada = null;
+  let competicion = "";
+
+  const filas = String(html).split(/<tr[^>]*>/i).slice(1);
+
+  filas.forEach((fila) => {
+    const celdas = [...fila.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)].map((m) => m[1]);
+    if (celdas.length < 10) return;
+
+    // La celda de la fecha y la de la jornada solo están en la primera fila del
+    // par; si aparecen, se guardan para la siguiente.
+    const f = fila.match(/>(\d{2}\/\d{2}\/\d{4})</);
+    if (f) fecha = f[1];
+    const j = fila.match(/jornada=(\d+)[^>]*>\s*<b>([^<]+)<\/b>/i);
+    if (j) {
+      jornada = Number(j[1]);
+      competicion = j[2].trim();
+    }
+
+    const enlaces = [...fila.matchAll(/jugador=(\d+)[^>]*class='(\w+)'[^>]*><b>([^<]+)<\/b>/gi)];
+    if (enlaces.length < 2) return;
+
+    const yo = enlaces.find((e) => e[1] === lic);
+    const rival = enlaces.find((e) => e[1] !== lic);
+    if (!yo || !rival) return;
+
+    const soyPrimero = enlaces.indexOf(yo) === 0;
+    const miLetra = quitarEtiquetas(celdas[soyPrimero ? 0 : 2]);
+    const suLetra = quitarEtiquetas(celdas[soyPrimero ? 2 : 0]);
+
+    // Celdas 4 a 8 son los cinco sets; las no jugadas vienen vacías.
+    const sets = celdas
+      .slice(4, 9)
+      .map((c) => quitarEtiquetas(c))
+      .filter(Boolean)
+      .map((c) => c.split("-").map((n) => Number(n.trim())))
+      .filter((p) => p.length === 2 && p.every(Number.isFinite))
+      .map(([a, b]) => (soyPrimero ? [a, b] : [b, a]));
+
+    const marcador = quitarEtiquetas(celdas[9])
+      .split("-")
+      .map((n) => Number(n.trim()));
+    const [m1, m2] = marcador.length === 2 ? marcador : [0, 0];
+    const juegosGanados = soyPrimero ? m1 : m2;
+    const juegosPerdidos = soyPrimero ? m2 : m1;
+
+    partidos.push({
+      fecha: aISOCorta(fecha),
+      jornada,
+      competicion,
+      miLetra,
+      suLetra,
+      rival: nombreLegible(quitarEtiquetas(rival[3])),
+      licenciaRival: rival[1],
+      juegosGanados,
+      juegosPerdidos,
+      // La propia web marca al ganador, así que no hay que deducirlo.
+      ganado: yo[2].toLowerCase() === "winner",
+      sets,
+      puntosAFavor: sets.reduce((t, [a]) => t + a, 0),
+      puntosEnContra: sets.reduce((t, [, b]) => t + b, 0),
+    });
+  });
+
+  return partidos;
+}
+
+// "10/05/2026" -> "2026-05-10"
+function aISOCorta(f) {
+  const m = String(f).match(/(\d{2})\/(\d{2})\/(\d{4})/);
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : "";
+}
+
+/*
+  URL de la página del jugador. `tempo` es el número de temporada en base64;
+  la web lo usa para los enlaces internos, pero la temporada real la fija la
+  ruta, así que basta con que sea coherente.
+*/
+export function urlJugador(temporada, licencia, tempoNum = "11") {
+  const tempo = btoa(String(tempoNum));
+  return `https://rfetm.es/resultados/${temporada}/view.php?jugador=${licencia}&tempo=${tempo}`;
+}
+
 /* Enlaces a las actas dentro de la página de resultados de un grupo. */
 export function extraerEnlacesActa(html) {
   const ids = [...String(html).matchAll(/ligas\/partido\/(\d+)\/imprimir\/acta/g)].map((m) => m[1]);
@@ -327,6 +474,124 @@ export function porJornada(partidos = []) {
     ganadosAcum += j.ganados;
     return { ...j, acumulado: Math.round((ganadosAcum / jugadosAcum) * 100) };
   });
+}
+
+/*
+  Rendimiento set a set: de todos los partidos que llegaron al set N, cuántos
+  ganaste. Distingue si empiezas fuerte, si te vienes abajo o si aguantas los
+  finales.
+*/
+export function rendimientoPorSet(partidos = []) {
+  return [0, 1, 2, 3, 4].map((i) => {
+    const jugados = partidos.filter((p) => p.sets[i]);
+    const ganados = jugados.filter((p) => p.sets[i][0] > p.sets[i][1]).length;
+    return {
+      set: i + 1,
+      jugados: jugados.length,
+      ganados,
+      porcentaje: jugados.length ? Math.round((ganados / jugados.length) * 100) : 0,
+    };
+  });
+}
+
+/*
+  Remontadas: partidos ganados tras perder el primer set, y al revés.
+  Es la diferencia entre empezar mal y hundirse, o empezar mal y reaccionar.
+*/
+export function remontadas(partidos = []) {
+  const conPrimerSet = partidos.filter((p) => p.sets.length > 0);
+  const perdiendo = conPrimerSet.filter((p) => p.sets[0][0] < p.sets[0][1]);
+  const ganando = conPrimerSet.filter((p) => p.sets[0][0] > p.sets[0][1]);
+
+  const remontados = perdiendo.filter((p) => p.ganado).length;
+  const remontadosEnContra = ganando.filter((p) => !p.ganado).length;
+
+  return {
+    empezandoPerdiendo: perdiendo.length,
+    remontados,
+    empezandoGanando: ganando.length,
+    remontadosEnContra,
+    // "Si pierdo el primer set, ¿cuántas veces acabo ganando?"
+    tasaRemontada: perdiendo.length ? Math.round((remontados / perdiendo.length) * 100) : 0,
+    // "Si gano el primer set, ¿cuántas veces se me escapa?"
+    tasaDerrumbe: ganando.length ? Math.round((remontadosEnContra / ganando.length) * 100) : 0,
+  };
+}
+
+/*
+  Sets ajustados y quintos sets: los momentos que se deciden por poco.
+  Un set "ajustado" es el que acaba con los dos por encima de 10 (deuce).
+*/
+export function clutch(partidos = []) {
+  let ajustadosGanados = 0;
+  let ajustadosJugados = 0;
+
+  partidos.forEach((p) =>
+    p.sets.forEach(([a, b]) => {
+      if (a >= 10 && b >= 10) {
+        ajustadosJugados += 1;
+        if (a > b) ajustadosGanados += 1;
+      }
+    })
+  );
+
+  const aQuinto = partidos.filter((p) => p.sets.length === 5);
+  const quintosGanados = aQuinto.filter((p) => p.ganado).length;
+
+  return {
+    ajustadosJugados,
+    ajustadosGanados,
+    tasaAjustados: ajustadosJugados
+      ? Math.round((ajustadosGanados / ajustadosJugados) * 100)
+      : 0,
+    quintosJugados: aQuinto.length,
+    quintosGanados,
+    tasaQuintos: aQuinto.length ? Math.round((quintosGanados / aQuinto.length) * 100) : 0,
+  };
+}
+
+/*
+  Rachas por orden cronológico. La actual va con signo: positiva si son
+  victorias seguidas, negativa si son derrotas.
+*/
+export function rachas(partidos = []) {
+  const orden = [...partidos].sort(
+    (a, b) => String(a.fecha).localeCompare(String(b.fecha)) || (a.jornada ?? 0) - (b.jornada ?? 0)
+  );
+
+  let mejor = 0;
+  let peor = 0;
+  let actual = 0;
+
+  orden.forEach((p) => {
+    if (p.ganado) actual = actual > 0 ? actual + 1 : 1;
+    else actual = actual < 0 ? actual - 1 : -1;
+    mejor = Math.max(mejor, actual);
+    peor = Math.min(peor, actual);
+  });
+
+  return { actual, mejorRacha: mejor, peorRacha: Math.abs(peor) };
+}
+
+/*
+  Rendimiento según la posición en la alineación (A/B/C o X/Y/Z). Enseña si
+  rindes distinto según contra qué número del rival te toca jugar.
+*/
+export function porLetra(partidos = []) {
+  const mapa = new Map();
+  partidos.forEach((p) => {
+    if (!p.miLetra) return;
+    const actual = mapa.get(p.miLetra) || { letra: p.miLetra, jugados: 0, ganados: 0 };
+    actual.jugados += 1;
+    actual.ganados += p.ganado ? 1 : 0;
+    mapa.set(p.miLetra, actual);
+  });
+  return [...mapa.values()]
+    .map((l) => ({
+      ...l,
+      porcentaje: l.jugados ? Math.round((l.ganados / l.jugados) * 100) : 0,
+    }))
+    .sort((a, b) => a.letra.localeCompare(b.letra));
 }
 
 /* Balance contra cada rival, de más veces jugado a menos. */

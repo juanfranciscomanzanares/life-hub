@@ -2,7 +2,16 @@ import { useState, useMemo } from "react";
 import { Target, RefreshCw, Settings, Trophy, TrendingUp, Users } from "lucide-react";
 import { usePersisted } from "../lib/store";
 import { Card, SectionTitle } from "../lib/ui";
-import { estadisticas, porJornada, porRival } from "../lib/tenis";
+import {
+  estadisticas,
+  porJornada,
+  porRival,
+  rendimientoPorSet,
+  remontadas,
+  clutch,
+  rachas,
+  porLetra,
+} from "../lib/tenis";
 import { sincronizarLiga, sincronizarOpens, fusionar } from "../lib/tenisSync";
 
 /*
@@ -17,18 +26,8 @@ const CONFIG_INICIAL = {
   licencia: "",
   nombre: "",
   temporada: "2025-2026",
-  grupo: "11",
-  liga: "NA==", // Segunda División
-  sexo: "M",
-  equipo: "",
+  tempoNum: "11",
 };
-
-const LIGAS = [
-  { valor: "MQ==", etiqueta: "Superdivisión" },
-  { valor: "Mg==", etiqueta: "División de Honor" },
-  { valor: "Mw==", etiqueta: "Primera División" },
-  { valor: "NA==", etiqueta: "Segunda División" },
-];
 
 function Barras({ datos, valor, etiqueta, color, sufijo = "" }) {
   const max = Math.max(...datos.map(valor), 1);
@@ -84,8 +83,8 @@ function Apiladas({ datos }) {
 export default function TenisMesa() {
   const [config, setConfig] = usePersisted("lh_tenis_config", CONFIG_INICIAL);
   const [partidos, setPartidos] = usePersisted("lh_tenis_partidos", []);
-  const [actasHechas, setActasHechas] = usePersisted("lh_tenis_actas", []);
   const [opens, setOpens] = usePersisted("lh_tenis_opens", []);
+  const [oficiales, setOficiales] = usePersisted("lh_tenis_oficiales", {});
 
   const [ajustes, setAjustes] = useState(!config.licencia);
   const [estado, setEstado] = useState(null);
@@ -108,22 +107,22 @@ export default function TenisMesa() {
   const stats = useMemo(() => estadisticas(dePartidos), [dePartidos]);
   const jornadas = useMemo(() => porJornada(dePartidos), [dePartidos]);
   const rivales = useMemo(() => porRival(dePartidos), [dePartidos]);
+  const sets = useMemo(() => rendimientoPorSet(dePartidos), [dePartidos]);
+  const remo = useMemo(() => remontadas(dePartidos), [dePartidos]);
+  const clu = useMemo(() => clutch(dePartidos), [dePartidos]);
+  const rac = useMemo(() => rachas(dePartidos), [dePartidos]);
+  const letras = useMemo(() => porLetra(dePartidos), [dePartidos]);
+  const oficial = oficiales[activa];
 
   const sincronizar = async () => {
     if (!config.licencia) return setAjustes(true);
     setError(null);
 
     try {
-      setEstado("Leyendo la clasificación del grupo...");
-      const liga = await sincronizarLiga({
-        config,
-        actasHechas,
-        alProgresar: (hechas, total) => setEstado(`Descargando actas... ${hechas} de ${total}`),
-      });
-      if (liga.actas.length) {
-        setPartidos((p) => fusionar(p, liga.partidos));
-        setActasHechas((a) => [...new Set([...a, ...liga.actas])]);
-      }
+      setEstado("Leyendo tu ficha en la RFETM...");
+      const liga = await sincronizarLiga({ config });
+      setPartidos((p) => fusionar(p, liga.partidos));
+      setOficiales((o) => ({ ...o, [config.temporada]: liga.oficiales }));
 
       let avisoOpens = "";
       if (config.nombre) {
@@ -134,16 +133,12 @@ export default function TenisMesa() {
           alProgresar: (hechas, total) => setEstado(`Rankings... ${hechas} de ${total}`),
         });
         setOpens((o) => fusionar(o, res.resultados));
-        if (res.resultados.length === 0) avisoOpens = " No apareces en los rankings de esa temporada.";
+        if (res.resultados.length === 0)
+          avisoOpens = " No apareces en los rankings de esa temporada.";
       }
 
-      setEstado(
-        liga.nuevas === 0
-          ? "Ya estaba todo al día." + avisoOpens
-          : `Listo: ${liga.nuevas} actas nuevas, ${liga.partidos.length} partidos tuyos.` +
-              (liga.fallos?.length ? ` ${liga.fallos.length} actas fallaron.` : "") +
-              avisoOpens
-      );
+      setTemporadaVista(config.temporada);
+      setEstado(`Listo: ${liga.partidos.length} partidos de liga.` + avisoOpens);
     } catch (e) {
       setError(e.message || String(e));
       setEstado(null);
@@ -242,65 +237,11 @@ export default function TenisMesa() {
                 className={campo}
               />
             </div>
-            <div>
-              <label htmlFor="t-liga" className="mb-1 block text-xs text-slate-400">
-                División
-              </label>
-              <select
-                id="t-liga"
-                name="t-liga"
-                value={config.liga}
-                onChange={(e) => setConfig({ ...config, liga: e.target.value })}
-                className={campo}
-              >
-                {LIGAS.map((l) => (
-                  <option key={l.valor} value={l.valor}>
-                    {l.etiqueta}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="t-grupo" className="mb-1 block text-xs text-slate-400">
-                Grupo
-              </label>
-              <input
-                id="t-grupo"
-                name="t-grupo"
-                value={config.grupo}
-                onChange={(e) => setConfig({ ...config, grupo: e.target.value.trim() })}
-                placeholder="11"
-                className={campo}
-              />
-            </div>
-            <div>
-              <label htmlFor="t-eq" className="mb-1 block text-xs text-slate-400">
-                Id de equipo (opcional, acelera mucho)
-              </label>
-              <input
-                id="t-eq"
-                name="t-eq"
-                value={config.equipo}
-                onChange={(e) => setConfig({ ...config, equipo: e.target.value.trim() })}
-                placeholder="20191287"
-                className={campo}
-              />
-            </div>
           </div>
           <p className="mt-3 text-xs text-slate-500">
-            Con el id de equipo solo se descargan las actas de tu club (unas 20) en vez de todas las
-            del grupo (más de 100). Lo encuentras en el enlace de tu equipo en la web de la RFETM,
-            en <code>&amp;equipo=</code>.
+            No hace falta división ni grupo: la RFETM tiene una ficha por jugador que devuelve toda
+            tu temporada de una vez, con los totales oficiales incluidos.
           </p>
-          <button
-            onClick={() => {
-              setActasHechas([]);
-              setEstado("Historial de descargas borrado: la próxima sincronización bajará todo.");
-            }}
-            className="mt-3 text-xs text-slate-500 underline"
-          >
-            Volver a descargar todas las actas
-          </button>
         </Card>
       )}
 
@@ -327,6 +268,24 @@ export default function TenisMesa() {
                   </Card>
                 ))}
               </div>
+
+              {/*
+                Contraste con los totales que publica la federación. Si algún día
+                el parseo se desalinea, se verá aquí en vez de pasar inadvertido.
+              */}
+              {oficial?.jugados != null && (
+                <Card
+                  className={
+                    oficial.jugados === stats.jugados && oficial.ganados === stats.ganados
+                      ? "border-emerald-800 bg-emerald-500/5 text-xs text-emerald-300"
+                      : "border-amber-800 bg-amber-500/10 text-xs text-amber-300"
+                  }
+                >
+                  {oficial.jugados === stats.jugados && oficial.ganados === stats.ganados
+                    ? `Cuadra con la ficha oficial de la RFETM: ${oficial.jugados} partidos, ${oficial.ganados} ganados, ${oficial.porcentaje}%.`
+                    : `Ojo: la RFETM dice ${oficial.jugados} partidos y ${oficial.ganados} ganados, y aquí salen ${stats.jugados} y ${stats.ganados}. Vuelve a sincronizar.`}
+                </Card>
+              )}
 
               <Card>
                 <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-slate-100">
@@ -366,6 +325,88 @@ export default function TenisMesa() {
                   color="from-emerald-600 to-emerald-400"
                 />
               </Card>
+
+              <Card>
+                <h2 className="mb-1 text-lg font-semibold text-slate-100">Rendimiento por set</h2>
+                <p className="mb-4 text-xs text-slate-500">
+                  De los partidos que llegaron a cada set, cuántos ganaste. Dice si empiezas fuerte,
+                  si te vienes abajo o si aguantas los finales.
+                </p>
+                <Barras
+                  datos={sets.filter((s) => s.jugados > 0)}
+                  valor={(d) => d.porcentaje}
+                  etiqueta={(d) => `Set ${d.set}`}
+                  color="from-sky-600 to-sky-400"
+                  sufijo="%"
+                />
+              </Card>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Card>
+                  <h2 className="mb-3 text-lg font-semibold text-slate-100">Remontadas</h2>
+                  <div className="space-y-2 text-sm">
+                    <p className="text-slate-300">
+                      Perdiendo el 1er set:{" "}
+                      <b className="text-emerald-400">
+                        {remo.remontados} de {remo.empezandoPerdiendo}
+                      </b>{" "}
+                      remontados <span className="text-slate-500">({remo.tasaRemontada}%)</span>
+                    </p>
+                    <p className="text-slate-300">
+                      Ganando el 1er set:{" "}
+                      <b className="text-rose-400">
+                        {remo.remontadosEnContra} de {remo.empezandoGanando}
+                      </b>{" "}
+                      se escaparon <span className="text-slate-500">({remo.tasaDerrumbe}%)</span>
+                    </p>
+                  </div>
+                </Card>
+
+                <Card>
+                  <h2 className="mb-3 text-lg font-semibold text-slate-100">Momentos clave</h2>
+                  <div className="space-y-2 text-sm">
+                    <p className="text-slate-300">
+                      Sets ajustados (10-10 o más):{" "}
+                      <b className="text-slate-100">
+                        {clu.ajustadosGanados}/{clu.ajustadosJugados}
+                      </b>{" "}
+                      <span className="text-slate-500">({clu.tasaAjustados}%)</span>
+                    </p>
+                    <p className="text-slate-300">
+                      Quintos sets:{" "}
+                      <b className="text-slate-100">
+                        {clu.quintosGanados}/{clu.quintosJugados}
+                      </b>{" "}
+                      <span className="text-slate-500">({clu.tasaQuintos}%)</span>
+                    </p>
+                    <p className="text-slate-300">
+                      Rachas: mejor <b className="text-emerald-400">{rac.mejorRacha}</b>, peor{" "}
+                      <b className="text-rose-400">{rac.peorRacha}</b>, actual{" "}
+                      <b className={rac.actual >= 0 ? "text-emerald-400" : "text-rose-400"}>
+                        {rac.actual > 0 ? `+${rac.actual}` : rac.actual}
+                      </b>
+                    </p>
+                  </div>
+                </Card>
+              </div>
+
+              {letras.length > 0 && (
+                <Card>
+                  <h2 className="mb-1 text-lg font-semibold text-slate-100">
+                    Rendimiento por posición
+                  </h2>
+                  <p className="mb-4 text-xs text-slate-500">
+                    Tu letra en la alineación determina contra qué número del rival juegas.
+                  </p>
+                  <Barras
+                    datos={letras}
+                    valor={(d) => d.porcentaje}
+                    etiqueta={(d) => d.letra}
+                    color="from-fuchsia-500 to-fuchsia-400"
+                    sufijo="%"
+                  />
+                </Card>
+              )}
 
               <Card className="overflow-x-auto p-0">
                 <h2 className="flex items-center gap-2 px-5 pt-4 text-lg font-semibold text-slate-100">

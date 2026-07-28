@@ -12,6 +12,13 @@ import {
   estadisticas,
   porJornada,
   porRival,
+  parsearTotalesJugador,
+  parsearPaginaJugador,
+  rendimientoPorSet,
+  remontadas,
+  clutch,
+  rachas,
+  porLetra,
 } from "./tenis";
 
 const LICENCIA = "23789";
@@ -276,6 +283,141 @@ describe("estadísticas", () => {
     const r = porRival(partidos);
     expect(r[0].jugados).toBeGreaterThanOrEqual(r[r.length - 1].jugados);
     expect(r.reduce((t, x) => t + x.jugados, 0)).toBe(4);
+  });
+});
+
+/*
+  Página de resultados por jugador de la RFETM. Fragmento real: dos partidos que
+  comparten la celda de fecha y jornada mediante rowspan="2".
+*/
+const PAGINA_JUGADOR = `<h2>Estad&iacute;sticas Temporada 2025/2026</h2>
+<table><tr><td>PARTIDOS JUGADOS</td><td>PARTIDOS GANADOS</td><td>PARTIDOS PERDIDOS</td><td>PORCENTAJE</td></tr>
+<tr><td>38</td><td>17</td><td>21</td><td>45 %</td></tr>
+<tr><td>PUNTOS DISPUTADOS</td><td>JUEGOS DISPUTADOS</td></tr>
+<tr><td>2617 (+81)</td><td>143 (-1)</td></tr>
+<tr><td>A FAVOR: 1349</td><td>EN CONTRA: 1268</td><td>A FAVOR: 71</td><td>EN CONTRA: 72</td></tr></table>
+<h2>PARTIDOS INDIVIDUALES DISPUTADOS</h2>
+<table><tr><td align='center' width='2%'><b>X</b></td><td width='20%'><a href='view.php?jugador=23789&tempo=MTE=' class='looser'><b>MANZANARES GOMEZ, JUAN FRANCISCO</b></a></td><td align='center'><b>B</b></td><td width='20%'><a href='view.php?jugador=30860&tempo=MTE=' class='winner'><b>BORDALLO AZORIN, JUAN MANUEL</b></a></td><td>6-11</td><td>8-11</td><td>7-11</td><td></td><td></td><td><font color='#FF8000'>0</font>-<font color='#21610B'>3</font></td><td rowspan='2'>10/05/2026</td><td rowspan='2'><a href='view.php?tempo=MTE=&liga=NA==&grupo=11&subgrupo=S&jornada=22&sexo=M'><b>SDM - J22</b></a></td></tr>
+<tr><td align='center'><b>C</b></td><td><a href='view.php?jugador=40000&tempo=MTE=' class='looser'><b>RIVAL DOS, PEPE</b></a></td><td align='center'><b>Z</b></td><td><a href='view.php?jugador=23789&tempo=MTE=' class='winner'><b>MANZANARES GOMEZ, JUAN FRANCISCO</b></a></td><td>9-11</td><td>8-11</td><td>13-15</td><td></td><td></td><td><font>0</font>-<font>3</font></td></tr></table>`;
+
+describe("página de resultados por jugador (RFETM)", () => {
+  it("lee los totales oficiales de la temporada", () => {
+    /*
+      Este test existe por un fallo real: quitar las etiquetas sustituyéndolas
+      por cadena vacía convertía <td>38</td><td>17</td> en "3817", y salían
+      38172 partidos jugados. Ahora se sustituyen por un espacio.
+    */
+    expect(parsearTotalesJugador(PAGINA_JUGADOR)).toEqual({
+      jugados: 38,
+      ganados: 17,
+      perdidos: 21,
+      porcentaje: 45,
+      puntosAFavor: 1349,
+      puntosEnContra: 1268,
+      juegosAFavor: 71,
+      juegosEnContra: 72,
+    });
+  });
+
+  it("saca los partidos con su rival, sets y resultado", () => {
+    const p = parsearPaginaJugador(PAGINA_JUGADOR, LICENCIA);
+    expect(p).toHaveLength(2);
+    expect(p[0]).toMatchObject({
+      fecha: "2026-05-10",
+      jornada: 22,
+      miLetra: "X",
+      suLetra: "B",
+      rival: "Juan Manuel Bordallo Azorin",
+      ganado: false,
+      juegosGanados: 0,
+      juegosPerdidos: 3,
+    });
+  });
+
+  it("arrastra la fecha y la jornada a la fila que las comparte por rowspan", () => {
+    // La segunda fila del par no trae celda de fecha: hereda la anterior.
+    const p = parsearPaginaJugador(PAGINA_JUGADOR, LICENCIA);
+    expect(p[1].fecha).toBe("2026-05-10");
+    expect(p[1].jornada).toBe(22);
+  });
+
+  it("invierte los marcadores cuando aparece en la segunda columna", () => {
+    // En el segundo partido él es el jugador de la derecha y GANA 3-0, pese a
+    // que el marcador del acta pone 0-3 desde el punto de vista del otro.
+    const p = parsearPaginaJugador(PAGINA_JUGADOR, LICENCIA);
+    expect(p[1]).toMatchObject({ ganado: true, juegosGanados: 3, juegosPerdidos: 0 });
+    expect(p[1].sets[0]).toEqual([11, 9]);
+  });
+
+  it("descarta los sets no jugados en vez de contarlos como 0-0", () => {
+    const p = parsearPaginaJugador(PAGINA_JUGADOR, LICENCIA);
+    expect(p[0].sets).toHaveLength(3);
+  });
+
+  it("una licencia ajena no devuelve nada", () => {
+    expect(parsearPaginaJugador(PAGINA_JUGADOR, "1")).toEqual([]);
+  });
+});
+
+describe("métricas del estudio", () => {
+  // 4 partidos: 2 ganados (uno remontando), 2 perdidos (uno derrumbándose).
+  const p = [
+    { ganado: true, miLetra: "A", fecha: "2026-01-01", sets: [[9, 11], [11, 8], [11, 9], [12, 10]] },
+    { ganado: true, miLetra: "A", fecha: "2026-01-08", sets: [[11, 5], [11, 7], [11, 4]] },
+    { ganado: false, miLetra: "B", fecha: "2026-01-15", sets: [[11, 9], [8, 11], [9, 11], [7, 11]] },
+    { ganado: false, miLetra: "B", fecha: "2026-01-22", sets: [[4, 11], [11, 9], [9, 11], [11, 6], [8, 11]] },
+  ];
+
+  it("calcula el porcentaje de cada set", () => {
+    const r = rendimientoPorSet(p);
+    expect(r[0]).toMatchObject({ set: 1, jugados: 4, ganados: 2, porcentaje: 50 });
+    // Solo un partido llegó al quinto set, y se perdió.
+    expect(r[4]).toMatchObject({ set: 5, jugados: 1, ganados: 0, porcentaje: 0 });
+  });
+
+  it("distingue remontar de derrumbarse", () => {
+    const r = remontadas(p);
+    expect(r).toMatchObject({
+      empezandoPerdiendo: 2,
+      remontados: 1,
+      tasaRemontada: 50,
+      empezandoGanando: 2,
+      remontadosEnContra: 1,
+      tasaDerrumbe: 50,
+    });
+  });
+
+  it("cuenta los sets ajustados y los quintos sets", () => {
+    const c = clutch(p);
+    expect(c.ajustadosJugados).toBe(1); // el 12-10
+    expect(c.ajustadosGanados).toBe(1);
+    expect(c.quintosJugados).toBe(1);
+    expect(c.quintosGanados).toBe(0);
+  });
+
+  it("calcula rachas en orden cronológico", () => {
+    const r = rachas(p);
+    expect(r.mejorRacha).toBe(2);
+    expect(r.peorRacha).toBe(2);
+    expect(r.actual).toBe(-2); // acabó con dos derrotas
+  });
+
+  it("agrupa el rendimiento por posición en la alineación", () => {
+    expect(porLetra(p)).toEqual([
+      { letra: "A", jugados: 2, ganados: 2, porcentaje: 100 },
+      { letra: "B", jugados: 2, ganados: 0, porcentaje: 0 },
+    ]);
+  });
+
+  it("ninguna métrica se rompe sin partidos", () => {
+    expect(() => {
+      rendimientoPorSet([]);
+      remontadas([]);
+      clutch([]);
+      rachas([]);
+      porLetra([]);
+    }).not.toThrow();
+    expect(rachas([]).actual).toBe(0);
   });
 });
 
