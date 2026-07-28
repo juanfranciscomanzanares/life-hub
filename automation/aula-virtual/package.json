@@ -1,0 +1,14 @@
+{
+  "name": "aula-virtual-automation",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "login-inicial": "node login-inicial.mjs",
+    "sync": "node sync.mjs"
+  },
+  "dependencies": {
+    "playwright": "^1.48.0",
+    "@supabase/supabase-js": "^2.45.0"
+  }
+}
