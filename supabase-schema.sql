@@ -59,8 +59,23 @@ create policy "own rows delete" on public.app_state
 -- ============================================================
 --  Sincronización en tiempo real (Supabase Realtime)
 --  Permite que los cambios aparezcan al instante en todos tus dispositivos.
+--
+--  Va dentro de un IF porque "alter publication ... add table" falla con
+--  "relation is already member of publication" si ya está añadida, y este
+--  script está pensado para poder ejecutarse tantas veces como haga falta.
 -- ============================================================
-alter publication supabase_realtime add table public.app_state;
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'app_state'
+  ) then
+    alter publication supabase_realtime add table public.app_state;
+  end if;
+end
+$$;
 
 -- ============================================================
 --  Almacenamiento para Adjuntos (fotos, apuntes)
