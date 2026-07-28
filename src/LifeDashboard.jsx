@@ -68,6 +68,7 @@ const Proximos = lazy(() => import("./sections/Proximos.jsx"));
 const Ajustes = lazy(() => import("./sections/Ajustes.jsx"));
 import { Flag, CalendarDays, Database, HeartPulse, Sparkles, Timer, Trophy, Sun, Moon, Image, Tag, CalendarClock, Settings } from "lucide-react";
 const TenisMesa = lazy(() => import("./sections/TenisMesa.jsx"));
+const TenisEntrenos = lazy(() => import("./sections/TenisEntrenos.jsx"));
 const Metas = lazy(() => import("./sections/Metas.jsx"));
 const Calendario = lazy(() => import("./sections/Calendario.jsx"));
 const Datos = lazy(() => import("./sections/Datos.jsx"));
@@ -111,17 +112,6 @@ const INITIAL_UNI_TASKS = [];
 
 const INITIAL_STUDY_HOURS = {};
 
-const INITIAL_TT_DRILLS = [];
-
-const TT_WEEK = [
-  { dia: "Lun", horas: 1.5 },
-  { dia: "Mar", horas: 0 },
-  { dia: "Mié", horas: 2 },
-  { dia: "Jue", horas: 1 },
-  { dia: "Vie", horas: 0 },
-  { dia: "Sáb", horas: 2.5 },
-  { dia: "Dom", horas: 0 },
-];
 
 /* --- Finanzas --- */
 const FIN_BUDGET = 800;
@@ -520,126 +510,6 @@ function Universidad() {
 /* ------------------------------------------------------------------ */
 /*  SECCIÓN: TENIS DE MESA                                             */
 /* ------------------------------------------------------------------ */
-
-function TenisDeMesa() {
-  const [drills, setDrills] = usePersisted("lh_tt_drills", INITIAL_TT_DRILLS);
-  const [notes, setNotes] = usePersisted(
-    "lh_tt_notes",
-    "Recordatorio: mantener el codo alto en el topspin de derecha y no adelantar el peso demasiado pronto."
-  );
-  const [partidos, setPartidos] = usePersisted("lh_tt_matches", []);
-  const [pForm, setPForm] = useState({ rival: "", pf: "", pc: "" });
-  const victorias = partidos.filter((m) => Number(m.pf) > Number(m.pc)).length;
-  const winPct = partidos.length ? Math.round((victorias / partidos.length) * 100) : 0;
-  const addPartido = () => {
-    if (!pForm.rival.trim()) return;
-    setPartidos([{ id: Date.now(), fecha: new Date().toISOString().slice(0, 10), rival: pForm.rival, pf: Number(pForm.pf) || 0, pc: Number(pForm.pc) || 0 }, ...partidos]);
-    setPForm({ rival: "", pf: "", pc: "" });
-  };
-  const maxH = Math.max(...TT_WEEK.map((d) => d.horas), 1);
-  const totalWeek = TT_WEEK.reduce((a, b) => a + b.horas, 0);
-
-  return (
-    <div>
-      <SectionTitle icon={Target} title="Tenis de Mesa" subtitle="Entrenamiento técnico y seguimiento" />
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Horas semanales */}
-        <Card>
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
-              <Clock size={18} className="text-amber-400" /> Horas de entrenamiento
-            </h2>
-            <span className="rounded-full bg-amber-500/15 px-3 py-1 text-sm font-semibold text-amber-300">
-              {totalWeek}h esta semana
-            </span>
-          </div>
-          <div className="flex h-40 items-end justify-between gap-2">
-            {TT_WEEK.map((d) => (
-              <div key={d.dia} className="flex flex-1 flex-col items-center gap-2">
-                <div className="flex w-full flex-1 items-end">
-                  <div
-                    className="w-full rounded-t-lg bg-gradient-to-t from-amber-600 to-amber-400 transition-all"
-                    style={{ height: `${(d.horas / maxH) * 100}%` }}
-                    title={`${d.horas}h`}
-                  />
-                </div>
-                <span className="text-xs text-slate-400">{d.dia}</span>
-              </div>
-            ))}
-          </div>
-        </Card>
-
-        {/* Ejercicios técnicos */}
-        <Card>
-          <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-slate-100">
-            <Target size={18} className="text-emerald-400" /> Ejercicios técnicos
-          </h2>
-          <ul className="space-y-2">
-            {drills.map((d) => (
-              <li
-                key={d.id}
-                onClick={() =>
-                  setDrills(drills.map((x) => (x.id === d.id ? { ...x, done: !x.done } : x)))
-                }
-                className="flex cursor-pointer items-center gap-3 rounded-xl border border-slate-800 bg-slate-800/40 px-4 py-3 transition hover:border-slate-700"
-              >
-                {d.done ? (
-                  <CheckCircle2 size={18} className="text-emerald-400" />
-                ) : (
-                  <Circle size={18} className="text-slate-500" />
-                )}
-                <span className={`text-sm ${d.done ? "text-slate-500 line-through" : "text-slate-200"}`}>
-                  {d.text}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </Card>
-
-        {/* Notas */}
-        <Card className="lg:col-span-2">
-          <h2 className="mb-3 text-lg font-semibold text-slate-100">Notas de entrenamiento</h2>
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            rows={5}
-            placeholder="Escribe tus observaciones, correcciones técnicas, tácticas contra rivales..."
-            className="w-full resize-none rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
-          />
-        </Card>
-
-        <Card className="lg:col-span-2">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-slate-100">Partidos</h2>
-            <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-sm font-semibold text-emerald-300">{winPct}% victorias ({victorias}/{partidos.length})</span>
-          </div>
-          <div className="mb-3 flex flex-wrap items-end gap-2">
-            <input placeholder="Rival" value={pForm.rival} onChange={(e) => setPForm({ ...pForm, rival: e.target.value })} className="flex-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none" />
-            <input type="number" placeholder="Sets a favor" value={pForm.pf} onChange={(e) => setPForm({ ...pForm, pf: e.target.value })} className="w-32 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none" />
-            <input type="number" placeholder="Sets en contra" value={pForm.pc} onChange={(e) => setPForm({ ...pForm, pc: e.target.value })} className="w-32 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none" />
-            <button onClick={addPartido} className="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-400">Añadir</button>
-          </div>
-          <ul className="space-y-2">
-            {partidos.length === 0 && <li className="py-2 text-center text-sm text-slate-500">Sin partidos registrados.</li>}
-            {partidos.map((m) => {
-              const win = Number(m.pf) > Number(m.pc);
-              return (
-                <li key={m.id} className="flex items-center gap-3 rounded-lg border border-slate-800 bg-slate-800/40 px-3 py-2 text-sm">
-                  <span className={`rounded px-2 py-0.5 text-xs font-semibold ${win ? "bg-emerald-500/15 text-emerald-300" : "bg-rose-500/15 text-rose-300"}`}>{win ? "Victoria" : "Derrota"}</span>
-                  <span className="flex-1 text-slate-200">vs {m.rival}</span>
-                  <span className="font-mono text-slate-300">{m.pf}-{m.pc}</span>
-                  <span className="text-xs text-slate-500">{m.fecha}</span>
-                  <button onClick={() => removeWithUndo(partidos, setPartidos, m.id, "Partido")} className="text-slate-500 hover:text-rose-400"><Trash2 size={15} /></button>
-                </li>
-              );
-            })}
-          </ul>
-        </Card>
-      </div>
-    </div>
-  );
-}
 
 /* ------------------------------------------------------------------ */
 /*  SECCIÓN: FINANZAS                                                  */
@@ -1575,7 +1445,7 @@ const NAV = [
   { id: "gimnasio", label: "Gimnasio", icon: Dumbbell },
   { id: "universidad", label: "Universidad", icon: GraduationCap },
   { id: "tenis", label: "Resultados deportivos", icon: Target },
-  { id: "tenis-notas", label: "Tenis · Entrenos", icon: Target },
+  { id: "tenis-notas", label: "Entrenamientos", icon: Target },
   { id: "salud", label: "Salud", icon: HeartPulse },
   { id: "finanzas", label: "Finanzas", icon: Wallet },
   { id: "inversiones", label: "Inversiones", icon: LineChart },
@@ -1761,7 +1631,7 @@ export default function LifeDashboard({ userEmail = null, onSignOut = null }) {
           {active === "gimnasio" && <Gimnasio />}
           {active === "universidad" && <Universidad />}
           {active === "tenis" && <TenisMesa />}
-          {active === "tenis-notas" && <TenisDeMesa />}
+          {active === "tenis-notas" && <TenisEntrenos />}
           {active === "salud" && <Salud />}
           {active === "finanzas" && <Finanzas />}
           {active === "inversiones" && <Inversiones />}
