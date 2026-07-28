@@ -2,6 +2,139 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+  --- Temas ---
+
+  El tema claro se hace cambiando la paleta, no invirtiendo la página.
+
+  Antes era `html[data-theme="light"] { filter: invert(1) hue-rotate(180deg) }`,
+  y eso traía dos problemas serios:
+
+  1. Un elemento con `filter` crea un bloque contenedor, así que TODO lo que sea
+     `position: fixed` deja de anclarse a la ventana. La app usa fixed en el
+     botón + flotante, la paleta de comandos, los avisos, el onboarding y la
+     barra lateral: en claro se descolocaban al hacer scroll.
+  2. Invertir el tono desplaza los colores semánticos: el verde de "ganancia" y
+     el rojo de "pérdida" dejaban de significar lo que parecen.
+
+  Los valores salen de la paleta de Tailwind. En el neutro (slate) la rampa se
+  invierte, con la página en gris muy claro y las tarjetas en blanco. En los
+  acentos también se invierte, salvo los tonos 500 y 600, que son los de los
+  botones sólidos con texto blanco y funcionan igual sobre claro y sobre oscuro.
+*/
+:root {
+  /* slate */
+  --c-slate-100: 241 245 249;
+  --c-slate-200: 226 232 240;
+  --c-slate-300: 203 213 225;
+  --c-slate-400: 148 163 184;
+  --c-slate-500: 100 116 139;
+  --c-slate-600: 71 85 105;
+  --c-slate-700: 51 65 85;
+  --c-slate-800: 30 41 59;
+  --c-slate-900: 15 23 42;
+  --c-slate-950: 2 6 23;
+  /* indigo */
+  --c-indigo-300: 165 180 252;
+  --c-indigo-400: 129 140 248;
+  --c-indigo-500: 99 102 241;
+  --c-indigo-600: 79 70 229;
+  /* emerald */
+  --c-emerald-300: 110 231 183;
+  --c-emerald-400: 52 211 153;
+  --c-emerald-500: 16 185 129;
+  --c-emerald-600: 5 150 105;
+  --c-emerald-800: 6 95 70;
+  /* amber */
+  --c-amber-300: 252 211 77;
+  --c-amber-400: 251 191 36;
+  --c-amber-500: 245 158 11;
+  --c-amber-600: 217 119 6;
+  --c-amber-800: 146 64 14;
+  /* rose */
+  --c-rose-200: 254 205 211;
+  --c-rose-300: 253 164 175;
+  --c-rose-400: 251 113 133;
+  --c-rose-500: 244 63 94;
+  --c-rose-800: 159 18 57;
+  --c-rose-900: 136 19 55;
+  /* sky */
+  --c-sky-100: 224 242 254;
+  --c-sky-200: 186 230 253;
+  --c-sky-300: 125 211 252;
+  --c-sky-400: 56 189 248;
+  --c-sky-500: 14 165 233;
+  --c-sky-700: 3 105 161;
+  --c-sky-800: 7 89 133;
+  /* fuchsia */
+  --c-fuchsia-300: 240 171 252;
+  --c-fuchsia-400: 232 121 249;
+  --c-fuchsia-500: 217 70 239;
+  --c-fuchsia-800: 134 25 143;
+  /* teal */
+  --c-teal-300: 94 234 212;
+  --c-teal-500: 20 184 166;
+
+  --lh-fondo: 2 6 23;
+}
+
+html[data-theme="light"] {
+  /* slate */
+  --c-slate-100: 15 23 42;
+  --c-slate-200: 30 41 59;
+  --c-slate-300: 51 65 85;
+  --c-slate-400: 71 85 105;
+  --c-slate-500: 100 116 139;
+  --c-slate-600: 148 163 184;
+  --c-slate-700: 203 213 225;
+  --c-slate-800: 226 232 240;
+  --c-slate-900: 255 255 255;
+  --c-slate-950: 248 250 252;
+  /* indigo */
+  --c-indigo-300: 67 56 202;
+  --c-indigo-400: 79 70 229;
+  --c-indigo-500: 99 102 241;
+  --c-indigo-600: 79 70 229;
+  /* emerald */
+  --c-emerald-300: 4 120 87;
+  --c-emerald-400: 5 150 105;
+  --c-emerald-500: 16 185 129;
+  --c-emerald-600: 5 150 105;
+  --c-emerald-800: 167 243 208;
+  /* amber */
+  --c-amber-300: 180 83 9;
+  --c-amber-400: 217 119 6;
+  --c-amber-500: 245 158 11;
+  --c-amber-600: 217 119 6;
+  --c-amber-800: 253 230 138;
+  /* rose */
+  --c-rose-200: 159 18 57;
+  --c-rose-300: 190 18 60;
+  --c-rose-400: 225 29 72;
+  --c-rose-500: 244 63 94;
+  --c-rose-800: 254 205 211;
+  --c-rose-900: 255 228 230;
+  /* sky */
+  --c-sky-100: 12 74 110;
+  --c-sky-200: 7 89 133;
+  --c-sky-300: 3 105 161;
+  --c-sky-400: 2 132 199;
+  --c-sky-500: 14 165 233;
+  --c-sky-700: 125 211 252;
+  --c-sky-800: 186 230 253;
+  /* fuchsia */
+  --c-fuchsia-300: 162 28 175;
+  --c-fuchsia-400: 192 38 211;
+  --c-fuchsia-500: 217 70 239;
+  --c-fuchsia-800: 245 208 254;
+  /* teal */
+  --c-teal-300: 15 118 110;
+  --c-teal-500: 20 184 166;
+
+  --lh-fondo: 248 250 252;
+  color-scheme: light;
+}
+
 html,
 body,
 #root {
@@ -10,18 +143,7 @@ body,
 
 body {
   margin: 0;
-  background: #020617;
-}
-
-/* --- Tema claro (inversión automática, se puede afinar después) --- */
-html[data-theme="light"] {
-  filter: invert(1) hue-rotate(180deg);
-  background: #cbd5e1;
-}
-/* No invertir imágenes ni elementos marcados para que se vean normales */
-html[data-theme="light"] img,
-html[data-theme="light"] [data-noinvert] {
-  filter: invert(1) hue-rotate(180deg);
+  background: rgb(var(--lh-fondo));
 }
 
 /* --- Transición suave al cambiar de sección --- */
@@ -41,7 +163,7 @@ html[data-theme="light"] [data-noinvert] {
 
 /* --- Accesibilidad: foco visible por teclado --- */
 :focus-visible {
-  outline: 2px solid #818cf8;
+  outline: 2px solid rgb(var(--c-indigo-400));
   outline-offset: 2px;
   border-radius: 4px;
 }

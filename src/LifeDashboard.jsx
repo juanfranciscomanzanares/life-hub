@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, lazy, Suspense } from "react";
 import {
   Home,
   Dumbbell,
@@ -32,44 +32,65 @@ import {
   TrendingDown,
 } from "lucide-react";
 import { usePersisted } from "./lib/store";
-import Inversiones from "./sections/Inversiones.jsx";
-import Salud from "./sections/Salud.jsx";
-import Resumen from "./sections/Resumen.jsx";
-import Gimnasio from "./sections/Gimnasio.jsx";
 import HoyWidget from "./sections/HoyWidget.jsx";
 import { useRoutineNotifier } from "./lib/useRoutineNotifier";
 import { useTheme } from "./lib/useTheme";
 import { useAutoBackup } from "./lib/useAutoBackup";
-import Foco from "./sections/Foco.jsx";
-import Logros from "./sections/Logros.jsx";
-import Analitica from "./sections/Analitica.jsx";
-import Repaso from "./sections/Repaso.jsx";
 import CommandPalette from "./CommandPalette.jsx";
 import QuickAdd from "./QuickAdd.jsx";
 import Onboarding from "./Onboarding.jsx";
 import ToastHost from "./ToastHost.jsx";
 import { removeWithUndo } from "./lib/toast";
-import Adjuntos from "./sections/Adjuntos.jsx";
-import Etiquetas from "./sections/Etiquetas.jsx";
-import Coach from "./sections/Coach.jsx";
-import Proximos from "./sections/Proximos.jsx";
-import Ajustes from "./sections/Ajustes.jsx";
+
+/*
+  Secciones con carga diferida.
+
+  Antes las 17 secciones entraban en el bundle inicial aunque solo abrieras
+  Inicio: había que descargarlo todo para ver la pantalla de bienvenida. Ahora
+  cada una es su propio trozo y se descarga al abrirla por primera vez.
+
+  Se quedan fuera de aquí (carga inmediata) las que siempre están en pantalla:
+  HoyWidget, el botón + flotante, la paleta de comandos, los avisos y el
+  onboarding. Cargarlas en diferido solo provocaría un parpadeo.
+*/
+const Inversiones = lazy(() => import("./sections/Inversiones.jsx"));
+const Salud = lazy(() => import("./sections/Salud.jsx"));
+const Resumen = lazy(() => import("./sections/Resumen.jsx"));
+const Gimnasio = lazy(() => import("./sections/Gimnasio.jsx"));
+const Foco = lazy(() => import("./sections/Foco.jsx"));
+const Logros = lazy(() => import("./sections/Logros.jsx"));
+const Analitica = lazy(() => import("./sections/Analitica.jsx"));
+const Repaso = lazy(() => import("./sections/Repaso.jsx"));
+const Adjuntos = lazy(() => import("./sections/Adjuntos.jsx"));
+const Etiquetas = lazy(() => import("./sections/Etiquetas.jsx"));
+const Coach = lazy(() => import("./sections/Coach.jsx"));
+const Proximos = lazy(() => import("./sections/Proximos.jsx"));
+const Ajustes = lazy(() => import("./sections/Ajustes.jsx"));
 import { Flag, CalendarDays, Database, HeartPulse, Sparkles, Timer, Trophy, Sun, Moon, Image, Tag, CalendarClock, Settings } from "lucide-react";
-import Metas from "./sections/Metas.jsx";
-import Calendario from "./sections/Calendario.jsx";
-import Datos from "./sections/Datos.jsx";
+const TenisMesa = lazy(() => import("./sections/TenisMesa.jsx"));
+const TenisEntrenos = lazy(() => import("./sections/TenisEntrenos.jsx"));
+const Metas = lazy(() => import("./sections/Metas.jsx"));
+const Calendario = lazy(() => import("./sections/Calendario.jsx"));
+const Datos = lazy(() => import("./sections/Datos.jsx"));
 
 
 /* ------------------------------------------------------------------ */
 /*  DATOS SIMULADOS (mock data)                                        */
 /* ------------------------------------------------------------------ */
 
-const INITIAL_TASKS = [
-  { id: 1, text: "Entregar práctica de Álgebra", done: false, urgent: true, hour: "10:00" },
-  { id: 2, text: "Sesión de piernas en el gym", done: false, urgent: true, hour: "18:00" },
-  { id: 3, text: "Repasar apuntes de Estadística", done: true, urgent: false, hour: "16:00" },
-  { id: 4, text: "Entrenamiento de tenis de mesa", done: false, urgent: true, hour: "20:30" },
-];
+/*
+  Los registros de ejemplo van vacíos a propósito.
+
+  Antes la app arrancaba con datos ficticios ("Entregar práctica de Álgebra",
+  gastos inventados...). En un panel personal eso es ruido, y con la nube era
+  además peligroso: un dispositivo nuevo carga primero estos valores y, si esa
+  clave aún no existía en el servidor, acababa subiéndolos como si fueran datos
+  reales tuyos.
+
+  Los CATÁLOGOS (asignaturas, categorías de trabajo, días de la semana) sí se
+  mantienen: son opciones para elegir, no registros.
+*/
+const INITIAL_TASKS = [];
 
 const TIME_STATS = [
   { label: "Universidad", hours: 18, color: "bg-indigo-500", ring: "text-indigo-400" },
@@ -87,68 +108,22 @@ const SCHEDULE = [
 
 const SUBJECTS = ["Álgebra", "Cálculo", "Estadística", "Prog. I", "Física", "Lab. Datos"];
 
-const INITIAL_UNI_TASKS = [
-  { id: 1, text: "Ejercicios tema 3", subject: "Álgebra", done: false },
-  { id: 2, text: "Proyecto pandas", subject: "Lab. Datos", done: false },
-  { id: 3, text: "Práctica de límites", subject: "Cálculo", done: true },
-  { id: 4, text: "Test distribuciones", subject: "Estadística", done: false },
-];
+const INITIAL_UNI_TASKS = [];
 
-const INITIAL_STUDY_HOURS = {
-  "Álgebra": 5,
-  "Cálculo": 4,
-  "Estadística": 3,
-  "Prog. I": 6,
-  "Física": 2,
-  "Lab. Datos": 8,
-};
+const INITIAL_STUDY_HOURS = {};
 
-const INITIAL_TT_DRILLS = [
-  { id: 1, text: "Servicio con efecto lateral", done: true },
-  { id: 2, text: "Topspin de derecha en diagonal", done: false },
-  { id: 3, text: "Bloqueo activo de revés", done: false },
-  { id: 4, text: "Juego de pies (patrón Falkenberg)", done: false },
-  { id: 5, text: "Dejadas cortas y control de red", done: false },
-];
-
-const TT_WEEK = [
-  { dia: "Lun", horas: 1.5 },
-  { dia: "Mar", horas: 0 },
-  { dia: "Mié", horas: 2 },
-  { dia: "Jue", horas: 1 },
-  { dia: "Vie", horas: 0 },
-  { dia: "Sáb", horas: 2.5 },
-  { dia: "Dom", horas: 0 },
-];
 
 /* --- Finanzas --- */
 const FIN_BUDGET = 800;
-const INITIAL_FINANCE = [
-  { id: 1, fecha: "2026-07-21", concepto: "Beca (nómina)", categoria: "Ingreso", monto: 450 },
-  { id: 2, fecha: "2026-07-20", concepto: "Compra semanal", categoria: "Comida", monto: -48 },
-  { id: 3, fecha: "2026-07-19", concepto: "Cuota gimnasio", categoria: "Deporte", monto: -30 },
-  { id: 4, fecha: "2026-07-18", concepto: "Libro de estadística", categoria: "Universidad", monto: -25 },
-  { id: 5, fecha: "2026-07-17", concepto: "Palas y gomas", categoria: "Deporte", monto: -60 },
-  { id: 6, fecha: "2026-07-15", concepto: "Cine con amigos", categoria: "Ocio", monto: -12 },
-];
+const INITIAL_FINANCE = [];
 const SAVINGS_GOAL = { label: "Portátil nuevo", target: 1200, current: 740 };
 
 /* --- Hábitos --- */
 const HABIT_DAYS = ["L", "M", "X", "J", "V", "S", "D"];
-const INITIAL_HABITS = [
-  { id: 1, name: "Leer 20 min", streak: 12, week: [true, true, true, false, true, true, false] },
-  { id: 2, name: "Beber 2L de agua", streak: 5, week: [true, true, false, true, true, false, false] },
-  { id: 3, name: "Dormir 8h", streak: 3, week: [false, true, true, true, false, false, false] },
-  { id: 4, name: "Sin móvil antes de dormir", streak: 8, week: [true, true, true, true, true, false, false] },
-];
+const INITIAL_HABITS = [];
 
 /* --- Segundo Cerebro --- */
-const INITIAL_NOTES = [
-  { id: 1, type: "nota", title: "Sesgo de supervivencia", body: "En análisis de datos: cuidado al filtrar solo los casos 'exitosos', distorsiona conclusiones.", tag: "Estadística" },
-  { id: 2, type: "enlace", title: "Documentación de pandas", body: "https://pandas.pydata.org/docs/", tag: "Lab. Datos" },
-  { id: 3, type: "flashcard", title: "¿Qué es la desviación típica?", body: "Raíz cuadrada de la varianza; mide la dispersión respecto a la media.", tag: "Estadística" },
-  { id: 4, type: "nota", title: "Táctica tenis de mesa", body: "Contra jugadores defensivos: variar el ritmo y forzar el error con cambios de efecto.", tag: "Deporte" },
-];
+const INITIAL_NOTES = [];
 
 /* --- Trabajo (Agrosana) --- */
 const WORK_CATS = [
@@ -160,32 +135,9 @@ const WORK_CATS = [
   "Documentación",
   "Otro",
 ];
-const INITIAL_WORK = [
-  { id: 1, fecha: "2026-07-21", actividad: "Pipeline ETL de sensores de campo", categoria: "Ingeniería de Datos", horas: 4 },
-  { id: 2, fecha: "2026-07-20", actividad: "Modelo predicción de riego", categoria: "Ciencia de Datos", horas: 3 },
-  { id: 3, fecha: "2026-07-18", actividad: "Dashboard de producción (Power BI)", categoria: "Análisis / Reporting", horas: 2.5 },
-  { id: 4, fecha: "2026-07-15", actividad: "Daily y planificación sprint", categoria: "Reuniones", horas: 1 },
-  { id: 5, fecha: "2026-06-28", actividad: "Limpieza dataset históricos cosecha", categoria: "Ingeniería de Datos", horas: 5 },
-  { id: 6, fecha: "2026-06-20", actividad: "Curso interno de dbt", categoria: "Formación", horas: 3 },
-  { id: 7, fecha: "2026-06-12", actividad: "Análisis correlación clima-rendimiento", categoria: "Ciencia de Datos", horas: 4 },
-  { id: 8, fecha: "2026-05-27", actividad: "Documentar esquema de base de datos", categoria: "Documentación", horas: 2 },
-  { id: 9, fecha: "2026-05-15", actividad: "Primer pipeline de ingesta", categoria: "Ingeniería de Datos", horas: 6 },
-];
+const INITIAL_WORK = [];
 
-const INITIAL_RUNBOOKS = [
-  {
-    id: 1,
-    titulo: "Conectar Python a la base de datos de Agrosana",
-    pasos: "1. Usar psycopg2 / SQLAlchemy.\n2. Credenciales desde variables de entorno (.env).\n3. Probar con SELECT 1 antes de lanzar la query real.",
-    herramientas: "Python · SQLAlchemy",
-  },
-  {
-    id: 2,
-    titulo: "Desplegar un pipeline ETL programado",
-    pasos: "1. Script idempotente.\n2. Programar con cron / Airflow.\n3. Logging + alertas si falla.\n4. Guardar marca de última ejecución.",
-    herramientas: "Airflow · Cron",
-  },
-];
+const INITIAL_RUNBOOKS = [];
 
 /*  COMPONENTES REUTILIZABLES                                          */
 /* ------------------------------------------------------------------ */
@@ -558,126 +510,6 @@ function Universidad() {
 /* ------------------------------------------------------------------ */
 /*  SECCIÓN: TENIS DE MESA                                             */
 /* ------------------------------------------------------------------ */
-
-function TenisDeMesa() {
-  const [drills, setDrills] = usePersisted("lh_tt_drills", INITIAL_TT_DRILLS);
-  const [notes, setNotes] = usePersisted(
-    "lh_tt_notes",
-    "Recordatorio: mantener el codo alto en el topspin de derecha y no adelantar el peso demasiado pronto."
-  );
-  const [partidos, setPartidos] = usePersisted("lh_tt_matches", []);
-  const [pForm, setPForm] = useState({ rival: "", pf: "", pc: "" });
-  const victorias = partidos.filter((m) => Number(m.pf) > Number(m.pc)).length;
-  const winPct = partidos.length ? Math.round((victorias / partidos.length) * 100) : 0;
-  const addPartido = () => {
-    if (!pForm.rival.trim()) return;
-    setPartidos([{ id: Date.now(), fecha: new Date().toISOString().slice(0, 10), rival: pForm.rival, pf: Number(pForm.pf) || 0, pc: Number(pForm.pc) || 0 }, ...partidos]);
-    setPForm({ rival: "", pf: "", pc: "" });
-  };
-  const maxH = Math.max(...TT_WEEK.map((d) => d.horas), 1);
-  const totalWeek = TT_WEEK.reduce((a, b) => a + b.horas, 0);
-
-  return (
-    <div>
-      <SectionTitle icon={Target} title="Tenis de Mesa" subtitle="Entrenamiento técnico y seguimiento" />
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Horas semanales */}
-        <Card>
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
-              <Clock size={18} className="text-amber-400" /> Horas de entrenamiento
-            </h2>
-            <span className="rounded-full bg-amber-500/15 px-3 py-1 text-sm font-semibold text-amber-300">
-              {totalWeek}h esta semana
-            </span>
-          </div>
-          <div className="flex h-40 items-end justify-between gap-2">
-            {TT_WEEK.map((d) => (
-              <div key={d.dia} className="flex flex-1 flex-col items-center gap-2">
-                <div className="flex w-full flex-1 items-end">
-                  <div
-                    className="w-full rounded-t-lg bg-gradient-to-t from-amber-600 to-amber-400 transition-all"
-                    style={{ height: `${(d.horas / maxH) * 100}%` }}
-                    title={`${d.horas}h`}
-                  />
-                </div>
-                <span className="text-xs text-slate-400">{d.dia}</span>
-              </div>
-            ))}
-          </div>
-        </Card>
-
-        {/* Ejercicios técnicos */}
-        <Card>
-          <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-slate-100">
-            <Target size={18} className="text-emerald-400" /> Ejercicios técnicos
-          </h2>
-          <ul className="space-y-2">
-            {drills.map((d) => (
-              <li
-                key={d.id}
-                onClick={() =>
-                  setDrills(drills.map((x) => (x.id === d.id ? { ...x, done: !x.done } : x)))
-                }
-                className="flex cursor-pointer items-center gap-3 rounded-xl border border-slate-800 bg-slate-800/40 px-4 py-3 transition hover:border-slate-700"
-              >
-                {d.done ? (
-                  <CheckCircle2 size={18} className="text-emerald-400" />
-                ) : (
-                  <Circle size={18} className="text-slate-500" />
-                )}
-                <span className={`text-sm ${d.done ? "text-slate-500 line-through" : "text-slate-200"}`}>
-                  {d.text}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </Card>
-
-        {/* Notas */}
-        <Card className="lg:col-span-2">
-          <h2 className="mb-3 text-lg font-semibold text-slate-100">Notas de entrenamiento</h2>
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            rows={5}
-            placeholder="Escribe tus observaciones, correcciones técnicas, tácticas contra rivales..."
-            className="w-full resize-none rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
-          />
-        </Card>
-
-        <Card className="lg:col-span-2">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-slate-100">Partidos</h2>
-            <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-sm font-semibold text-emerald-300">{winPct}% victorias ({victorias}/{partidos.length})</span>
-          </div>
-          <div className="mb-3 flex flex-wrap items-end gap-2">
-            <input placeholder="Rival" value={pForm.rival} onChange={(e) => setPForm({ ...pForm, rival: e.target.value })} className="flex-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none" />
-            <input type="number" placeholder="Sets a favor" value={pForm.pf} onChange={(e) => setPForm({ ...pForm, pf: e.target.value })} className="w-32 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none" />
-            <input type="number" placeholder="Sets en contra" value={pForm.pc} onChange={(e) => setPForm({ ...pForm, pc: e.target.value })} className="w-32 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none" />
-            <button onClick={addPartido} className="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-400">Añadir</button>
-          </div>
-          <ul className="space-y-2">
-            {partidos.length === 0 && <li className="py-2 text-center text-sm text-slate-500">Sin partidos registrados.</li>}
-            {partidos.map((m) => {
-              const win = Number(m.pf) > Number(m.pc);
-              return (
-                <li key={m.id} className="flex items-center gap-3 rounded-lg border border-slate-800 bg-slate-800/40 px-3 py-2 text-sm">
-                  <span className={`rounded px-2 py-0.5 text-xs font-semibold ${win ? "bg-emerald-500/15 text-emerald-300" : "bg-rose-500/15 text-rose-300"}`}>{win ? "Victoria" : "Derrota"}</span>
-                  <span className="flex-1 text-slate-200">vs {m.rival}</span>
-                  <span className="font-mono text-slate-300">{m.pf}-{m.pc}</span>
-                  <span className="text-xs text-slate-500">{m.fecha}</span>
-                  <button onClick={() => removeWithUndo(partidos, setPartidos, m.id, "Partido")} className="text-slate-500 hover:text-rose-400"><Trash2 size={15} /></button>
-                </li>
-              );
-            })}
-          </ul>
-        </Card>
-      </div>
-    </div>
-  );
-}
 
 /* ------------------------------------------------------------------ */
 /*  SECCIÓN: FINANZAS                                                  */
@@ -1612,7 +1444,8 @@ const NAV = [
   { id: "trabajo", label: "Trabajo · Agrosana", icon: Sprout },
   { id: "gimnasio", label: "Gimnasio", icon: Dumbbell },
   { id: "universidad", label: "Universidad", icon: GraduationCap },
-  { id: "tenis", label: "Tenis de Mesa", icon: Target },
+  { id: "tenis", label: "Resultados deportivos", icon: Target },
+  { id: "tenis-notas", label: "Entrenamientos", icon: Target },
   { id: "salud", label: "Salud", icon: HeartPulse },
   { id: "finanzas", label: "Finanzas", icon: Wallet },
   { id: "inversiones", label: "Inversiones", icon: LineChart },
@@ -1790,11 +1623,15 @@ export default function LifeDashboard({ userEmail = null, onSignOut = null }) {
           <span className="font-semibold text-slate-100">Life Hub</span>        </div>
 
         <div key={active} className="mx-auto max-w-6xl p-5 sm:p-8 section-fade">
+          <Suspense
+            fallback={<div className="py-16 text-center text-sm text-slate-500">Cargando sección...</div>}
+          >
           {active === "inicio" && <Inicio tasks={tasks} toggleTask={toggleTask} />}
           {active === "trabajo" && <Trabajo />}
           {active === "gimnasio" && <Gimnasio />}
           {active === "universidad" && <Universidad />}
-          {active === "tenis" && <TenisDeMesa />}
+          {active === "tenis" && <TenisMesa />}
+          {active === "tenis-notas" && <TenisEntrenos />}
           {active === "salud" && <Salud />}
           {active === "finanzas" && <Finanzas />}
           {active === "inversiones" && <Inversiones />}
@@ -1813,6 +1650,7 @@ export default function LifeDashboard({ userEmail = null, onSignOut = null }) {
           {active === "etiquetas" && <Etiquetas />}
           {active === "datos" && <Datos />}
           {active === "ajustes" && <Ajustes />}
+          </Suspense>
         </div>
       </main>
 

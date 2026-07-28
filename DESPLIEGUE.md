@@ -75,8 +75,29 @@ Sin esto cada dispositivo guarda lo suyo. Con esto, compartes datos y tienes log
    - `VITE_SUPABASE_URL` = tu Project URL
    - `VITE_SUPABASE_ANON_KEY` = tu anon key
 5. Ve a **Deployments** en Vercel y pulsa **Redeploy** para que tome las variables.
-6. Abre la app: ahora te pedirá tu **email**; recibirás un enlace de acceso. Al entrar en el PC
-   y en el iPhone con el mismo email, verás los mismos datos, sincronizados al instante.
+6. Abre la app: ahora te pedirá **correo y contraseña**. La primera vez pulsa **Crear cuenta**.
+   Al entrar en el PC y en el iPhone con la misma cuenta, verás los mismos datos, sincronizados
+   al instante.
+
+> **¿Olvidaste la contraseña, o ya tenías la cuenta creada con enlace mágico?** Puedes ponerle
+> una contraseña a un usuario existente sin borrarlo (borrarlo eliminaría sus datos por el
+> `on delete cascade`). En **SQL Editor → New query**:
+>
+> ```sql
+> update auth.users
+> set encrypted_password = extensions.crypt('TU-CONTRASEÑA', extensions.gen_salt('bf')),
+>     email_confirmed_at = coalesce(email_confirmed_at, now())
+> where email = 'tu@email.com';
+> ```
+>
+> Un `UPDATE` no devuelve filas, así que "Success. No rows returned" **es lo esperado**.
+> Para comprobarlo:
+>
+> ```sql
+> select email, email_confirmed_at,
+>        (encrypted_password = extensions.crypt('TU-CONTRASEÑA', encrypted_password)) as ok
+> from auth.users where email = 'tu@email.com';
+> ```
 
 > Para probar la nube en local, copia `.env.example` como `.env`, pon ahí las dos variables y
 > reinicia `npm run dev`.
@@ -94,6 +115,39 @@ Todo esto está documentado en `docs/INTEGRACIONES.md`:
 ---
 
 ## Resolución de problemas
+
+### En el móvil se queda la pantalla en negro y no puedo entrar
+
+Es el fallo más común de una PWA. Va por orden, de más probable a menos:
+
+1. **Caché vieja del service worker.** El móvil se quedó con una versión antigua de la
+   app que apunta a archivos que ya no existen en el servidor. Solución:
+   - Si la tenías **añadida a la pantalla de inicio**, bórrala (mantener pulsado → Eliminar app).
+   - En Safari: **Ajustes → Safari → Borrar historial y datos de sitios web**.
+   - Vuelve a abrir la URL de Vercel y añádela de nuevo a la pantalla de inicio.
+   - En la pantalla de carga/login hay ahora un enlace **"Reiniciar app (borra caché)"**
+     que hace esto mismo sin perder tus datos.
+
+2. **Redirect URLs de Supabase.** En Supabase → **Authentication → URL Configuration**:
+   - **Site URL** = tu URL de Vercel (p. ej. `https://life-hub-tuusuario.vercel.app`),
+     **sin barra final**.
+   - **Redirect URLs** debe incluir esa misma URL y `https://tu-app.vercel.app/**`.
+     Si la URL a la que vuelve el enlace no está en esta lista, Supabase te manda al
+     Site URL por defecto (`http://localhost:3000`), que en el móvil no existe.
+
+3. **El enlace se abre en el navegador de Gmail, no en Safari.** El enlace mágico es de
+   **un solo uso**. Si la app de correo lo pre-carga o lo abre en su navegador interno, la
+   sesión se crea "en otro sitio". Solución: **mantén pulsado el enlace → Copiar**, y pégalo
+   en la barra de Safari (o en el navegador donde pediste el acceso).
+
+4. **El email dice "confirma tu registro" en vez de "inicia sesión".** Significa que ese
+   correo aún no está confirmado en Supabase. Míralo en **Authentication → Users**: si el
+   usuario aparece sin confirmar, pulsa los tres puntos → **Confirm user**, o borra el
+   usuario y vuelve a pedir el enlace.
+
+5. **Límite de emails.** El servidor SMTP gratuito de Supabase permite muy pocos correos
+   por hora. Si has pedido muchos enlaces seguidos, espera un rato o configura tu propio
+   SMTP en **Authentication → Emails → SMTP Settings**.
 
 - **La app carga en blanco tras añadir Supabase**: revisa que las dos variables estén bien escritas
   en Vercel y que hiciste Redeploy.

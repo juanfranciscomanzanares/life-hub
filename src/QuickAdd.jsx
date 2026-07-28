@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Plus, X } from "lucide-react";
 import { usePersisted } from "./lib/store";
+import { nuevoId, nuevaSerie } from "./lib/gym";
 
 const TIPOS = ["Gasto", "Gym", "Tarea", "Peso"];
 const todayISO = () => new Date().toISOString().slice(0, 10);
@@ -22,7 +23,19 @@ export default function QuickAdd() {
     if (tipo === "Gasto" && v.concepto) {
       setFinance([{ id: Date.now(), fecha: todayISO(), concepto: v.concepto, categoria: "Ocio", monto: -Math.abs(Number(v.monto) || 0), etiqueta: v.etiqueta || "" }, ...finance]);
     } else if (tipo === "Gym" && v.ejercicio) {
-      setGym([{ id: Date.now(), fecha: todayISO(), ejercicio: v.ejercicio, peso: Number(v.peso) || 0, series: Number(v.series) || 0, reps: Number(v.reps) || 0, nota: "" }, ...gym]);
+      // Formato nuevo: una entrada por serie, todas iguales al añadir rápido.
+      // Luego se afinan una a una desde la sección de Gimnasio.
+      const cuantas = Math.max(1, Number(v.series) || 1);
+      setGym([
+        {
+          id: nuevoId(),
+          fecha: todayISO(),
+          ejercicio: v.ejercicio,
+          nota: "",
+          sets: Array.from({ length: cuantas }, () => nuevaSerie(v.peso, v.reps)),
+        },
+        ...gym,
+      ]);
     } else if (tipo === "Tarea" && v.text) {
       setTasks([...tasks, { id: Date.now(), text: v.text, done: false, urgent: true, hour: "", etiqueta: v.etiqueta || "" }]);
     } else if (tipo === "Peso" && v.peso) {
