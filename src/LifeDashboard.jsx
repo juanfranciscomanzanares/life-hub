@@ -354,6 +354,7 @@ function Inicio({ tasks, toggleTask }) {
 /* ------------------------------------------------------------------ */
 
 function Universidad() {
+  const [cuatrimestre, setCuatrimestre] = useState("C1");
   const [tasks, setTasks] = usePersisted("lh_uni_tasks", INITIAL_UNI_TASKS);
   const [filter, setFilter] = useState("Todas");
   const [studyHours, setStudyHours] = usePersisted("lh_study_hours", INITIAL_STUDY_HOURS);
@@ -474,24 +475,47 @@ function Universidad() {
         subtitle="Grado en Ciencia e Ingeniería de Datos · Curso 2026/2027"
       />
 
-      {/* Horarios por cuatrimestre (teoría) */}
-      <div className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <HorarioCuatrimestre
-          titulo="Horario · 1er Cuatrimestre"
-          clases={SCHEDULE_C1}
-          sinHorario={SIN_HORARIO_FIJO.C1}
-        />
-        <HorarioCuatrimestre
-          titulo="Horario · 2º Cuatrimestre"
-          clases={SCHEDULE_C2}
-          sinHorario={SIN_HORARIO_FIJO.C2}
-        />
+      {/* Selector de cuatrimestre */}
+      <div className="mb-4 inline-flex rounded-full bg-slate-800 p-1">
+        {["1er Cuatrimestre", "2º Cuatrimestre"].map((c, i) => (
+          <button
+            key={c}
+            onClick={() => setCuatrimestre(i === 0 ? "C1" : "C2")}
+            className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
+              cuatrimestre === (i === 0 ? "C1" : "C2")
+                ? "bg-indigo-500 text-white"
+                : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            {c}
+          </button>
+        ))}
+      </div>
+
+      {/* Horario (teoría) */}
+      <div className="mb-6">
+        {cuatrimestre === "C1" ? (
+          <HorarioCuatrimestre
+            titulo="Horario · 1er Cuatrimestre"
+            clases={SCHEDULE_C1}
+            sinHorario={SIN_HORARIO_FIJO.C1}
+          />
+        ) : (
+          <HorarioCuatrimestre
+            titulo="Horario · 2º Cuatrimestre"
+            clases={SCHEDULE_C2}
+            sinHorario={SIN_HORARIO_FIJO.C2}
+          />
+        )}
       </div>
 
       {/* Prácticas de laboratorio por subgrupo */}
-      <div className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <PracticasCuatrimestre titulo="Prácticas · 1er Cuatrimestre" filas={PRACTICAS_C1} />
-        <PracticasCuatrimestre titulo="Prácticas · 2º Cuatrimestre" filas={PRACTICAS_C2} />
+      <div className="mb-6">
+        {cuatrimestre === "C1" ? (
+          <PracticasCuatrimestre titulo="Prácticas · 1er Cuatrimestre" filas={PRACTICAS_C1} />
+        ) : (
+          <PracticasCuatrimestre titulo="Prácticas · 2º Cuatrimestre" filas={PRACTICAS_C2} />
+        )}
       </div>
 
       {/* Exámenes */}
