@@ -29,9 +29,12 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const BASE = "https://bankaccountdata.gocardless.com/api/v2";
 
+// supabase-js manda también `apikey` y `x-client-info`. Si no se autorizan, el
+// navegador corta en el preflight y el cliente dice "Failed to send a request
+// to the Edge Function" sin que la función llegue a ejecutarse.
 const cors = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 

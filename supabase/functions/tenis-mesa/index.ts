@@ -34,9 +34,16 @@ const DOMINIOS = [
 // tiempo. El cliente va por tandas.
 const MAX_URLS = 8;
 
+/*
+  Las cuatro cabeceras son necesarias: supabase-js manda además de
+  `authorization` y `content-type`, la `apikey` y `x-client-info`. Si falta
+  alguna, el navegador corta en la comprobación previa (preflight) y el cliente
+  informa de "Failed to send a request to the Edge Function", sin que la función
+  llegue a ejecutarse.
+*/
 const cors = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
