@@ -76,12 +76,19 @@ const Datos = lazy(() => import("./sections/Datos.jsx"));
 /*  DATOS SIMULADOS (mock data)                                        */
 /* ------------------------------------------------------------------ */
 
-const INITIAL_TASKS = [
-  { id: 1, text: "Entregar práctica de Álgebra", done: false, urgent: true, hour: "10:00" },
-  { id: 2, text: "Sesión de piernas en el gym", done: false, urgent: true, hour: "18:00" },
-  { id: 3, text: "Repasar apuntes de Estadística", done: true, urgent: false, hour: "16:00" },
-  { id: 4, text: "Entrenamiento de tenis de mesa", done: false, urgent: true, hour: "20:30" },
-];
+/*
+  Los registros de ejemplo van vacíos a propósito.
+
+  Antes la app arrancaba con datos ficticios ("Entregar práctica de Álgebra",
+  gastos inventados...). En un panel personal eso es ruido, y con la nube era
+  además peligroso: un dispositivo nuevo carga primero estos valores y, si esa
+  clave aún no existía en el servidor, acababa subiéndolos como si fueran datos
+  reales tuyos.
+
+  Los CATÁLOGOS (asignaturas, categorías de trabajo, días de la semana) sí se
+  mantienen: son opciones para elegir, no registros.
+*/
+const INITIAL_TASKS = [];
 
 const TIME_STATS = [
   { label: "Universidad", hours: 18, color: "bg-indigo-500", ring: "text-indigo-400" },
@@ -99,29 +106,11 @@ const SCHEDULE = [
 
 const SUBJECTS = ["Álgebra", "Cálculo", "Estadística", "Prog. I", "Física", "Lab. Datos"];
 
-const INITIAL_UNI_TASKS = [
-  { id: 1, text: "Ejercicios tema 3", subject: "Álgebra", done: false },
-  { id: 2, text: "Proyecto pandas", subject: "Lab. Datos", done: false },
-  { id: 3, text: "Práctica de límites", subject: "Cálculo", done: true },
-  { id: 4, text: "Test distribuciones", subject: "Estadística", done: false },
-];
+const INITIAL_UNI_TASKS = [];
 
-const INITIAL_STUDY_HOURS = {
-  "Álgebra": 5,
-  "Cálculo": 4,
-  "Estadística": 3,
-  "Prog. I": 6,
-  "Física": 2,
-  "Lab. Datos": 8,
-};
+const INITIAL_STUDY_HOURS = {};
 
-const INITIAL_TT_DRILLS = [
-  { id: 1, text: "Servicio con efecto lateral", done: true },
-  { id: 2, text: "Topspin de derecha en diagonal", done: false },
-  { id: 3, text: "Bloqueo activo de revés", done: false },
-  { id: 4, text: "Juego de pies (patrón Falkenberg)", done: false },
-  { id: 5, text: "Dejadas cortas y control de red", done: false },
-];
+const INITIAL_TT_DRILLS = [];
 
 const TT_WEEK = [
   { dia: "Lun", horas: 1.5 },
@@ -135,32 +124,15 @@ const TT_WEEK = [
 
 /* --- Finanzas --- */
 const FIN_BUDGET = 800;
-const INITIAL_FINANCE = [
-  { id: 1, fecha: "2026-07-21", concepto: "Beca (nómina)", categoria: "Ingreso", monto: 450 },
-  { id: 2, fecha: "2026-07-20", concepto: "Compra semanal", categoria: "Comida", monto: -48 },
-  { id: 3, fecha: "2026-07-19", concepto: "Cuota gimnasio", categoria: "Deporte", monto: -30 },
-  { id: 4, fecha: "2026-07-18", concepto: "Libro de estadística", categoria: "Universidad", monto: -25 },
-  { id: 5, fecha: "2026-07-17", concepto: "Palas y gomas", categoria: "Deporte", monto: -60 },
-  { id: 6, fecha: "2026-07-15", concepto: "Cine con amigos", categoria: "Ocio", monto: -12 },
-];
+const INITIAL_FINANCE = [];
 const SAVINGS_GOAL = { label: "Portátil nuevo", target: 1200, current: 740 };
 
 /* --- Hábitos --- */
 const HABIT_DAYS = ["L", "M", "X", "J", "V", "S", "D"];
-const INITIAL_HABITS = [
-  { id: 1, name: "Leer 20 min", streak: 12, week: [true, true, true, false, true, true, false] },
-  { id: 2, name: "Beber 2L de agua", streak: 5, week: [true, true, false, true, true, false, false] },
-  { id: 3, name: "Dormir 8h", streak: 3, week: [false, true, true, true, false, false, false] },
-  { id: 4, name: "Sin móvil antes de dormir", streak: 8, week: [true, true, true, true, true, false, false] },
-];
+const INITIAL_HABITS = [];
 
 /* --- Segundo Cerebro --- */
-const INITIAL_NOTES = [
-  { id: 1, type: "nota", title: "Sesgo de supervivencia", body: "En análisis de datos: cuidado al filtrar solo los casos 'exitosos', distorsiona conclusiones.", tag: "Estadística" },
-  { id: 2, type: "enlace", title: "Documentación de pandas", body: "https://pandas.pydata.org/docs/", tag: "Lab. Datos" },
-  { id: 3, type: "flashcard", title: "¿Qué es la desviación típica?", body: "Raíz cuadrada de la varianza; mide la dispersión respecto a la media.", tag: "Estadística" },
-  { id: 4, type: "nota", title: "Táctica tenis de mesa", body: "Contra jugadores defensivos: variar el ritmo y forzar el error con cambios de efecto.", tag: "Deporte" },
-];
+const INITIAL_NOTES = [];
 
 /* --- Trabajo (Agrosana) --- */
 const WORK_CATS = [
@@ -172,32 +144,9 @@ const WORK_CATS = [
   "Documentación",
   "Otro",
 ];
-const INITIAL_WORK = [
-  { id: 1, fecha: "2026-07-21", actividad: "Pipeline ETL de sensores de campo", categoria: "Ingeniería de Datos", horas: 4 },
-  { id: 2, fecha: "2026-07-20", actividad: "Modelo predicción de riego", categoria: "Ciencia de Datos", horas: 3 },
-  { id: 3, fecha: "2026-07-18", actividad: "Dashboard de producción (Power BI)", categoria: "Análisis / Reporting", horas: 2.5 },
-  { id: 4, fecha: "2026-07-15", actividad: "Daily y planificación sprint", categoria: "Reuniones", horas: 1 },
-  { id: 5, fecha: "2026-06-28", actividad: "Limpieza dataset históricos cosecha", categoria: "Ingeniería de Datos", horas: 5 },
-  { id: 6, fecha: "2026-06-20", actividad: "Curso interno de dbt", categoria: "Formación", horas: 3 },
-  { id: 7, fecha: "2026-06-12", actividad: "Análisis correlación clima-rendimiento", categoria: "Ciencia de Datos", horas: 4 },
-  { id: 8, fecha: "2026-05-27", actividad: "Documentar esquema de base de datos", categoria: "Documentación", horas: 2 },
-  { id: 9, fecha: "2026-05-15", actividad: "Primer pipeline de ingesta", categoria: "Ingeniería de Datos", horas: 6 },
-];
+const INITIAL_WORK = [];
 
-const INITIAL_RUNBOOKS = [
-  {
-    id: 1,
-    titulo: "Conectar Python a la base de datos de Agrosana",
-    pasos: "1. Usar psycopg2 / SQLAlchemy.\n2. Credenciales desde variables de entorno (.env).\n3. Probar con SELECT 1 antes de lanzar la query real.",
-    herramientas: "Python · SQLAlchemy",
-  },
-  {
-    id: 2,
-    titulo: "Desplegar un pipeline ETL programado",
-    pasos: "1. Script idempotente.\n2. Programar con cron / Airflow.\n3. Logging + alertas si falla.\n4. Guardar marca de última ejecución.",
-    herramientas: "Airflow · Cron",
-  },
-];
+const INITIAL_RUNBOOKS = [];
 
 /*  COMPONENTES REUTILIZABLES                                          */
 /* ------------------------------------------------------------------ */
