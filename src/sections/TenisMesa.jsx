@@ -37,25 +37,53 @@ const ESTADOS = {
   error: { texto: "no se pudo leer", clase: "text-rose-400" },
 };
 
+/*
+  Ronda alcanzada en cada open. Los rankings solo publican el puesto y los
+  puntos del ranking acumulado, no hasta dónde llegaste en el cuadro, así que
+  eso se anota a mano.
+
+  Se guarda en su propia clave y no dentro del resultado del open: al volver a
+  sincronizar, los resultados se sobrescriben con lo descargado y se perdería.
+*/
+const RONDAS = [
+  "",
+  "Fase de grupos",
+  "Dieciseisavos",
+  "Octavos",
+  "Cuartos",
+  "Semifinal (3º/4º)",
+  "Final (2º)",
+  "Campeón (1º)",
+];
+
 export default function TenisMesa() {
   const [config, setConfig] = usePersisted("lh_tenis_config", CONFIG_INICIAL);
   const [partidos, setPartidos] = usePersisted("lh_tenis_partidos", []);
   const [opens, setOpens] = usePersisted("lh_tenis_opens", []);
   const [oficiales, setOficiales] = usePersisted("lh_tenis_oficiales", {});
 
+  // Revisiones y rondas se guardan por temporada para que no se pierdan al
+  // cambiar de año ni al volver a entrar en la sección.
+  const [revisiones, setRevisiones] = usePersisted("lh_tenis_revisiones", {});
+  const [rondas, setRondas] = usePersisted("lh_tenis_rondas", {});
+
   const [ajustes, setAjustes] = useState(!config.licencia);
   const [estado, setEstado] = useState(null);
   const [error, setError] = useState(null);
-  const [detalle, setDetalle] = useState(null);
-  const [temporadaVista, setTemporadaVista] = useState(config.temporada);
 
+  /*
+    UNA sola temporada, la de config. Antes había dos controles (el selector de
+    arriba y otro en Ajustes) y sincronizar usaba siempre el de Ajustes y
+    forzaba la vista a él, así que cambiar el de arriba parecía no hacer nada.
+  */
+  const activa = config.temporada;
   const temporadas = useMemo(() => {
     const t = new Set([...partidos, ...opens].map((x) => x.temporada).filter(Boolean));
-    t.add(config.temporada);
+    t.add(activa);
     return [...t].sort().reverse();
-  }, [partidos, opens, config.temporada]);
+  }, [partidos, opens, activa]);
 
-  const activa = temporadas.includes(temporadaVista) ? temporadaVista : temporadas[0];
+  const detalle = revisiones[activa];
   const dePartidos = useMemo(
     () => partidos.filter((p) => p.temporada === activa),
     [partidos, activa]
@@ -75,32 +103,29 @@ export default function TenisMesa() {
   const sincronizar = async () => {
     if (!config.licencia) return setAjustes(true);
     setError(null);
-    setDetalle(null);
 
     try {
       setEstado("Leyendo tu ficha en la RFETM...");
       const liga = await sincronizarLiga({ config });
       setPartidos((p) => fusionar(p, liga.partidos));
-      setOficiales((o) => ({ ...o, [config.temporada]: liga.oficiales }));
+      setOficiales((o) => ({ ...o, [activa]: liga.oficiales }));
 
       let resumenOpens = "";
       if (config.nombre?.trim()) {
         setEstado("Leyendo los rankings de los opens...");
         const res = await sincronizarOpens({
           nombre: config.nombre,
-          temporada: config.temporada,
+          temporada: activa,
           alProgresar: (hechas, total) => setEstado(`Rankings ${hechas}/${total}...`),
         });
         setOpens((o) => fusionar(o, res.resultados));
-        setDetalle(res.detalle);
+        setRevisiones((r) => ({ ...r, [activa]: res.detalle }));
         resumenOpens = ` ${res.resultados.length} resultados en opens.`;
-        if (res.detalle.length === 0)
-          resumenOpens = ` No hay rankings publicados de ${config.temporada}.`;
+        if (res.detalle.length === 0) resumenOpens = ` No hay rankings publicados de ${activa}.`;
       } else {
         resumenOpens = " Opens omitidos: falta tu nombre en Ajustes.";
       }
 
-      setTemporadaVista(config.temporada);
       setEstado(`${liga.partidos.length} partidos de liga.${resumenOpens}`);
     } catch (e) {
       setError(e.message || String(e));
@@ -121,17 +146,22 @@ export default function TenisMesa() {
         <label htmlFor="tenis-temporada" className="text-sm text-slate-400">
           Temporada
         </label>
-        <select
+        {/* Escribible además de elegible: para traer un año que aún no tengas
+            descargado, basta con teclearlo y sincronizar. */}
+        <input
           id="tenis-temporada"
           name="tenis-temporada"
+          list="tenis-temporadas"
           value={activa}
-          onChange={(e) => setTemporadaVista(e.target.value)}
-          className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none"
-        >
+          onChange={(e) => setConfig({ ...config, temporada: e.target.value.trim() })}
+          placeholder="2025-2026"
+          className="w-32 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none"
+        />
+        <datalist id="tenis-temporadas">
           {temporadas.map((t) => (
-            <option key={t}>{t}</option>
+            <option key={t} value={t} />
           ))}
-        </select>
+        </datalist>
 
         <div className="flex-1" />
 
@@ -181,7 +211,7 @@ export default function TenisMesa() {
       {ajustes && (
         <Card className="mb-4">
           <h2 className="mb-3 text-sm font-semibold text-slate-300">Tus datos federativos</h2>
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <label htmlFor="t-lic" className="mb-1 block text-xs text-slate-400">
                 Nº de licencia · para la liga
@@ -208,29 +238,16 @@ export default function TenisMesa() {
                 className={`${campo} ${sinNombre ? "border-amber-700" : ""}`}
               />
             </div>
-            <div>
-              <label htmlFor="t-temp" className="mb-1 block text-xs text-slate-400">
-                Temporada
-              </label>
-              <input
-                id="t-temp"
-                name="t-temp"
-                value={config.temporada}
-                onChange={(e) => setConfig({ ...config, temporada: e.target.value.trim() })}
-                placeholder="2025-2026"
-                className={campo}
-              />
-            </div>
           </div>
           {sinNombre && (
             <p className="mt-2 text-xs text-amber-400">
               Sin nombre no se buscan los opens: esos rankings no llevan número de licencia, solo
-              el nombre. Con el apellido basta.
+              el nombre.
             </p>
           )}
           <p className="mt-3 text-xs text-slate-500">
-            Cambia la temporada y vuelve a sincronizar para traer otro año; cada uno se guarda
-            aparte y puedes compararlos con el selector de arriba.
+            La temporada se elige arriba. Escribe una que no tengas y pulsa Sincronizar para
+            traerla; cada año se guarda aparte y puedes comparar.
           </p>
         </Card>
       )}
@@ -477,6 +494,10 @@ export default function TenisMesa() {
               <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-slate-100">
                 <Trophy size={18} className="text-amber-400" /> Opens regionales
               </h2>
+              <p className="mb-3 text-xs text-slate-500">
+                El puesto y los puntos son los del ranking acumulado, que es lo único que publica
+                la federación. Hasta dónde llegaste en cada cuadro lo anotas tú.
+              </p>
               <div className="space-y-2">
                 {[...deOpens]
                   .sort((a, b) => b.total - a.total)
@@ -492,7 +513,29 @@ export default function TenisMesa() {
                         <p className="truncate text-sm text-slate-100">{o.prueba}</p>
                         <p className="text-xs text-slate-500">{o.categoria}</p>
                       </div>
-                      <span className="text-sm font-semibold text-emerald-400">{o.total} pts</span>
+                      <label className="sr-only" htmlFor={`ronda-${o.id}`}>
+                        Ronda alcanzada en {o.prueba}
+                      </label>
+                      <select
+                        id={`ronda-${o.id}`}
+                        name={`ronda-${o.id}`}
+                        value={rondas[o.id] ?? ""}
+                        onChange={(e) => setRondas({ ...rondas, [o.id]: e.target.value })}
+                        className={`rounded-lg border bg-slate-800 px-2 py-1.5 text-xs focus:border-indigo-500 focus:outline-none ${
+                          rondas[o.id]
+                            ? "border-indigo-700 text-indigo-300"
+                            : "border-slate-700 text-slate-500"
+                        }`}
+                      >
+                        {RONDAS.map((r) => (
+                          <option key={r} value={r}>
+                            {r || "¿hasta dónde llegaste?"}
+                          </option>
+                        ))}
+                      </select>
+                      <span className="w-16 text-right text-sm font-semibold text-emerald-400">
+                        {o.total} pts
+                      </span>
                     </div>
                   ))}
               </div>

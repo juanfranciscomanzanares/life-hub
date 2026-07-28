@@ -385,7 +385,7 @@ export function normalizarTemporada(t = "") {
   Se busca por nombre porque estos PDFs no llevan licencia.
 */
 export function buscarEnRanking(texto, nombreBuscado) {
-  const buscado = sinAcentos(nombreBuscado);
+  const coincide = comparadorDeNombre(nombreBuscado);
   const lineas = String(texto).split(/\r?\n/);
   let categoria = "";
   const encontrados = [];
@@ -403,7 +403,7 @@ export function buscarEnRanking(texto, nombreBuscado) {
 
     const fila = linea.match(/^\s*(\d+)[ºª]\s+(.+?)\s+((?:\d+\s+)*\d+)\s*$/);
     if (!fila) continue;
-    if (!sinAcentos(fila[2]).includes(buscado)) continue;
+    if (!coincide(fila[2])) continue;
 
     const numeros = fila[3].trim().split(/\s+/).map(Number);
     encontrados.push({
@@ -417,6 +417,30 @@ export function buscarEnRanking(texto, nombreBuscado) {
   }
 
   return encontrados;
+}
+
+/*
+  Comparador de nombres tolerante.
+
+  Los rankings escriben el nombre con UN solo apellido: "Juan Francisco
+  Manzanares A.D. Eliocroca Lorca". Buscar el nombre completo tal como aparece
+  en la ficha federativa ("Juan Francisco Manzanares Gómez") no encontraba nada,
+  porque falta el "Gómez". Y buscar solo por una palabra corta daría falsos
+  positivos con cualquier tocayo.
+
+  La regla: vale si la fila contiene el texto entero (caso fácil) o si contiene
+  la palabra MÁS LARGA de lo buscado, que en la práctica es el apellido y es lo
+  bastante distintivo.
+*/
+export function comparadorDeNombre(nombreBuscado) {
+  const buscado = sinAcentos(nombreBuscado);
+  const palabras = buscado.split(" ").filter((p) => p.length >= 4);
+  const masLarga = palabras.sort((a, b) => b.length - a.length)[0] || buscado;
+
+  return (fila) => {
+    const f = sinAcentos(fila);
+    return Boolean(buscado) && (f.includes(buscado) || f.includes(masLarga));
+  };
 }
 
 export function sinAcentos(texto = "") {

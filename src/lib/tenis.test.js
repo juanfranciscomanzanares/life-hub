@@ -259,6 +259,31 @@ CATEGORIA ABSOLUTO`;
     expect(r.categoria).toBe("ABSOLUTO");
   });
 
+  it("encuentra aunque busques con más apellidos de los que trae el PDF", () => {
+    /*
+      Fallo real: los rankings escriben UN solo apellido
+      ("Juan Francisco Manzanares A.D. Eliocroca Lorca"), así que buscar el
+      nombre completo de la ficha federativa ("...Manzanares Gómez") no
+      encontraba nada y la app decía "no participaste" siendo falso.
+      Ahora basta con que coincida la palabra más larga, que es el apellido.
+    */
+    const RANK = `3º Juan Francisco Manzanares ELIOCROCA LORCA 50 20 70
+RANKING TRAS I OPEN
+CATEGORIA ABSOLUTA`;
+
+    expect(buscarEnRanking(RANK, "Juan Francisco Manzanares Gómez")).toHaveLength(1);
+    expect(buscarEnRanking(RANK, "Manzanares")).toHaveLength(1);
+    expect(buscarEnRanking(RANK, "MANZANARES GOMEZ, JUAN FRANCISCO")).toHaveLength(1);
+  });
+
+  it("no confunde con otro jugador que solo comparta el nombre de pila", () => {
+    const RANK = `5º Juan Antonio Perez CTM Murcia 40 40
+RANKING TRAS I OPEN
+CATEGORIA ABSOLUTA`;
+    // "Juan" es corto y común: la coincidencia va por la palabra más larga.
+    expect(buscarEnRanking(RANK, "Juan Francisco Manzanares")).toEqual([]);
+  });
+
   it("busca sin distinguir acentos ni mayúsculas", () => {
     expect(buscarEnRanking(RANKING, "GIMÉNEZ")).toHaveLength(1);
     expect(buscarEnRanking(RANKING, "gimenez")).toHaveLength(1);
