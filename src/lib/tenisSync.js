@@ -72,8 +72,18 @@ export async function sincronizarLiga({ config }) {
 
   const partidos = crudos.map((p) => ({
     ...p,
-    // Fecha y rival identifican el partido de forma estable entre sincronizaciones.
-    id: `${config.temporada}-${p.fecha}-${p.licenciaRival}-${p.miLetra}`,
+    /*
+      La JORNADA es imprescindible en el identificador.
+
+      Antes se usaba la fecha, pero las fichas de temporadas pasadas no la
+      traen (0 de 42 en 2024-2025), así que dos partidos contra el mismo rival
+      y con la misma letra en jornadas distintas compartían identificador y uno
+      se perdía: salían 39 partidos y 22 victorias en vez de 42 y 23.
+
+      Con la jornada no puede haber choque: dentro de un mismo encuentro cada
+      jugador se enfrenta una sola vez a cada rival.
+    */
+    id: `${config.temporada}-J${p.jornada}-${p.licenciaRival}-${p.miLetra}`,
     temporada: config.temporada,
     origen: "liga",
   }));
@@ -146,11 +156,14 @@ export async function sincronizarOpens({ nombre, temporada, alProgresar }) {
 }
 
 /*
-  Fusiona lo nuevo con lo guardado sin duplicar. Se compara por id, que en los
-  partidos combina acta y rival, y en los rankings el fichero y la categoría.
+  Sustituye por completo lo guardado de UNA temporada por lo recién descargado,
+  dejando intactas las demás.
+
+  Se reemplaza en vez de fusionar por id porque la fuente es la verdad completa
+  de esa temporada: si un identificador cambia (como pasó al añadir la jornada
+  para evitar choques), fusionar dejaría conviviendo las filas viejas y las
+  nuevas y saldrían partidos duplicados.
 */
-export function fusionar(existentes = [], nuevos = []) {
-  const porId = new Map(existentes.map((x) => [x.id, x]));
-  nuevos.forEach((n) => porId.set(n.id, n));
-  return [...porId.values()];
+export function reemplazarTemporada(existentes = [], nuevos = [], temporada) {
+  return [...existentes.filter((x) => x.temporada !== temporada), ...nuevos];
 }

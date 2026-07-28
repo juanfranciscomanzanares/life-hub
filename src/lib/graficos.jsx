@@ -154,33 +154,86 @@ export function BarrasH({ datos, valor, etiqueta, detalle, color = "bg-indigo-50
   );
 }
 
-/* Barras apiladas de ganados y perdidos por jornada. */
+/*
+  Barras apiladas de ganados y perdidos por jornada.
+
+  En SVG y no con divs: la versión anterior daba las alturas en porcentaje
+  dentro de un contenedor `flex-1`, que no tiene altura definida, así que los
+  porcentajes no resolvían y las barras salían con altura cero. En SVG las
+  coordenadas son absolutas y no dependen del contexto de maquetación.
+*/
 export function BarrasApiladas({ datos }) {
+  if (!datos.length)
+    return <p className="py-8 text-center text-sm text-slate-500">Sin partidos todavía.</p>;
+
+  const W = 600;
+  const H = 170;
+  const pad = { i: 26, d: 6, arriba: 10, abajo: 22 };
+  const ancho = W - pad.i - pad.d;
+  const alto = H - pad.arriba - pad.abajo;
+
   const max = Math.max(...datos.map((d) => d.jugados), 1);
+  const paso = ancho / datos.length;
+  const grosor = Math.min(paso * 0.7, 26);
+  const y = (v) => pad.arriba + alto - (v / max) * alto;
+  const salto = Math.ceil(datos.length / 14);
+
   return (
-    <div className="flex h-36 items-end gap-1 overflow-x-auto pb-1">
-      {datos.map((d) => (
-        <div key={d.jornada} className="flex min-w-[1.6rem] flex-1 flex-col items-center gap-1">
-          <div className="flex w-full flex-1 flex-col justify-end" style={{ minHeight: "1px" }}>
-            {d.ganados > 0 && (
-              <div
-                className="w-full rounded-t bg-emerald-500"
-                style={{ height: `${(d.ganados / max) * 100}%` }}
-                title={`J${d.jornada}: ${d.ganados} ganados`}
-              />
-            )}
-            {d.jugados - d.ganados > 0 && (
-              <div
-                className={`w-full bg-rose-500/70 ${d.ganados === 0 ? "rounded-t" : ""}`}
-                style={{ height: `${((d.jugados - d.ganados) / max) * 100}%` }}
-                title={`J${d.jornada}: ${d.jugados - d.ganados} perdidos`}
-              />
-            )}
-          </div>
-          <span className="text-[10px] text-slate-500">{d.jornada}</span>
-        </div>
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img">
+      {Array.from({ length: max + 1 }, (_, i) => i).map((v) => (
+        <g key={v}>
+          <line x1={pad.i} x2={W - pad.d} y1={y(v)} y2={y(v)} stroke="#1e293b" strokeWidth="1" />
+          <text x={pad.i - 6} y={y(v) + 4} textAnchor="end" className="fill-slate-600 text-[11px]">
+            {v}
+          </text>
+        </g>
       ))}
-    </div>
+
+      {datos.map((d, i) => {
+        const x = pad.i + i * paso + (paso - grosor) / 2;
+        const perdidos = d.jugados - d.ganados;
+        const altoGanados = (d.ganados / max) * alto;
+        const altoPerdidos = (perdidos / max) * alto;
+        return (
+          <g key={d.jornada}>
+            {perdidos > 0 && (
+              <rect
+                x={x}
+                y={pad.arriba + alto - altoPerdidos}
+                width={grosor}
+                height={altoPerdidos}
+                fill="#f43f5e"
+                opacity="0.75"
+              >
+                <title>{`J${d.jornada}: ${perdidos} perdidos`}</title>
+              </rect>
+            )}
+            {d.ganados > 0 && (
+              <rect
+                x={x}
+                y={pad.arriba + alto - altoPerdidos - altoGanados}
+                width={grosor}
+                height={altoGanados}
+                fill="#10b981"
+                rx="2"
+              >
+                <title>{`J${d.jornada}: ${d.ganados} ganados`}</title>
+              </rect>
+            )}
+            {i % salto === 0 && (
+              <text
+                x={x + grosor / 2}
+                y={H - 6}
+                textAnchor="middle"
+                className="fill-slate-500 text-[11px]"
+              >
+                {d.jornada}
+              </text>
+            )}
+          </g>
+        );
+      })}
+    </svg>
   );
 }
 

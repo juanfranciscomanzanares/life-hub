@@ -13,7 +13,7 @@ import {
   rachas,
   porLetra,
 } from "../lib/tenis";
-import { sincronizarLiga, sincronizarOpens, fusionar } from "../lib/tenisSync";
+import { sincronizarLiga, sincronizarOpens, reemplazarTemporada } from "../lib/tenisSync";
 
 /*
   Tenis de mesa: partidos de la liga nacional (RFETM) y puestos en los opens
@@ -107,7 +107,7 @@ export default function TenisMesa() {
     try {
       setEstado("Leyendo tu ficha en la RFETM...");
       const liga = await sincronizarLiga({ config });
-      setPartidos((p) => fusionar(p, liga.partidos));
+      setPartidos((p) => reemplazarTemporada(p, liga.partidos, activa));
       setOficiales((o) => ({ ...o, [activa]: liga.oficiales }));
 
       let resumenOpens = "";
@@ -118,7 +118,7 @@ export default function TenisMesa() {
           temporada: activa,
           alProgresar: (hechas, total) => setEstado(`Rankings ${hechas}/${total}...`),
         });
-        setOpens((o) => fusionar(o, res.resultados));
+        setOpens((o) => reemplazarTemporada(o, res.resultados, activa));
         setRevisiones((r) => ({ ...r, [activa]: res.detalle }));
         resumenOpens = ` ${res.resultados.length} resultados en opens.`;
         if (res.detalle.length === 0) resumenOpens = ` No hay rankings publicados de ${activa}.`;
