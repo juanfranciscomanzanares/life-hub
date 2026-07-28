@@ -67,6 +67,7 @@ const Coach = lazy(() => import("./sections/Coach.jsx"));
 const Proximos = lazy(() => import("./sections/Proximos.jsx"));
 const Ajustes = lazy(() => import("./sections/Ajustes.jsx"));
 import { Flag, CalendarDays, Database, HeartPulse, Sparkles, Timer, Trophy, Sun, Moon, Image, Tag, CalendarClock, Settings } from "lucide-react";
+const TenisMesa = lazy(() => import("./sections/TenisMesa.jsx"));
 const Metas = lazy(() => import("./sections/Metas.jsx"));
 const Calendario = lazy(() => import("./sections/Calendario.jsx"));
 const Datos = lazy(() => import("./sections/Datos.jsx"));
@@ -1574,6 +1575,7 @@ const NAV = [
   { id: "gimnasio", label: "Gimnasio", icon: Dumbbell },
   { id: "universidad", label: "Universidad", icon: GraduationCap },
   { id: "tenis", label: "Tenis de Mesa", icon: Target },
+  { id: "tenis-notas", label: "Tenis · Entrenos", icon: Target },
   { id: "salud", label: "Salud", icon: HeartPulse },
   { id: "finanzas", label: "Finanzas", icon: Wallet },
   { id: "inversiones", label: "Inversiones", icon: LineChart },
@@ -1758,7 +1760,8 @@ export default function LifeDashboard({ userEmail = null, onSignOut = null }) {
           {active === "trabajo" && <Trabajo />}
           {active === "gimnasio" && <Gimnasio />}
           {active === "universidad" && <Universidad />}
-          {active === "tenis" && <TenisDeMesa />}
+          {active === "tenis" && <TenisMesa />}
+          {active === "tenis-notas" && <TenisDeMesa />}
           {active === "salud" && <Salud />}
           {active === "finanzas" && <Finanzas />}
           {active === "inversiones" && <Inversiones />}

@@ -1,4 +1,4 @@
-# Integraciones (banco, reloj, precios, resumen automático)
+# Integraciones (tenis de mesa, banco, reloj, precios, resumen automático)
 
 Este documento explica qué integraciones son posibles, cuáles funcionan solo
 desde el navegador y cuáles necesitan un pequeño servidor (Supabase Edge Functions).
@@ -6,6 +6,57 @@ desde el navegador y cuáles necesitan un pequeño servidor (Supabase Edge Funct
 > Regla de oro de seguridad: cualquier **clave secreta** (banco, brókers, APIs de
 > pago) NO puede ir en el código del navegador, porque sería pública. Va siempre
 > en el servidor (Edge Function con variables de entorno).
+
+---
+
+## 0. Tenis de mesa: liga RFETM y opens FTMRM
+
+La sección **Tenis de Mesa** descarga sola tus partidos de la liga nacional y tus
+puestos en los opens regionales. Todo son páginas y PDFs públicos: no hace falta
+ninguna cuenta ni credencial.
+
+### Desplegar la función
+
+```bash
+supabase functions deploy tenis-mesa
+```
+
+No necesita secretos. Es un puente: descarga la URL que se le pide y, si es un
+PDF, devuelve su texto extraído. Va con **lista blanca de dominios** (ftmrm.es,
+rfetm.es, clubs.rfetm.es, drive.google.com); sin ella sería un proxy abierto que
+cualquiera podría usar para pedir cualquier cosa desde tu proyecto.
+
+Hace falta un servidor porque esas webs no envían cabeceras CORS y el navegador
+no puede descargarlas directamente. La función **no interpreta** los datos: solo
+devuelve texto. Todo el parseo vive en `src/lib/tenis.js`, cubierto por tests con
+actas reales; si estuviera en la función habría que duplicarlo o dejarlo sin probar.
+
+### Configurar
+
+En la app, **Tenis de Mesa → Ajustes**:
+
+- **Nº de licencia**: aparece entre paréntesis junto a tu nombre en las actas.
+  Se filtra por licencia y no por nombre porque los nombres llegan con acentos y
+  mayúsculas inconsistentes ("MARTíNEZ").
+- **Nombre**: solo para los rankings de opens, que no llevan licencia. Con el
+  apellido basta.
+- **División y grupo**: los de tu equipo.
+- **Id de equipo** (opcional pero muy recomendable): con él se bajan solo las
+  ~20 actas de tu club en vez de las 110 del grupo. Lo sacas del enlace de tu
+  equipo en la web de la RFETM, en el parámetro `&equipo=`.
+
+### Cómo funciona
+
+- **Incremental**: las actas ya descargadas no se vuelven a pedir, así que
+  sincronizar a mitad de temporada cuesta una o dos actas.
+- **Por temporada**: cada partido guarda la suya, leída del propio acta. Para
+  una temporada nueva basta con cambiarla en Ajustes.
+- **Trampa del formato**: en el acta, ABC/XYZ **no** equivale a local/visitante.
+  Hay jornadas en las que el equipo local aparece como XYZ. Lo que manda es la
+  letra del jugador (A/B/C o X/Y/Z). Guiarse por "Equipo Local" invertiría todos
+  los resultados.
+- Los **dobles** no se cuentan todavía: en el acta ocupan varias líneas con dos
+  jugadores por lado y necesitan otro tratamiento. La app indica cuántos ha visto.
 
 ---
 
