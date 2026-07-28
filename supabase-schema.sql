@@ -40,11 +40,19 @@ alter publication supabase_realtime add table public.app_state;
 
 -- ============================================================
 --  Almacenamiento para Adjuntos (fotos, apuntes)
---  Crea el bucket y las políticas para que cada usuario gestione lo suyo.
+--  Bucket PRIVADO: cada usuario solo ve y gestiona sus propios archivos.
+--
+--  Antes el bucket era público y la política de lectura no comprobaba el dueño,
+--  así que cualquiera con el enlace podía abrir un adjunto sin estar
+--  autenticado, y cualquier usuario registrado podía leer los de los demás.
+--  La app ahora pide URLs firmadas temporales en lugar de URLs públicas.
+--
+--  El "do update" es importante: si ya creaste el bucket público, esto lo
+--  vuelve privado. Con "do nothing" se habría quedado como estaba.
 -- ============================================================
 insert into storage.buckets (id, name, public)
-values ('adjuntos', 'adjuntos', true)
-on conflict (id) do nothing;
+values ('adjuntos', 'adjuntos', false)
+on conflict (id) do update set public = false;
 
 drop policy if exists "adjuntos subir" on storage.objects;
 create policy "adjuntos subir" on storage.objects
@@ -52,7 +60,7 @@ create policy "adjuntos subir" on storage.objects
 
 drop policy if exists "adjuntos ver" on storage.objects;
 create policy "adjuntos ver" on storage.objects
-  for select using (bucket_id = 'adjuntos');
+  for select using (bucket_id = 'adjuntos' and auth.uid()::text = (storage.foldername(name))[1]);
 
 drop policy if exists "adjuntos borrar" on storage.objects;
 create policy "adjuntos borrar" on storage.objects
