@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, lazy, Suspense } from "react";
 import {
   Home,
   Dumbbell,
@@ -32,32 +32,44 @@ import {
   TrendingDown,
 } from "lucide-react";
 import { usePersisted } from "./lib/store";
-import Inversiones from "./sections/Inversiones.jsx";
-import Salud from "./sections/Salud.jsx";
-import Resumen from "./sections/Resumen.jsx";
-import Gimnasio from "./sections/Gimnasio.jsx";
 import HoyWidget from "./sections/HoyWidget.jsx";
 import { useRoutineNotifier } from "./lib/useRoutineNotifier";
 import { useTheme } from "./lib/useTheme";
 import { useAutoBackup } from "./lib/useAutoBackup";
-import Foco from "./sections/Foco.jsx";
-import Logros from "./sections/Logros.jsx";
-import Analitica from "./sections/Analitica.jsx";
-import Repaso from "./sections/Repaso.jsx";
 import CommandPalette from "./CommandPalette.jsx";
 import QuickAdd from "./QuickAdd.jsx";
 import Onboarding from "./Onboarding.jsx";
 import ToastHost from "./ToastHost.jsx";
 import { removeWithUndo } from "./lib/toast";
-import Adjuntos from "./sections/Adjuntos.jsx";
-import Etiquetas from "./sections/Etiquetas.jsx";
-import Coach from "./sections/Coach.jsx";
-import Proximos from "./sections/Proximos.jsx";
-import Ajustes from "./sections/Ajustes.jsx";
+
+/*
+  Secciones con carga diferida.
+
+  Antes las 17 secciones entraban en el bundle inicial aunque solo abrieras
+  Inicio: había que descargarlo todo para ver la pantalla de bienvenida. Ahora
+  cada una es su propio trozo y se descarga al abrirla por primera vez.
+
+  Se quedan fuera de aquí (carga inmediata) las que siempre están en pantalla:
+  HoyWidget, el botón + flotante, la paleta de comandos, los avisos y el
+  onboarding. Cargarlas en diferido solo provocaría un parpadeo.
+*/
+const Inversiones = lazy(() => import("./sections/Inversiones.jsx"));
+const Salud = lazy(() => import("./sections/Salud.jsx"));
+const Resumen = lazy(() => import("./sections/Resumen.jsx"));
+const Gimnasio = lazy(() => import("./sections/Gimnasio.jsx"));
+const Foco = lazy(() => import("./sections/Foco.jsx"));
+const Logros = lazy(() => import("./sections/Logros.jsx"));
+const Analitica = lazy(() => import("./sections/Analitica.jsx"));
+const Repaso = lazy(() => import("./sections/Repaso.jsx"));
+const Adjuntos = lazy(() => import("./sections/Adjuntos.jsx"));
+const Etiquetas = lazy(() => import("./sections/Etiquetas.jsx"));
+const Coach = lazy(() => import("./sections/Coach.jsx"));
+const Proximos = lazy(() => import("./sections/Proximos.jsx"));
+const Ajustes = lazy(() => import("./sections/Ajustes.jsx"));
 import { Flag, CalendarDays, Database, HeartPulse, Sparkles, Timer, Trophy, Sun, Moon, Image, Tag, CalendarClock, Settings } from "lucide-react";
-import Metas from "./sections/Metas.jsx";
-import Calendario from "./sections/Calendario.jsx";
-import Datos from "./sections/Datos.jsx";
+const Metas = lazy(() => import("./sections/Metas.jsx"));
+const Calendario = lazy(() => import("./sections/Calendario.jsx"));
+const Datos = lazy(() => import("./sections/Datos.jsx"));
 
 
 /* ------------------------------------------------------------------ */
@@ -1790,6 +1802,9 @@ export default function LifeDashboard({ userEmail = null, onSignOut = null }) {
           <span className="font-semibold text-slate-100">Life Hub</span>        </div>
 
         <div key={active} className="mx-auto max-w-6xl p-5 sm:p-8 section-fade">
+          <Suspense
+            fallback={<div className="py-16 text-center text-sm text-slate-500">Cargando sección...</div>}
+          >
           {active === "inicio" && <Inicio tasks={tasks} toggleTask={toggleTask} />}
           {active === "trabajo" && <Trabajo />}
           {active === "gimnasio" && <Gimnasio />}
@@ -1813,6 +1828,7 @@ export default function LifeDashboard({ userEmail = null, onSignOut = null }) {
           {active === "etiquetas" && <Etiquetas />}
           {active === "datos" && <Datos />}
           {active === "ajustes" && <Ajustes />}
+          </Suspense>
         </div>
       </main>
 

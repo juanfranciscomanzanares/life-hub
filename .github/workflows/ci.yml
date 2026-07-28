@@ -1,0 +1,34 @@
+name: CI
+
+# Comprueba cada push y cada pull request ANTES de que Vercel despliegue.
+# Sin esto, los tests solo corrían si te acordabas de lanzarlos a mano.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      # vercel.json se valida contra un esquema estricto: una propiedad que no
+      # exista (por ejemplo, intentar dejar un comentario) hace fallar el
+      # despliegue en silencio y producción se queda congelada en el commit
+      # anterior. Al menos comprobamos que es JSON válido.
+      - name: vercel.json es JSON válido
+        run: node -e "JSON.parse(require('fs').readFileSync('vercel.json','utf8'))"
