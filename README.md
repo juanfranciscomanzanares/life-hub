@@ -117,7 +117,7 @@ Sin esto, cada dispositivo guarda sus propios datos. Con esto, los compartes.
 2. En el panel de Supabase, ve a **SQL Editor → New query**, pega el contenido de
    `supabase-schema.sql` (incluido en este proyecto) y pulsa **Run**.
 3. Ve a **Authentication → Providers** y asegúrate de que **Email** está activado
-   (viene activado por defecto; usa enlace mágico, sin contraseña).
+   (viene activado por defecto).
 4. Ve a **Project Settings → API** y copia:
    - **Project URL**
    - **anon public key**
@@ -129,8 +129,16 @@ Sin esto, cada dispositivo guarda sus propios datos. Con esto, los compartes.
    VITE_SUPABASE_ANON_KEY=tu-clave-anon
    ```
 
-6. Reinicia `npm run dev`. Ahora la app pedirá tu email al entrar: recibirás un
-   enlace de acceso y, al iniciar sesión, tus datos se guardan en la nube.
+6. Reinicia `npm run dev`. Ahora la app pedirá **correo y contraseña** al entrar.
+   La primera vez pulsa **Crear cuenta**. Al iniciar sesión, tus datos se guardan
+   en la nube.
+
+   También hay **enlace mágico** (sin contraseña) detrás de *"Prefiero recibir un
+   enlace por email"*, pero en el móvil da problemas: las apps de correo abren el
+   enlace en su propio navegador interno, así que la sesión se crea allí y no en
+   el navegador donde estabas. Además el enlace es de un solo uso y el servidor
+   de correo gratuito de Supabase solo permite unos pocos envíos por hora. Por eso
+   la contraseña es el método recomendado.
 7. Si lo despliegas en Vercel, añade esas mismas dos variables en
    **Vercel → Project → Settings → Environment Variables** y vuelve a desplegar.
 

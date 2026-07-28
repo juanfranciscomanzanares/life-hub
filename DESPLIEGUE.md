@@ -75,8 +75,29 @@ Sin esto cada dispositivo guarda lo suyo. Con esto, compartes datos y tienes log
    - `VITE_SUPABASE_URL` = tu Project URL
    - `VITE_SUPABASE_ANON_KEY` = tu anon key
 5. Ve a **Deployments** en Vercel y pulsa **Redeploy** para que tome las variables.
-6. Abre la app: ahora te pedirá tu **email**; recibirás un enlace de acceso. Al entrar en el PC
-   y en el iPhone con el mismo email, verás los mismos datos, sincronizados al instante.
+6. Abre la app: ahora te pedirá **correo y contraseña**. La primera vez pulsa **Crear cuenta**.
+   Al entrar en el PC y en el iPhone con la misma cuenta, verás los mismos datos, sincronizados
+   al instante.
+
+> **¿Olvidaste la contraseña, o ya tenías la cuenta creada con enlace mágico?** Puedes ponerle
+> una contraseña a un usuario existente sin borrarlo (borrarlo eliminaría sus datos por el
+> `on delete cascade`). En **SQL Editor → New query**:
+>
+> ```sql
+> update auth.users
+> set encrypted_password = extensions.crypt('TU-CONTRASEÑA', extensions.gen_salt('bf')),
+>     email_confirmed_at = coalesce(email_confirmed_at, now())
+> where email = 'tu@email.com';
+> ```
+>
+> Un `UPDATE` no devuelve filas, así que "Success. No rows returned" **es lo esperado**.
+> Para comprobarlo:
+>
+> ```sql
+> select email, email_confirmed_at,
+>        (encrypted_password = extensions.crypt('TU-CONTRASEÑA', encrypted_password)) as ok
+> from auth.users where email = 'tu@email.com';
+> ```
 
 > Para probar la nube en local, copia `.env.example` como `.env`, pon ahí las dos variables y
 > reinicia `npm run dev`.
