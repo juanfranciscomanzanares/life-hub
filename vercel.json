@@ -1,7 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "_comment_rewrites": "Excluimos /assets/: si no, un bundle que falte devuelve index.html con estado 200 y tipo text/html, y el navegador falla con un error de MIME confuso en vez de un 404 claro.",
-  "rewrites": [{ "source": "/((?!assets/).*)", "destination": "/index.html" }],
   "headers": [
     {
       "source": "/sw.js",
