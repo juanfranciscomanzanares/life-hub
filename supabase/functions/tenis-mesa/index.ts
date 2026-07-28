@@ -80,22 +80,45 @@ async function leer(url: string) {
     // Sin User-Agent, algunas de estas webs responden con una página de aviso.
     headers: { "User-Agent": "Mozilla/5.0 (compatible; LifeHub/1.0)" },
   });
-  if (!res.ok) return { url, error: `HTTP ${res.status}` };
 
+  /*
+    No se descarta la respuesta por el código de estado.
+
+    La ficha de jugador de la RFETM de temporadas pasadas devuelve HTTP 500 y
+    aun así manda la página entera y correcta (algún aviso de PHP por dentro).
+    Al tratar el 500 como error se perdía todo el histórico anterior. Se mira si
+    hay cuerpo utilizable y solo se falla cuando de verdad no hay nada.
+  */
   const tipo = res.headers.get("content-type") ?? "";
   const esPdf = tipo.includes("pdf") || tipo.includes("octet-stream");
 
-  if (!esPdf) return { url, tipo: "html", texto: await res.text() };
+  if (!esPdf) {
+    const texto = await res.text();
+    if (!texto.trim()) return { url, error: `HTTP ${res.status} sin contenido` };
+    return { url, tipo: "html", texto, estado: res.status };
+  }
 
   const buf = new Uint8Array(await res.arrayBuffer());
+  if (buf.length === 0) return { url, error: `HTTP ${res.status} sin contenido` };
+
   // Comprobación real: Drive devuelve octet-stream para todo, y si el fichero
   // no existe manda una página de error que no es un PDF.
   const cabecera = new TextDecoder().decode(buf.slice(0, 5));
-  if (cabecera !== "%PDF-") return { url, tipo: "html", texto: new TextDecoder().decode(buf) };
+  if (cabecera !== "%PDF-")
+    return { url, tipo: "html", texto: new TextDecoder().decode(buf), estado: res.status };
 
   const pdf = await getDocumentProxy(buf);
   const { text } = await extractText(pdf, { mergePages: true });
-  return { url, tipo: "pdf", texto: text };
+
+  /*
+    Algunos rankings están escaneados: son imágenes dentro de un PDF y no tienen
+    texto que extraer. Se avisa en vez de devolver una cadena vacía que parecería
+    que el jugador no participó.
+  */
+  if (text.replace(/\s/g, "").length < 50)
+    return { url, tipo: "pdf", texto: "", escaneado: true, estado: res.status };
+
+  return { url, tipo: "pdf", texto: text, estado: res.status };
 }
 
 Deno.serve(async (req) => {

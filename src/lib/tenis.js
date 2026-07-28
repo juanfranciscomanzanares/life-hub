@@ -396,7 +396,8 @@ export function buscarEnRanking(texto, nombreBuscado) {
     const linea = lineas[i];
     const cat = linea.match(/CATEGORIA\s+(.+)$/i);
     if (cat) {
-      categoria = cat[1].trim();
+      // Algunos documentos añaden la fecha a la categoría ("ABSOLUTA 31/05/2026").
+      categoria = cat[1].replace(/\s*\d{2}\/\d{2}\/\d{4}\s*$/, "").trim();
       continue;
     }
 

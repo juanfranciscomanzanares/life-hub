@@ -15,7 +15,12 @@ import {
   pequeñas, así que conviene no machacarlas.
 */
 
-const TANDA = 8; // el mismo tope que acepta la Edge Function
+/*
+  Los PDFs de rankings pesan medio mega y extraer su texto es lento, así que van
+  de tres en tres para no agotar el tiempo de la función. Las páginas HTML, al
+  ser una sola, no necesitan trocearse.
+*/
+const TANDA = 3;
 
 export const FUNCION = "tenis-mesa";
 
@@ -85,13 +90,17 @@ export async function sincronizarLiga({ config }) {
   cada temporada es lo correcto.
 */
 export async function sincronizarOpens({ nombre, temporada, alProgresar }) {
+  if (!nombre?.trim())
+    throw new Error("Pon tu nombre en Ajustes: los rankings de opens no llevan licencia.");
+
   const [pagina] = await puente([URL_RANKINGS]);
   if (pagina?.error) throw new Error(`No se pudo leer la web de la federación: ${pagina.error}`);
 
   const todos = extraerEnlacesRanking(pagina.texto);
   const enlaces = temporada ? todos.filter((e) => e.temporada === temporada) : todos;
-  if (enlaces.length === 0)
-    return { resultados: [], temporadas: [...new Set(todos.map((e) => e.temporada))] };
+  const temporadas = [...new Set(todos.map((e) => e.temporada).filter(Boolean))].sort().reverse();
+
+  if (enlaces.length === 0) return { resultados: [], temporadas, detalle: [] };
 
   const textos = await porTandas(
     enlaces.map((e) => e.url),
@@ -99,20 +108,41 @@ export async function sincronizarOpens({ nombre, temporada, alProgresar }) {
   );
 
   const resultados = [];
+  // Estado documento a documento: sin esto, "no sale nada" no distingue entre
+  // no haber participado, un PDF escaneado o un fallo de descarga.
+  const detalle = [];
+
   textos.forEach((t, i) => {
-    if (t?.error || !t?.texto) return;
-    buscarEnRanking(t.texto, nombre).forEach((r) =>
+    const enlace = enlaces[i];
+
+    if (t?.escaneado) {
+      detalle.push({ prueba: enlace.nombre, estado: "escaneado" });
+      return;
+    }
+    if (t?.error || !t?.texto) {
+      detalle.push({ prueba: enlace.nombre, estado: "error", motivo: t?.error });
+      return;
+    }
+
+    const hallados = buscarEnRanking(t.texto, nombre);
+    if (hallados.length === 0) {
+      detalle.push({ prueba: enlace.nombre, estado: "no-aparece" });
+      return;
+    }
+
+    detalle.push({ prueba: enlace.nombre, estado: "ok", puesto: hallados[0].puesto });
+    hallados.forEach((r) =>
       resultados.push({
-        id: `${enlaces[i].idDrive}-${r.categoria}`,
-        temporada: enlaces[i].temporada,
-        prueba: enlaces[i].nombre,
+        id: `${enlace.idDrive}-${r.categoria}`,
+        temporada: enlace.temporada,
+        prueba: enlace.nombre,
         origen: "open",
         ...r,
       })
     );
   });
 
-  return { resultados, temporadas: [...new Set(todos.map((e) => e.temporada))] };
+  return { resultados, temporadas, detalle };
 }
 
 /*
