@@ -67,11 +67,6 @@ export default function TenisMesa() {
   const [revisiones, setRevisiones] = usePersisted("lh_tenis_revisiones", {});
   const [rondas, setRondas] = usePersisted("lh_tenis_rondas", {});
   const [fichas, setFichas] = usePersisted("lh_tenis_ficha", {});
-  /*
-    Resultados anotados a mano. Hacen falta porque algún ranking se publica
-    ESCANEADO (imágenes, sin texto), y de esos no hay forma de leer nada.
-  */
-  const [manuales, setManuales] = usePersisted("lh_tenis_opens_manual", {});
 
   const [ajustes, setAjustes] = useState(!config.licencia);
   const [estado, setEstado] = useState(null);
@@ -92,25 +87,36 @@ export default function TenisMesa() {
   const detalle = revisiones[activa];
   const ficha = fichas[activa];
 
-  // Los anotados a mano se muestran junto a los descargados.
-  const deOpensTodos = useMemo(() => {
-    const aMano = Object.entries(manuales)
-      .filter(([k]) => k.startsWith(`${activa}|`))
-      .map(([k, v]) => ({
-        id: k,
-        temporada: activa,
-        prueba: k.split("|")[1],
-        categoria: "ABSOLUTA",
-        aMano: true,
-        ...v,
-      }));
-    return [...opens.filter((o) => o.temporada === activa), ...aMano];
-  }, [opens, manuales, activa]);
+  /*
+    Una fila por PRUEBA de la temporada, se haya podido leer el ranking o no.
+
+    El puesto y los puntos que publica la federación son del ranking ACUMULADO
+    tras esa prueba, no el resultado del torneo. Lo del torneo en sí (hasta qué
+    ronda llegaste) no lo publica nadie, así que se anota a mano, y por eso el
+    selector tiene que estar en todas las pruebas y no solo en las que
+    aparecemos en el ranking.
+  */
+  const pruebas = useMemo(() => {
+    const porNombre = new Map();
+    (detalle ?? []).forEach((d) => porNombre.set(d.prueba, { prueba: d.prueba, estado: d.estado }));
+    opens
+      .filter((o) => o.temporada === activa)
+      .forEach((o) =>
+        porNombre.set(o.prueba, {
+          ...(porNombre.get(o.prueba) ?? { prueba: o.prueba, estado: "ok" }),
+          puesto: o.puesto,
+          acumulado: o.total,
+          categoria: o.categoria,
+          id: o.id,
+        })
+      );
+    return [...porNombre.values()];
+  }, [detalle, opens, activa]);
+
   const dePartidos = useMemo(
     () => partidos.filter((p) => p.temporada === activa),
     [partidos, activa]
   );
-  const deOpens = deOpensTodos;
 
   const stats = useMemo(() => estadisticas(dePartidos), [dePartidos]);
   const jornadas = useMemo(() => porJornada(dePartidos), [dePartidos]);
@@ -232,66 +238,6 @@ export default function TenisMesa() {
         </Card>
       )}
 
-      {detalle?.length > 0 && (
-        <Card className="mb-4">
-          <h3 className="mb-2 text-sm font-semibold text-slate-300">Rankings de opens revisados</h3>
-          <ul className="space-y-2 text-xs">
-            {detalle.map((d) => {
-              const e = ESTADOS[d.estado] ?? ESTADOS.error;
-              const clave = `${activa}|${d.prueba}`;
-              const yaAMano = manuales[clave];
-              // Solo se puede anotar a mano lo que no se ha podido leer.
-              const anotable = d.estado !== "ok";
-              return (
-                <li key={d.prueba} className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-slate-400">{d.prueba}</span>
-                  {anotable ? (
-                    <span className="flex items-center gap-2">
-                      <span className={e.clase}>{e.texto}</span>
-                      <input
-                        type="number"
-                        min="1"
-                        aria-label={`Puesto a mano en ${d.prueba}`}
-                        value={yaAMano?.puesto ?? ""}
-                        onChange={(ev) =>
-                          setManuales({
-                            ...manuales,
-                            [clave]: { ...yaAMano, puesto: Number(ev.target.value) || 0 },
-                          })
-                        }
-                        placeholder="puesto"
-                        className="w-16 rounded border border-slate-700 bg-slate-800 px-2 py-1 text-center text-slate-100"
-                      />
-                      <input
-                        type="number"
-                        min="0"
-                        aria-label={`Puntos a mano en ${d.prueba}`}
-                        value={yaAMano?.total ?? ""}
-                        onChange={(ev) =>
-                          setManuales({
-                            ...manuales,
-                            [clave]: { ...yaAMano, total: Number(ev.target.value) || 0 },
-                          })
-                        }
-                        placeholder="pts"
-                        className="w-16 rounded border border-slate-700 bg-slate-800 px-2 py-1 text-center text-slate-100"
-                      />
-                    </span>
-                  ) : (
-                    <span className={e.clase}>{d.puesto}º</span>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-          {detalle.some((d) => d.estado !== "ok") && (
-            <p className="mt-3 text-xs text-slate-500">
-              Lo que no se ha podido leer lo puedes anotar tú: algún ranking se publica escaneado,
-              como imágenes, y de esos no hay texto que extraer.
-            </p>
-          )}
-        </Card>
-      )}
 
       {ajustes && (
         <Card className="mb-4">
@@ -337,7 +283,7 @@ export default function TenisMesa() {
         </Card>
       )}
 
-      {dePartidos.length === 0 && deOpens.length === 0 ? (
+      {dePartidos.length === 0 && pruebas.length === 0 ? (
         <Card className="py-10 text-center text-sm text-slate-500">
           {config.licencia
             ? "Nada todavía para esta temporada. Pulsa Sincronizar."
@@ -574,43 +520,58 @@ export default function TenisMesa() {
             </>
           )}
 
-          {deOpens.length > 0 && (
+          {/* Basta con que se hayan revisado pruebas: la ronda se anota aunque
+              el ranking no se haya podido leer o no aparezcas en él. */}
+          {pruebas.length > 0 && (
             <Card>
               <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-slate-100">
                 <Trophy size={18} className="text-amber-400" /> Opens regionales
               </h2>
               <p className="mb-3 text-xs text-slate-500">
-                El puesto y los puntos son los del ranking acumulado, que es lo único que publica
-                la federación. Hasta dónde llegaste en cada cuadro lo anotas tú.
+                El puesto y los puntos son del <b>ranking acumulado</b> tras cada prueba, no el
+                resultado de ese torneo: es lo único que publica la federación. Hasta dónde
+                llegaste en cada cuadro lo anotas tú.
               </p>
               <div className="space-y-2">
-                {[...deOpens]
-                  .sort((a, b) => b.total - a.total)
-                  .map((o) => (
+                {pruebas.map((p) => {
+                  // La ronda se guarda por temporada y prueba, no por el id del
+                  // ranking: así también se puede anotar en las pruebas cuyo
+                  // ranking no se ha podido leer.
+                  const clave = `${activa}|${p.prueba}`;
+                  const e = ESTADOS[p.estado] ?? ESTADOS.error;
+                  return (
                     <div
-                      key={o.id}
+                      key={p.prueba}
                       className="flex flex-wrap items-center gap-3 rounded-lg bg-slate-800/60 px-3 py-2"
                     >
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 text-sm font-bold text-amber-400">
-                        {o.puesto}º
+                      <span
+                        className={`flex h-9 w-12 shrink-0 items-center justify-center rounded-lg text-sm font-bold ${
+                          p.puesto
+                            ? "bg-amber-500/15 text-amber-400"
+                            : "bg-slate-700/40 text-slate-600"
+                        }`}
+                        title={p.puesto ? "Puesto en el ranking acumulado" : e.texto}
+                      >
+                        {p.puesto ? `${p.puesto}º` : "—"}
                       </span>
+
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm text-slate-100">{o.prueba}</p>
-                        <p className="text-xs text-slate-500">
-                          {o.categoria}
-                          {o.aMano && " · anotado a mano"}
+                        <p className="truncate text-sm text-slate-100">{p.prueba}</p>
+                        <p className={`text-xs ${p.puesto ? "text-slate-500" : e.clase}`}>
+                          {p.puesto ? `${p.acumulado} pts acumulados` : e.texto}
                         </p>
                       </div>
-                      <label className="sr-only" htmlFor={`ronda-${o.id}`}>
-                        Ronda alcanzada en {o.prueba}
+
+                      <label className="sr-only" htmlFor={`ronda-${clave}`}>
+                        Ronda alcanzada en {p.prueba}
                       </label>
                       <select
-                        id={`ronda-${o.id}`}
-                        name={`ronda-${o.id}`}
-                        value={rondas[o.id] ?? ""}
-                        onChange={(e) => setRondas({ ...rondas, [o.id]: e.target.value })}
+                        id={`ronda-${clave}`}
+                        name={`ronda-${clave}`}
+                        value={rondas[clave] ?? ""}
+                        onChange={(ev) => setRondas({ ...rondas, [clave]: ev.target.value })}
                         className={`rounded-lg border bg-slate-800 px-2 py-1.5 text-xs focus:border-indigo-500 focus:outline-none ${
-                          rondas[o.id]
+                          rondas[clave]
                             ? "border-indigo-700 text-indigo-300"
                             : "border-slate-700 text-slate-500"
                         }`}
@@ -621,11 +582,9 @@ export default function TenisMesa() {
                           </option>
                         ))}
                       </select>
-                      <span className="w-16 text-right text-sm font-semibold text-emerald-400">
-                        {o.total} pts
-                      </span>
                     </div>
-                  ))}
+                  );
+                })}
               </div>
             </Card>
           )}
