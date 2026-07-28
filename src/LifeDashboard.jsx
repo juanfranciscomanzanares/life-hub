@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, lazy, Suspense } from "react";
+import { useState, useMemo, useEffect, useRef, lazy, Suspense } from "react";
 import {
   Home,
   Dumbbell,
@@ -67,7 +67,7 @@ const Etiquetas = lazy(() => import("./sections/Etiquetas.jsx"));
 const Coach = lazy(() => import("./sections/Coach.jsx"));
 const Proximos = lazy(() => import("./sections/Proximos.jsx"));
 const Ajustes = lazy(() => import("./sections/Ajustes.jsx"));
-import { Flag, CalendarDays, Database, HeartPulse, Sparkles, Timer, Trophy, Sun, Moon, Image, Tag, CalendarClock, Settings } from "lucide-react";
+import { Flag, CalendarDays, Database, HeartPulse, Sparkles, Timer, Trophy, Sun, Moon, Image, Tag, CalendarClock, Settings, ChevronDown } from "lucide-react";
 const TenisMesa = lazy(() => import("./sections/TenisMesa.jsx"));
 const TenisEntrenos = lazy(() => import("./sections/TenisEntrenos.jsx"));
 const Metas = lazy(() => import("./sections/Metas.jsx"));
@@ -196,7 +196,7 @@ const INITIAL_RUNBOOKS = [];
 
 function Card({ children, className = "" }) {
   return (
-    <div className={`rounded-2xl border border-slate-800 bg-slate-900/60 p-5 shadow-lg ${className}`}>
+    <div className={`rounded-2xl border border-slate-800 bg-slate-900/60 p-5 shadow-lg transition duration-200 hover:-translate-y-0.5 hover:border-slate-700 hover:shadow-xl ${className}`}>
       {children}
     </div>
   );
@@ -1700,37 +1700,77 @@ function Trabajo() {
 /*  APP PRINCIPAL + SIDEBAR                                            */
 /* ------------------------------------------------------------------ */
 
-const NAV = [
+/*
+  La navegación va agrupada en menús desplegables: 24 secciones no caben en
+  una barra superior, así que las entradas más usadas son enlaces directos y
+  el resto cuelga de un grupo temático. NAV (plano) se deriva de aquí y es lo
+  que consume la paleta de comandos.
+*/
+const NAV_GROUPS = [
   { id: "inicio", label: "Inicio", icon: Home },
-  { id: "trabajo", label: "Trabajo · Agrosana", icon: Sprout },
-  { id: "gimnasio", label: "Gimnasio", icon: Dumbbell },
   { id: "universidad", label: "Universidad", icon: GraduationCap },
-  { id: "tenis", label: "Resultados deportivos", icon: Target },
-  { id: "tenis-notas", label: "Entrenamientos", icon: Target },
-  { id: "salud", label: "Salud", icon: HeartPulse },
-  { id: "finanzas", label: "Finanzas", icon: Wallet },
-  { id: "inversiones", label: "Inversiones", icon: LineChart },
-  { id: "habitos", label: "Hábitos", icon: CalendarCheck },
-  { id: "metas", label: "Metas", icon: Flag },
-  { id: "resumen", label: "Resumen semanal", icon: Sparkles },
-  { id: "coach", label: "Coach", icon: Sparkles },
-  { id: "calendario", label: "Calendario", icon: CalendarDays },
-  { id: "proximos", label: "Próximos", icon: CalendarClock },
-  { id: "cerebro", label: "Segundo Cerebro", icon: Brain },
-  { id: "foco", label: "Modo foco", icon: Timer },
-  { id: "logros", label: "Logros", icon: Trophy },
-  { id: "analitica", label: "Analítica", icon: BarChart3 },
-  { id: "repaso", label: "Repaso", icon: Brain },
-  { id: "adjuntos", label: "Adjuntos", icon: Image },
-  { id: "etiquetas", label: "Etiquetas", icon: Tag },
-  { id: "datos", label: "Datos", icon: Database },
-  { id: "ajustes", label: "Ajustes", icon: Settings },
+  { id: "trabajo", label: "Trabajo", icon: Sprout },
+  {
+    label: "Deporte",
+    icon: Dumbbell,
+    items: [
+      { id: "gimnasio", label: "Gimnasio", icon: Dumbbell },
+      { id: "tenis", label: "Resultados deportivos", icon: Target },
+      { id: "tenis-notas", label: "Entrenamientos", icon: Target },
+      { id: "salud", label: "Salud", icon: HeartPulse },
+    ],
+  },
+  {
+    label: "Dinero",
+    icon: Wallet,
+    items: [
+      { id: "finanzas", label: "Finanzas", icon: Wallet },
+      { id: "inversiones", label: "Inversiones", icon: LineChart },
+    ],
+  },
+  {
+    label: "Planificar",
+    icon: CalendarDays,
+    items: [
+      { id: "habitos", label: "Hábitos", icon: CalendarCheck },
+      { id: "metas", label: "Metas", icon: Flag },
+      { id: "calendario", label: "Calendario", icon: CalendarDays },
+      { id: "proximos", label: "Próximos", icon: CalendarClock },
+      { id: "foco", label: "Modo foco", icon: Timer },
+      { id: "resumen", label: "Resumen semanal", icon: Sparkles },
+      { id: "coach", label: "Coach", icon: Sparkles },
+    ],
+  },
+  {
+    label: "Conocimiento",
+    icon: Brain,
+    items: [
+      { id: "cerebro", label: "Segundo Cerebro", icon: Brain },
+      { id: "repaso", label: "Repaso", icon: Brain },
+      { id: "adjuntos", label: "Adjuntos", icon: Image },
+      { id: "etiquetas", label: "Etiquetas", icon: Tag },
+      { id: "logros", label: "Logros", icon: Trophy },
+      { id: "analitica", label: "Analítica", icon: BarChart3 },
+    ],
+  },
+  {
+    label: "Sistema",
+    icon: Settings,
+    items: [
+      { id: "datos", label: "Datos", icon: Database },
+      { id: "ajustes", label: "Ajustes", icon: Settings },
+    ],
+  },
 ];
+
+const NAV = NAV_GROUPS.flatMap((g) => (g.items ? g.items : [g]));
 
 export default function LifeDashboard({ userEmail = null, onSignOut = null }) {
   const [active, setActive] = useState("inicio");
   const [tasks, setTasks] = usePersisted("lh_tasks", INITIAL_TASKS);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [openGroup, setOpenGroup] = useState(null);
+  const headerRef = useRef(null);
 
   useRoutineNotifier();
   useAutoBackup();
@@ -1739,150 +1779,203 @@ export default function LifeDashboard({ userEmail = null, onSignOut = null }) {
   useEffect(() => {
     const onKey = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); setPaletteOpen(true); }
+      if (e.key === "Escape") { setOpenGroup(null); setMobileOpen(false); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // Gesto tactil: arrastrar desde el borde izquierdo abre el menu; deslizar a la izquierda lo cierra
+  // Cierra el desplegable abierto al pinchar fuera de la cabecera
   useEffect(() => {
-    let x0 = null, y0 = null, fromEdge = false;
-    const onStart = (e) => {
-      const t = e.touches[0];
-      x0 = t.clientX; y0 = t.clientY;
-      fromEdge = t.clientX < 30;
+    if (!openGroup) return;
+    const onDown = (e) => {
+      if (headerRef.current && !headerRef.current.contains(e.target)) setOpenGroup(null);
     };
-    const onEnd = (e) => {
-      if (x0 == null) return;
-      const t = e.changedTouches[0];
-      const dx = t.clientX - x0, dy = t.clientY - y0;
-      if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
-        if (dx > 0 && fromEdge) setMobileOpen(true);
-        else if (dx < 0) setMobileOpen(false);
-      }
-      x0 = y0 = null; fromEdge = false;
-    };
-    window.addEventListener("touchstart", onStart, { passive: true });
-    window.addEventListener("touchend", onEnd, { passive: true });
-    return () => {
-      window.removeEventListener("touchstart", onStart);
-      window.removeEventListener("touchend", onEnd);
-    };
-  }, []);
+    window.addEventListener("pointerdown", onDown);
+    return () => window.removeEventListener("pointerdown", onDown);
+  }, [openGroup]);
 
   const toggleTask = (id) =>
     setTasks(tasks.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));
 
+  const navigate = (id) => {
+    setActive(id);
+    setOpenGroup(null);
+    setMobileOpen(false);
+  };
+
   return (
-    <div className="flex min-h-screen bg-slate-950 font-sans text-slate-200">
-      {/* Sidebar */}
-      <aside
+    <div className="min-h-screen bg-slate-950 font-sans text-slate-200">
+      {/* Cabecera superior */}
+      <header
+        ref={headerRef}
         style={{
-          paddingTop: "calc(env(safe-area-inset-top) + 1.25rem)",
-          paddingLeft: "calc(env(safe-area-inset-left) + 1.25rem)",
-          paddingBottom: "calc(env(safe-area-inset-bottom) + 1.25rem)",
+          paddingTop: "env(safe-area-inset-top)",
+          paddingLeft: "env(safe-area-inset-left)",
+          paddingRight: "env(safe-area-inset-right)",
         }}
-        className={`fixed inset-y-0 left-0 z-30 flex w-64 transform flex-col border-r border-slate-800 bg-slate-900 p-5 transition-transform lg:static lg:translate-x-0 ${
-          mobileOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
+        className="sticky top-0 z-30 border-b border-slate-800 bg-slate-950/80 backdrop-blur-md"
       >
-        <div className="mb-8 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-fuchsia-500 font-bold text-white">
-            Q
-          </div>
-          <div>
-            <p className="font-bold text-slate-100">Life Hub</p>
-            <p className="text-xs text-slate-500">Panel personal</p>
-          </div>
-          <button className="ml-auto text-slate-400 lg:hidden" onClick={() => setMobileOpen(false)}>
-            <X size={20} />
-          </button>
-        </div>
-
-        <nav className="flex-1 space-y-1 overflow-y-auto">
-          {NAV.map((item) => {
-            const Icon = item.icon;
-            const isActive = active === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => {
-                  setActive(item.id);
-                  setMobileOpen(false);
-                }}
-                className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition ${
-                  isActive
-                    ? "bg-indigo-500/15 text-indigo-300"
-                    : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
-                }`}
-              >
-                <Icon size={19} />
-                {item.label}
-                {isActive && <span className="ml-auto h-2 w-2 rounded-full bg-indigo-400" />}
-              </button>
-            );
-          })}
-        </nav>
-
-        <div className="mt-4 space-y-3">
-          <div className="flex gap-2">
-            <button onClick={toggleTheme} className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-slate-800 bg-slate-800/40 px-3 py-2 text-xs font-medium text-slate-300 transition hover:border-indigo-500">
-              {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />} {theme === "dark" ? "Claro" : "Oscuro"}
-            </button>
-            <button onClick={() => setPaletteOpen(true)} className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-slate-800 bg-slate-800/40 px-3 py-2 text-xs font-medium text-slate-300 transition hover:border-indigo-500">
-              <Search size={15} /> Buscar
-            </button>
-          </div>
-          <div className="rounded-xl border border-slate-800 bg-slate-800/40 p-4">
-            <p className="text-xs text-slate-400">Frase del d&iacute;a</p>
-            <p className="mt-1 text-sm font-medium text-slate-200">
-              "La disciplina es el puente entre metas y logros."
-            </p>
-          </div>
-          {userEmail && (
-            <div className="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-800/40 px-3 py-2">
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-xs text-slate-400">{userEmail}</p>
-                <p className="text-[10px] text-emerald-400">&#9679; Sincronizado</p>
-              </div>
-              {onSignOut && (
-                <button
-                  onClick={onSignOut}
-                  title="Cerrar sesi&oacute;n"
-                  className="shrink-0 text-slate-500 transition hover:text-rose-400"
-                >
-                  <LogOut size={16} />
-                </button>
-              )}
+        <div className="mx-auto flex h-16 max-w-7xl items-center gap-2 px-4 sm:px-6">
+          <button onClick={() => navigate("inicio")} className="flex shrink-0 items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-fuchsia-500 font-bold text-white shadow-lg shadow-indigo-500/25">
+              Q
             </div>
-          )}
-        </div>
-      </aside>
+            <div className="hidden text-left sm:block">
+              <p className="font-bold leading-tight text-slate-100">Life Hub</p>
+              <p className="text-[10px] leading-tight text-slate-500">Panel personal</p>
+            </div>
+          </button>
 
-      {/* Overlay movil */}
+          {/* Navegación de escritorio */}
+          <nav className="ml-4 hidden flex-1 items-center gap-1 lg:flex">
+            {NAV_GROUPS.map((g) => {
+              const Icon = g.icon;
+              if (!g.items) {
+                const isActive = active === g.id;
+                return (
+                  <button
+                    key={g.id}
+                    onClick={() => navigate(g.id)}
+                    className={`nav-link flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                      isActive ? "is-active text-indigo-300" : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200"
+                    }`}
+                  >
+                    <Icon size={16} />
+                    {g.label}
+                  </button>
+                );
+              }
+              const groupActive = g.items.some((i) => i.id === active);
+              const isOpen = openGroup === g.label;
+              return (
+                <div key={g.label} className="relative">
+                  <button
+                    onClick={() => setOpenGroup(isOpen ? null : g.label)}
+                    className={`nav-link flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                      groupActive ? "is-active text-indigo-300" : isOpen ? "bg-slate-800/60 text-slate-200" : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200"
+                    }`}
+                  >
+                    <Icon size={16} />
+                    {g.label}
+                    <ChevronDown size={14} className={`transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
+                  </button>
+                  {isOpen && (
+                    <div className="dropdown-pop absolute left-0 top-full z-40 mt-2 w-60 rounded-xl border border-slate-800 bg-slate-900/95 p-1.5 shadow-2xl shadow-black/40 backdrop-blur">
+                      {g.items.map((item) => {
+                        const ItemIcon = item.icon;
+                        const isActive = active === item.id;
+                        return (
+                          <button
+                            key={item.id}
+                            onClick={() => navigate(item.id)}
+                            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition ${
+                              isActive
+                                ? "bg-indigo-500/15 font-medium text-indigo-300"
+                                : "text-slate-300 hover:bg-slate-800 hover:text-slate-100"
+                            }`}
+                          >
+                            <ItemIcon size={16} className={isActive ? "" : "text-slate-500"} />
+                            {item.label}
+                            {isActive && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-indigo-400" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </nav>
+
+          {/* Acciones a la derecha */}
+          <div className="ml-auto flex items-center gap-1.5">
+            <button
+              onClick={() => setPaletteOpen(true)}
+              title="Buscar (Ctrl+K)"
+              className="flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2 text-xs font-medium text-slate-400 transition hover:border-slate-700 hover:text-slate-200"
+            >
+              <Search size={15} />
+              <span className="hidden xl:inline">Buscar</span>
+              <kbd className="hidden rounded border border-slate-700 bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-500 xl:inline">⌘K</kbd>
+            </button>
+            <button
+              onClick={toggleTheme}
+              title={theme === "dark" ? "Tema claro" : "Tema oscuro"}
+              className="rounded-lg border border-slate-800 bg-slate-900/60 p-2 text-slate-400 transition hover:border-slate-700 hover:text-slate-200"
+            >
+              {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
+            {userEmail && (
+              <div className="hidden items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-1.5 md:flex">
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400" title="Sincronizado" />
+                <span className="max-w-[140px] truncate text-xs text-slate-400">{userEmail}</span>
+                {onSignOut && (
+                  <button onClick={onSignOut} title="Cerrar sesión" className="shrink-0 text-slate-500 transition hover:text-rose-400">
+                    <LogOut size={14} />
+                  </button>
+                )}
+              </div>
+            )}
+            <button onClick={() => setMobileOpen((o) => !o)} className="-mr-1 p-2 text-slate-300 lg:hidden">
+              {mobileOpen ? <X size={22} /> : <Menu size={22} />}
+            </button>
+          </div>
+        </div>
+
+        {/* Panel de navegación móvil */}
+        {mobileOpen && (
+          <div className="mobile-panel max-h-[calc(100vh-4rem)] overflow-y-auto border-t border-slate-800 bg-slate-950/95 px-4 pb-6 backdrop-blur lg:hidden">
+            {NAV_GROUPS.map((g) => {
+              const items = g.items || [g];
+              return (
+                <div key={g.label} className="pt-4">
+                  {g.items && (
+                    <p className="mb-1.5 px-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500">{g.label}</p>
+                  )}
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {items.map((item) => {
+                      const ItemIcon = item.icon;
+                      const isActive = active === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={() => navigate(item.id)}
+                          className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
+                            isActive ? "bg-indigo-500/15 text-indigo-300" : "text-slate-300 hover:bg-slate-800"
+                          }`}
+                        >
+                          <ItemIcon size={17} className={isActive ? "" : "text-slate-500"} />
+                          {item.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+            {userEmail && (
+              <div className="mt-5 flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2 md:hidden">
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400" />
+                <span className="min-w-0 flex-1 truncate text-xs text-slate-400">{userEmail}</span>
+                {onSignOut && (
+                  <button onClick={onSignOut} title="Cerrar sesión" className="shrink-0 text-slate-500 transition hover:text-rose-400">
+                    <LogOut size={15} />
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </header>
+
+      {/* Fondo oscurecido bajo el panel móvil */}
       {mobileOpen && (
-        <div
-          className="fixed inset-0 z-20 bg-black/50 lg:hidden"
-          onClick={() => setMobileOpen(false)}
-        />
+        <div className="fixed inset-0 z-20 bg-black/50 lg:hidden" onClick={() => setMobileOpen(false)} />
       )}
 
       {/* Contenido principal */}
-      <main className="flex-1 overflow-x-hidden">
-        {/* Top bar movil */}
-        <div
-          style={{
-            paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)",
-            paddingLeft: "calc(env(safe-area-inset-left) + 1rem)",
-            paddingRight: "calc(env(safe-area-inset-right) + 1rem)",
-          }}
-          className="sticky top-0 z-10 flex items-center gap-3 border-b border-slate-800 bg-slate-950/90 p-4 backdrop-blur lg:hidden"
-        >
-          <button onClick={() => setMobileOpen(true)} className="-m-2 p-2 text-slate-300">
-            <Menu size={24} />
-          </button>
-          <span className="font-semibold text-slate-100">Life Hub</span>        </div>
-
+      <main className="overflow-x-hidden">
         <div key={active} className="mx-auto max-w-6xl p-5 sm:p-8 section-fade">
           <Suspense
             fallback={<div className="py-16 text-center text-sm text-slate-500">Cargando sección...</div>}

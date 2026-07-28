@@ -148,17 +148,84 @@ body {
 
 /* --- Transición suave al cambiar de sección --- */
 .section-fade {
-  animation: lh-fade 0.25s ease;
+  animation: lh-fade 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
 @keyframes lh-fade {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
     transform: none;
   }
+}
+
+/*
+  Entrada escalonada: los primeros bloques de cada sección aparecen con un
+  pequeño retardo en cascada. Solo los 5 primeros hijos; a partir de ahí ya
+  suelen quedar por debajo del pliegue y el retardo se notaría como lentitud.
+*/
+.section-fade > * {
+  animation: lh-fade 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.section-fade > *:nth-child(2) { animation-delay: 0.05s; }
+.section-fade > *:nth-child(3) { animation-delay: 0.1s; }
+.section-fade > *:nth-child(4) { animation-delay: 0.15s; }
+.section-fade > *:nth-child(5) { animation-delay: 0.2s; }
+
+/* --- Desplegables de la barra de navegación --- */
+.dropdown-pop {
+  animation: lh-pop 0.16s cubic-bezier(0.22, 1, 0.36, 1);
+  transform-origin: top left;
+}
+@keyframes lh-pop {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* --- Panel de navegación móvil --- */
+.mobile-panel {
+  animation: lh-slide 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes lh-slide {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/*
+  Subrayado animado del enlace activo en la barra superior: crece desde el
+  centro al activarse. Se hace con ::after para no mover el layout.
+*/
+.nav-link {
+  position: relative;
+}
+.nav-link::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 2px;
+  height: 2px;
+  width: 0;
+  border-radius: 2px;
+  background: rgb(var(--c-indigo-400));
+  transition: width 0.25s cubic-bezier(0.22, 1, 0.36, 1), left 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.nav-link.is-active::after {
+  left: 12px;
+  width: calc(100% - 24px);
 }
 
 /* --- Accesibilidad: foco visible por teclado --- */
@@ -169,7 +236,13 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .section-fade {
+  .section-fade,
+  .section-fade > *,
+  .dropdown-pop,
+  .mobile-panel {
     animation: none;
+  }
+  .nav-link::after {
+    transition: none;
   }
 }
