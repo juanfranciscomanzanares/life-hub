@@ -1574,7 +1574,7 @@ const NAV = [
   { id: "trabajo", label: "Trabajo · Agrosana", icon: Sprout },
   { id: "gimnasio", label: "Gimnasio", icon: Dumbbell },
   { id: "universidad", label: "Universidad", icon: GraduationCap },
-  { id: "tenis", label: "Tenis de Mesa", icon: Target },
+  { id: "tenis", label: "Resultados deportivos", icon: Target },
   { id: "tenis-notas", label: "Tenis · Entrenos", icon: Target },
   { id: "salud", label: "Salud", icon: HeartPulse },
   { id: "finanzas", label: "Finanzas", icon: Wallet },

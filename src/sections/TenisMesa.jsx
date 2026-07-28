@@ -140,7 +140,11 @@ export default function TenisMesa() {
 
   return (
     <div>
-      <SectionTitle icon={Target} title="Tenis de Mesa" subtitle="Liga nacional y opens regionales" />
+      <SectionTitle
+        icon={Target}
+        title="Resultados deportivos"
+        subtitle="Liga nacional y opens regionales"
+      />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <label htmlFor="tenis-temporada" className="text-sm text-slate-400">
