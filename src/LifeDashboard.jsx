@@ -99,14 +99,43 @@ const TIME_STATS = [
   { label: "Ocio / Otros", hours: 12, color: "bg-rose-500", ring: "text-rose-400" },
 ];
 
-const SCHEDULE = [
-  { hora: "09:00 - 11:00", lunes: "Álgebra", martes: "Cálculo", miercoles: "Álgebra", jueves: "Prog. I" },
-  { hora: "11:00 - 13:00", lunes: "Estadística", martes: "Prog. I", miercoles: "Estadística", jueves: "Cálculo" },
-  { hora: "13:00 - 14:00", lunes: "Descanso", martes: "Descanso", miercoles: "Descanso", jueves: "Descanso" },
-  { hora: "15:00 - 17:00", lunes: "Lab. Datos", martes: "Física", miercoles: "Lab. Datos", jueves: "Física" },
+/* Curso 2026/2027, según resguardo de matrícula (28/07/2026) y horarios
+   oficiales GCID de la Facultad de Informática (UMU). */
+
+const SUBJECTS = [
+  "Fund. Computadores",
+  "Infraest. Comp. Altas Prest.",
+  "Deep Learning",
+  "Gestión de Proyectos",
+  "Ciberseguridad",
+  "Empresa y Emprendimiento",
+  "TFG",
+  "Prácticas Externas",
 ];
 
-const SUBJECTS = ["Álgebra", "Cálculo", "Estadística", "Prog. I", "Física", "Lab. Datos"];
+const SCHEDULE_C1 = [
+  { subject: "Empresa y Emprendimiento", curso: "4º", dia: "Lunes", hora: "15:00 - 17:00", tipo: "Teoría", aula: "A05" },
+  { subject: "Infraest. Comp. Altas Prest.", curso: "3º", dia: "Lunes", hora: "18:30 - 20:30", tipo: "Teoría", aula: "A.04 Bis" },
+  { subject: "Gestión de Proyectos", curso: "4º", dia: "Martes", hora: "17:00 - 18:00", tipo: "Teoría", aula: "A05" },
+  { subject: "Ciberseguridad", curso: "4º", dia: "Miércoles", hora: "15:00 - 17:00", tipo: "Teoría", aula: "A05" },
+  { subject: "Fund. Computadores", curso: "1º", dia: "Jueves", hora: "10:00 - 11:00", tipo: "Teoría", aula: "A.04 Bis" },
+  { subject: "Prácticas Externas", curso: "4º", dia: "—", hora: "Horario en empresa", tipo: "Optativa", aula: "—" },
+];
+
+const SCHEDULE_C2 = [
+  { subject: "Deep Learning", curso: "3º", dia: "Lunes", hora: "16:30 - 18:30", tipo: "Teoría", aula: "A.04 Bis" },
+  { subject: "TFG", curso: "4º", dia: "—", hora: "Tutorías con tutor/a", tipo: "Trabajo Fin de Grado", aula: "—" },
+];
+
+/* Convocatoria I (calendario de exámenes GCID 2026/27) */
+const EXAM_DATES = [
+  { subject: "Empresa y Emprendimiento", fecha: "17 dic 2026", dia: "Jueves", turno: "Mañana", cuatr: "C1" },
+  { subject: "Deep Learning", fecha: "21 dic 2026", dia: "Lunes", turno: "Tarde", cuatr: "C2" },
+  { subject: "Ciberseguridad", fecha: "07 ene 2027", dia: "Jueves", turno: "Mañana", cuatr: "C1" },
+  { subject: "Fund. Computadores", fecha: "11 ene 2027", dia: "Lunes", turno: "Tarde", cuatr: "C1" },
+  { subject: "Gestión de Proyectos", fecha: "14 ene 2027", dia: "Jueves", turno: "Mañana", cuatr: "C1" },
+  { subject: "Infraest. Comp. Altas Prest.", fecha: "15 ene 2027", dia: "Viernes", turno: "Tarde", cuatr: "C1" },
+];
 
 const INITIAL_UNI_TASKS = [];
 
@@ -324,57 +353,103 @@ function Universidad() {
 
   const subjectColor = (s) =>
     ({
-      "Álgebra": "bg-indigo-500/15 text-indigo-300",
-      "Cálculo": "bg-emerald-500/15 text-emerald-300",
-      "Estadística": "bg-amber-500/15 text-amber-300",
-      "Prog. I": "bg-rose-500/15 text-rose-300",
-      "Física": "bg-sky-500/15 text-sky-300",
-      "Lab. Datos": "bg-fuchsia-500/15 text-fuchsia-300",
+      "Fund. Computadores": "bg-indigo-500/15 text-indigo-300",
+      "Infraest. Comp. Altas Prest.": "bg-emerald-500/15 text-emerald-300",
+      "Deep Learning": "bg-amber-500/15 text-amber-300",
+      "Gestión de Proyectos": "bg-rose-500/15 text-rose-300",
+      "Ciberseguridad": "bg-sky-500/15 text-sky-300",
+      "Empresa y Emprendimiento": "bg-fuchsia-500/15 text-fuchsia-300",
+      "TFG": "bg-violet-500/15 text-violet-300",
+      "Prácticas Externas": "bg-teal-500/15 text-teal-300",
     }[s] || "bg-slate-700 text-slate-300");
+
+  const HorarioCuatrimestre = ({ titulo, clases }) => (
+    <Card className="overflow-x-auto p-0">
+      <div className="flex items-center gap-2 px-5 pt-4 text-slate-100">
+        <Table2 size={18} className="text-indigo-400" />
+        <h2 className="text-lg font-semibold">{titulo}</h2>
+      </div>
+      <table className="mt-3 w-full text-left text-sm">
+        <thead>
+          <tr className="border-b border-slate-800 text-slate-400">
+            <th className="px-5 py-3 font-medium">Día</th>
+            <th className="px-5 py-3 font-medium">Hora</th>
+            <th className="px-5 py-3 font-medium">Asignatura</th>
+            <th className="px-5 py-3 font-medium">Curso</th>
+            <th className="px-5 py-3 font-medium">Aula</th>
+          </tr>
+        </thead>
+        <tbody>
+          {clases.map((c, i) => (
+            <tr key={i} className="border-b border-slate-800/60">
+              <td className="px-5 py-3 font-medium text-slate-400">{c.dia}</td>
+              <td className="px-5 py-3 text-slate-300">{c.hora}</td>
+              <td className="px-5 py-3">
+                <span className={`inline-block rounded-lg px-2.5 py-1 text-xs font-medium ${subjectColor(c.subject)}`}>
+                  {c.subject}
+                </span>
+              </td>
+              <td className="px-5 py-3 text-slate-400">{c.curso}</td>
+              <td className="px-5 py-3 text-slate-400">{c.aula}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </Card>
+  );
 
   return (
     <div>
       <SectionTitle
         icon={GraduationCap}
         title="Universidad"
-        subtitle="Grado en Ciencia e Ingeniería de Datos"
+        subtitle="Grado en Ciencia e Ingeniería de Datos · Curso 2026/2027"
       />
 
-      {/* Horario */}
-      <Card className="mb-6 overflow-x-auto p-0">
-        <div className="flex items-center gap-2 px-5 pt-4 text-slate-100">
-          <Table2 size={18} className="text-indigo-400" />
-          <h2 className="text-lg font-semibold">Horario semanal</h2>
-        </div>
-        <table className="mt-3 w-full text-left text-sm">
-          <thead>
-            <tr className="border-b border-slate-800 text-slate-400">
-              <th className="px-5 py-3 font-medium">Hora</th>
-              <th className="px-5 py-3 font-medium">Lunes</th>
-              <th className="px-5 py-3 font-medium">Martes</th>
-              <th className="px-5 py-3 font-medium">Miércoles</th>
-              <th className="px-5 py-3 font-medium">Jueves</th>
-            </tr>
-          </thead>
-          <tbody>
-            {SCHEDULE.map((row, i) => (
-              <tr key={i} className="border-b border-slate-800/60">
-                <td className="px-5 py-3 font-medium text-slate-400">{row.hora}</td>
-                {["lunes", "martes", "miercoles", "jueves"].map((d) => (
-                  <td key={d} className="px-5 py-3">
-                    <span
-                      className={`inline-block rounded-lg px-2.5 py-1 text-xs font-medium ${
-                        row[d] === "Descanso" ? "text-slate-500" : subjectColor(row[d])
-                      }`}
-                    >
-                      {row[d]}
-                    </span>
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {/* Horarios por cuatrimestre */}
+      <div className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <HorarioCuatrimestre titulo="Horario · 1er Cuatrimestre" clases={SCHEDULE_C1} />
+        <HorarioCuatrimestre titulo="Horario · 2º Cuatrimestre" clases={SCHEDULE_C2} />
+      </div>
+
+      {/* Exámenes */}
+      <Card className="mb-6">
+        <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-slate-100">
+          <CalendarCheck size={18} className="text-rose-400" /> Próximos exámenes (Convocatoria I)
+        </h2>
+        <ul className="space-y-2">
+          {EXAM_DATES.map((e, i) => (
+            <li
+              key={i}
+              className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-800 bg-slate-800/40 px-4 py-2.5"
+            >
+              <span className={`rounded-md px-2 py-0.5 text-xs font-medium ${subjectColor(e.subject)}`}>
+                {e.subject}
+              </span>
+              <span className="text-sm text-slate-300">
+                {e.dia}, {e.fecha}
+              </span>
+              <span className="text-xs text-slate-500">{e.turno}</span>
+            </li>
+          ))}
+        </ul>
+        <p className="mt-3 text-xs text-slate-500">
+          TFG y Prácticas Externas no tienen examen en esta convocatoria.
+        </p>
+      </Card>
+
+      {/* Aula Virtual (futuro) */}
+      <Card className="mb-6 border border-dashed border-slate-700">
+        <h2 className="mb-2 flex items-center gap-2 text-lg font-semibold text-slate-100">
+          <Link2 size={18} className="text-sky-400" /> Aula Virtual UMU (próximamente)
+        </h2>
+        <p className="text-sm text-slate-400">
+          La UMU no ofrece una API pública para el Aula Virtual (Moodle), así que una integración directa
+          requeriría iniciar sesión con tus credenciales institucionales y leer las tareas mediante scraping,
+          o usar el feed iCal de tareas/calendario si Moodle lo tiene habilitado en tu perfil (Preferencias →
+          Calendario → exportar). La vía más viable sería un pequeño servicio (Edge Function) que inicie sesión
+          por ti y sincronice las tareas activas contra esta sección, similar a como ya sincronizas el banco.
+        </p>
       </Card>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
