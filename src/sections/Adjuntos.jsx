@@ -162,7 +162,6 @@ export default function Adjuntos() {
                     alt={it.titulo}
                     className="h-40 w-full object-cover"
                     loading="lazy"
-                    data-noinvert
                   />
                 ) : (
                   <span className="text-xs text-slate-500">Cargando...</span>
