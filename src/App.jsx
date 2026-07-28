@@ -7,8 +7,13 @@ import { reiniciarApp } from "./ErrorBoundary.jsx";
 /*
   App = puerta de acceso + dashboard.
   - Sin Supabase configurado: entra directo (datos solo en el navegador).
-  - Con Supabase: pide el email y envía un enlace mágico. Al iniciar sesión,
-    los datos se sincronizan entre dispositivos.
+  - Con Supabase: contraseña (por defecto) o enlace mágico (alternativa).
+
+  Por qué la contraseña es el método principal: el enlace mágico da muchos
+  problemas en el móvil. Las apps de correo abren los enlaces en su propio
+  navegador interno, así que la sesión se crea allí y no en el navegador donde
+  estabas; el enlace es de un solo uso; y el envío está limitado a unos pocos
+  correos por hora. Con contraseña nada de eso aplica.
 */
 
 // Supabase devuelve los errores del enlace mágico en el # (o en la query).
@@ -25,10 +30,30 @@ function leerErrorDeUrl() {
   return (desc || code || "").replace(/\+/g, " ");
 }
 
+// Los mensajes de Supabase vienen en inglés y son poco claros.
+function traducirError(msg = "") {
+  const m = msg.toLowerCase();
+  if (m.includes("invalid login credentials")) return "Email o contraseña incorrectos.";
+  if (m.includes("email not confirmed"))
+    return "Ese correo aún no está confirmado. Confírmalo en Supabase (Authentication → Users) o usa el enlace por email.";
+  if (m.includes("rate limit"))
+    return "Se ha alcanzado el límite de correos por hora de Supabase. Entra con contraseña o espera un rato.";
+  if (m.includes("already registered") || m.includes("already been registered"))
+    return "Ese correo ya tiene cuenta. Entra con tu contraseña.";
+  if (m.includes("password should be at least"))
+    return "La contraseña debe tener al menos 6 caracteres.";
+  if (m.includes("failed to fetch") || m.includes("network"))
+    return "Sin conexión con el servidor. Revisa tu red.";
+  return msg;
+}
+
 export default function App() {
   const [session, setSession] = useState(null);
   const [checking, setChecking] = useState(cloudEnabled);
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [modo, setModo] = useState("password"); // "password" | "enlace"
+  const [ocupado, setOcupado] = useState(false);
   const [sent, setSent] = useState(false);
   const [aviso, setAviso] = useState(() => (cloudEnabled ? leerErrorDeUrl() : null));
 
@@ -53,7 +78,7 @@ export default function App() {
       .getSession()
       .then(({ data, error }) => {
         if (!vivo) return;
-        if (error) setAviso(error.message);
+        if (error) setAviso(traducirError(error.message));
         setSession(data?.session ?? null);
       })
       .catch((e) => {
@@ -106,16 +131,57 @@ export default function App() {
 
   // Con nube pero sin sesión: pantalla de acceso.
   if (!session) {
-    const sendLink = async () => {
-      if (!email) return;
+    const entrar = async () => {
+      if (!email || !password || ocupado) return;
       setAviso(null);
+      setOcupado(true);
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      setOcupado(false);
+      if (error) setAviso(traducirError(error.message));
+      // Si va bien, onAuthStateChange se encarga de entrar.
+    };
+
+    const registrar = async () => {
+      if (!email || !password || ocupado) return;
+      setAviso(null);
+      setOcupado(true);
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { emailRedirectTo: window.location.origin },
+      });
+      setOcupado(false);
+      if (error) return setAviso(traducirError(error.message));
+      if (!data.session)
+        setAviso("Cuenta creada. Revisa tu correo para confirmarla y luego entra con tu contraseña.");
+    };
+
+    const enviarEnlace = async () => {
+      if (!email || ocupado) return;
+      setAviso(null);
+      setOcupado(true);
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: { emailRedirectTo: window.location.origin },
       });
+      setOcupado(false);
       if (!error) setSent(true);
-      else setAviso("Error: " + error.message);
+      else setAviso(traducirError(error.message));
     };
+
+    const campoEmail = (
+      <input
+        type="email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        placeholder="tu@email.com"
+        autoComplete="username"
+        autoCapitalize="none"
+        autoCorrect="off"
+        spellCheck="false"
+        className="mb-3 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-base text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+      />
+    );
 
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950 p-6 text-slate-200">
@@ -136,34 +202,64 @@ export default function App() {
             </p>
           )}
 
-          {sent ? (
+          {modo === "password" ? (
+            <>
+              <label className="mb-2 block text-sm text-slate-400">Entra con tu correo y contraseña:</label>
+              {campoEmail}
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && entrar()}
+                placeholder="Contraseña"
+                autoComplete="current-password"
+                className="mb-3 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-base text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+              />
+              <button
+                onClick={entrar}
+                disabled={ocupado}
+                className="w-full rounded-lg bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400 disabled:opacity-50"
+              >
+                {ocupado ? "Entrando..." : "Entrar"}
+              </button>
+              <button
+                onClick={registrar}
+                disabled={ocupado}
+                className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm font-semibold text-slate-200 transition hover:border-indigo-500 disabled:opacity-50"
+              >
+                Crear cuenta
+              </button>
+              <button
+                onClick={() => { setModo("enlace"); setAviso(null); }}
+                className="mt-4 w-full text-xs text-slate-500 underline"
+              >
+                Prefiero recibir un enlace por email
+              </button>
+            </>
+          ) : sent ? (
             <p className="rounded-xl border border-emerald-800 bg-emerald-500/10 p-4 text-sm text-emerald-300">
               Te hemos enviado un enlace de acceso a <b>{email}</b>. Ábrelo en{" "}
-              <b>este mismo dispositivo</b>. Si tu app de correo lo abre en su
-              propio navegador, copia el enlace y pégalo aquí, en este navegador.
+              <b>este mismo navegador</b>. Si tu app de correo lo abre en su propio
+              navegador, mantén pulsado el enlace, cópialo y pégalo aquí.
             </p>
           ) : (
             <>
               <label className="mb-2 block text-sm text-slate-400">
-                Entra con tu correo (recibirás un enlace mágico, sin contraseña):
+                Te enviaremos un enlace de acceso, sin contraseña:
               </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && sendLink()}
-                placeholder="tu@email.com"
-                autoComplete="email"
-                autoCapitalize="none"
-                autoCorrect="off"
-                spellCheck="false"
-                className="mb-3 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-base text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
-              />
+              {campoEmail}
               <button
-                onClick={sendLink}
-                className="w-full rounded-lg bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400"
+                onClick={enviarEnlace}
+                disabled={ocupado}
+                className="w-full rounded-lg bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400 disabled:opacity-50"
               >
-                Enviar enlace de acceso
+                {ocupado ? "Enviando..." : "Enviar enlace de acceso"}
+              </button>
+              <button
+                onClick={() => { setModo("password"); setAviso(null); }}
+                className="mt-4 w-full text-xs text-slate-500 underline"
+              >
+                Volver a entrar con contraseña
               </button>
             </>
           )}
