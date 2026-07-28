@@ -5,6 +5,8 @@ import {
   urlJugador,
   parsearPaginaJugador,
   parsearTotalesJugador,
+  parsearFichaJugador,
+  competicionPrincipal,
 } from "./tenis";
 
 /*
@@ -88,7 +90,14 @@ export async function sincronizarLiga({ config }) {
     origen: "liga",
   }));
 
-  return { partidos, oficiales };
+  // Club y competición se leen de la propia ficha y se guardan por temporada:
+  // cambian solos si cambias de equipo o de categoría.
+  const ficha = {
+    ...parsearFichaJugador(pagina.texto),
+    competicion: competicionPrincipal(crudos),
+  };
+
+  return { partidos, oficiales, ficha };
 }
 
 /*

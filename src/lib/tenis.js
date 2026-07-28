@@ -189,6 +189,35 @@ const quitarEtiquetas = (h) =>
     .replace(/\s+/g, " ")
     .trim();
 
+/*
+  Nombre y club, de la cabecera de la ficha. Se leen de la web en vez de
+  configurarlos a mano porque cambian solos: si cambias de club o de categoría
+  de una temporada a otra, se refleja sin tocar nada.
+*/
+export function parsearFichaJugador(html) {
+  const texto = quitarEtiquetas(html);
+  // Van seguidos y justo antes de "Estadísticas Temporada".
+  const m = texto.match(/([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ ,.']{6,})\s+([A-Z0-9][^]{2,60}?)\s+Estad/i);
+  return {
+    nombre: m ? nombreLegible(m[1].trim()) : "",
+    club: m ? m[2].trim() : "",
+  };
+}
+
+/*
+  Competición en la que juegas, deducida de los propios partidos. La ficha la
+  abrevia por partido ("SDM - J22"), así que se quita la jornada y se queda la
+  que más se repita, por si en una temporada jugaste en dos equipos.
+*/
+export function competicionPrincipal(partidos = []) {
+  const cuenta = new Map();
+  partidos.forEach((p) => {
+    const c = String(p.competicion || "").replace(/\s*-\s*J\s*\d+\s*$/i, "").trim();
+    if (c) cuenta.set(c, (cuenta.get(c) || 0) + 1);
+  });
+  return [...cuenta.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || "";
+}
+
 /* Totales oficiales que publica la federación. Sirven para contrastar. */
 export function parsearTotalesJugador(html) {
   const texto = quitarEtiquetas(html);
@@ -384,9 +413,50 @@ export function normalizarTemporada(t = "") {
 
   Se busca por nombre porque estos PDFs no llevan licencia.
 */
+/*
+  Trocea el texto del ranking en líneas propias.
+
+  No se puede confiar en los saltos de línea del PDF: según la versión de la
+  librería que extrae el texto, el mismo documento sale con saltos o entero en
+  UNA sola línea. Con todo pegado no se reconocía ninguna fila y la app decía
+  "no participaste" en todos los rankings.
+
+  Se parte antes de cada puesto ("9º ") y antes de las palabras que encabezan
+  cada bloque, así que funciona igual con saltos o sin ellos.
+*/
+export function aLineasDeRanking(texto) {
+  return String(texto)
+    .replace(/\s+/g, " ")
+    .replace(/(\d+\s*[ºª]\s)/g, "\n$1")
+    .replace(/\b(CATEGORIA|PUESTO|RANKING)\b/gi, "\n$1")
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+}
+
+/*
+  La categoría llega ensuciada con fecha, número de página o ambos, y en
+  distinto orden según el documento ("ABSOLUTA 31/05/2026 1 de 8"). Se limpia
+  en bucle hasta que deja de cambiar, porque quitar solo el último trozo dejaba
+  el anterior pegado. Se conservan los números que SÍ son parte del nombre,
+  como en "VETERANOS 40".
+*/
+function limpiarCategoria(texto) {
+  let actual = String(texto).trim();
+  let previo;
+  do {
+    previo = actual;
+    actual = actual
+      .replace(/\s*\d{1,2}\/\d{1,2}\/\d{4}\s*$/, "")
+      .replace(/\s*\d+\s+de\s+\d+\s*$/i, "")
+      .trim();
+  } while (actual !== previo);
+  return actual;
+}
+
 export function buscarEnRanking(texto, nombreBuscado) {
   const coincide = comparadorDeNombre(nombreBuscado);
-  const lineas = String(texto).split(/\r?\n/);
+  const lineas = aLineasDeRanking(texto);
   let categoria = "";
   const encontrados = [];
 
@@ -396,8 +466,7 @@ export function buscarEnRanking(texto, nombreBuscado) {
     const linea = lineas[i];
     const cat = linea.match(/CATEGORIA\s+(.+)$/i);
     if (cat) {
-      // Algunos documentos añaden la fecha a la categoría ("ABSOLUTA 31/05/2026").
-      categoria = cat[1].replace(/\s*\d{2}\/\d{2}\/\d{4}\s*$/, "").trim();
+      categoria = limpiarCategoria(cat[1]);
       continue;
     }
 

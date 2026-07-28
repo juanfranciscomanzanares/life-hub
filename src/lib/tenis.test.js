@@ -289,6 +289,32 @@ CATEGORIA ABSOLUTA`;
     expect(buscarEnRanking(RANKING, "gimenez")).toHaveLength(1);
   });
 
+  it("funciona igual si el PDF llega SIN saltos de línea", () => {
+    /*
+      Causa raíz de "no participaste" en todos los rankings: según la versión de
+      la librería que extrae el texto, el mismo PDF sale con saltos de línea o
+      entero en UNA sola línea. La versión que corre en el servidor lo devuelve
+      pegado, y el buscador, que partía por líneas, no reconocía ninguna fila.
+      Ahora el texto se trocea aquí y da igual cómo venga.
+    */
+    const pegado = RANKING.replace(/\n/g, " ");
+    expect(pegado).not.toContain("\n");
+
+    const [r] = buscarEnRanking(pegado, "Manzanares");
+    expect(r).toMatchObject({ puesto: 3, total: 70, categoria: "ABSOLUTO" });
+  });
+
+  it("limpia la fecha y el número de página de la categoría", () => {
+    // Llegan en cualquier orden: "ABSOLUTA 31/05/2026 1 de 8".
+    const t = `3º Juan Manzanares CLUB 50 50 RANKING TRAS OPEN CATEGORIA ABSOLUTA 31/05/2026 1 de 8 PUESTO JUGADOR`;
+    expect(buscarEnRanking(t, "Manzanares")[0].categoria).toBe("ABSOLUTA");
+  });
+
+  it("no se carga los números que son parte del nombre de la categoría", () => {
+    const t = `3º Juan Manzanares CLUB 50 50 RANKING TRAS OPEN CATEGORIA VETERANOS 40 PUESTO JUGADOR`;
+    expect(buscarEnRanking(t, "Manzanares")[0].categoria).toBe("VETERANOS 40");
+  });
+
   it("devuelve vacío si no participaste", () => {
     expect(buscarEnRanking(RANKING, "Pepito Perez")).toEqual([]);
   });

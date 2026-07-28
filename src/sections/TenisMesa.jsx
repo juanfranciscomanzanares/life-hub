@@ -66,6 +66,12 @@ export default function TenisMesa() {
   // cambiar de año ni al volver a entrar en la sección.
   const [revisiones, setRevisiones] = usePersisted("lh_tenis_revisiones", {});
   const [rondas, setRondas] = usePersisted("lh_tenis_rondas", {});
+  const [fichas, setFichas] = usePersisted("lh_tenis_ficha", {});
+  /*
+    Resultados anotados a mano. Hacen falta porque algún ranking se publica
+    ESCANEADO (imágenes, sin texto), y de esos no hay forma de leer nada.
+  */
+  const [manuales, setManuales] = usePersisted("lh_tenis_opens_manual", {});
 
   const [ajustes, setAjustes] = useState(!config.licencia);
   const [estado, setEstado] = useState(null);
@@ -84,11 +90,27 @@ export default function TenisMesa() {
   }, [partidos, opens, activa]);
 
   const detalle = revisiones[activa];
+  const ficha = fichas[activa];
+
+  // Los anotados a mano se muestran junto a los descargados.
+  const deOpensTodos = useMemo(() => {
+    const aMano = Object.entries(manuales)
+      .filter(([k]) => k.startsWith(`${activa}|`))
+      .map(([k, v]) => ({
+        id: k,
+        temporada: activa,
+        prueba: k.split("|")[1],
+        categoria: "ABSOLUTA",
+        aMano: true,
+        ...v,
+      }));
+    return [...opens.filter((o) => o.temporada === activa), ...aMano];
+  }, [opens, manuales, activa]);
   const dePartidos = useMemo(
     () => partidos.filter((p) => p.temporada === activa),
     [partidos, activa]
   );
-  const deOpens = useMemo(() => opens.filter((o) => o.temporada === activa), [opens, activa]);
+  const deOpens = deOpensTodos;
 
   const stats = useMemo(() => estadisticas(dePartidos), [dePartidos]);
   const jornadas = useMemo(() => porJornada(dePartidos), [dePartidos]);
@@ -109,6 +131,7 @@ export default function TenisMesa() {
       const liga = await sincronizarLiga({ config });
       setPartidos((p) => reemplazarTemporada(p, liga.partidos, activa));
       setOficiales((o) => ({ ...o, [activa]: liga.oficiales }));
+      setFichas((f) => ({ ...f, [activa]: liga.ficha }));
 
       let resumenOpens = "";
       if (config.nombre?.trim()) {
@@ -193,22 +216,80 @@ export default function TenisMesa() {
 
       {/* Qué ha pasado con cada ranking: sin esto, "no sale nada" no distingue
           entre no haber participado, un PDF escaneado o un fallo de descarga. */}
+      {ficha && (ficha.club || ficha.competicion) && (
+        <Card className="mb-4 flex flex-wrap items-center gap-x-6 gap-y-1 text-sm">
+          {ficha.club && (
+            <span className="text-slate-300">
+              <span className="text-slate-500">Club</span> <b>{ficha.club}</b>
+            </span>
+          )}
+          {ficha.competicion && (
+            <span className="text-slate-300">
+              <span className="text-slate-500">Competición</span> <b>{ficha.competicion}</b>
+            </span>
+          )}
+          <span className="text-xs text-slate-500">leídos de tu ficha, cambian solos</span>
+        </Card>
+      )}
+
       {detalle?.length > 0 && (
         <Card className="mb-4">
           <h3 className="mb-2 text-sm font-semibold text-slate-300">Rankings de opens revisados</h3>
-          <ul className="space-y-1 text-xs">
+          <ul className="space-y-2 text-xs">
             {detalle.map((d) => {
               const e = ESTADOS[d.estado] ?? ESTADOS.error;
+              const clave = `${activa}|${d.prueba}`;
+              const yaAMano = manuales[clave];
+              // Solo se puede anotar a mano lo que no se ha podido leer.
+              const anotable = d.estado !== "ok";
               return (
-                <li key={d.prueba} className="flex justify-between gap-3">
+                <li key={d.prueba} className="flex flex-wrap items-center justify-between gap-2">
                   <span className="text-slate-400">{d.prueba}</span>
-                  <span className={e.clase}>
-                    {d.estado === "ok" ? `${d.puesto}º` : e.texto}
-                  </span>
+                  {anotable ? (
+                    <span className="flex items-center gap-2">
+                      <span className={e.clase}>{e.texto}</span>
+                      <input
+                        type="number"
+                        min="1"
+                        aria-label={`Puesto a mano en ${d.prueba}`}
+                        value={yaAMano?.puesto ?? ""}
+                        onChange={(ev) =>
+                          setManuales({
+                            ...manuales,
+                            [clave]: { ...yaAMano, puesto: Number(ev.target.value) || 0 },
+                          })
+                        }
+                        placeholder="puesto"
+                        className="w-16 rounded border border-slate-700 bg-slate-800 px-2 py-1 text-center text-slate-100"
+                      />
+                      <input
+                        type="number"
+                        min="0"
+                        aria-label={`Puntos a mano en ${d.prueba}`}
+                        value={yaAMano?.total ?? ""}
+                        onChange={(ev) =>
+                          setManuales({
+                            ...manuales,
+                            [clave]: { ...yaAMano, total: Number(ev.target.value) || 0 },
+                          })
+                        }
+                        placeholder="pts"
+                        className="w-16 rounded border border-slate-700 bg-slate-800 px-2 py-1 text-center text-slate-100"
+                      />
+                    </span>
+                  ) : (
+                    <span className={e.clase}>{d.puesto}º</span>
+                  )}
                 </li>
               );
             })}
           </ul>
+          {detalle.some((d) => d.estado !== "ok") && (
+            <p className="mt-3 text-xs text-slate-500">
+              Lo que no se ha podido leer lo puedes anotar tú: algún ranking se publica escaneado,
+              como imágenes, y de esos no hay texto que extraer.
+            </p>
+          )}
         </Card>
       )}
 
@@ -515,7 +596,10 @@ export default function TenisMesa() {
                       </span>
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm text-slate-100">{o.prueba}</p>
-                        <p className="text-xs text-slate-500">{o.categoria}</p>
+                        <p className="text-xs text-slate-500">
+                          {o.categoria}
+                          {o.aMano && " · anotado a mano"}
+                        </p>
                       </div>
                       <label className="sr-only" htmlFor={`ronda-${o.id}`}>
                         Ronda alcanzada en {o.prueba}
