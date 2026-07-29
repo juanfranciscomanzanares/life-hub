@@ -3,7 +3,7 @@ import { CalendarDays, ChevronLeft, ChevronRight, Plus, Trash2, Repeat } from "l
 import { usePersisted } from "../lib/store";
 import { removeWithUndo } from "../lib/toast";
 import { Card, SectionTitle, MONTHS, todayISO } from "../lib/ui";
-import { CURSO, eventosDelCalendario, queHayEl } from "../lib/uni";
+import { CURSO, eventosDelCalendario, queHayEl, esLectivo } from "../lib/uni";
 
 // Fondo del día según el calendario académico. Suave a propósito: es contexto,
 // no un evento, y no debe competir con lo que haya escrito en la casilla.
@@ -124,6 +124,26 @@ export default function Calendario() {
     return map;
   }, [routine]);
 
+  /*
+    La rutina de UNA fecha concreta.
+
+    La rutina semanal es "todos los martes a las 10:00": no tiene fecha, así
+    que el calendario la repetía en todas las semanas del año. Agosto, Navidad,
+    Semana Santa y los festivos aparecían con horario de clase, y las
+    convocatorias de exámenes también.
+
+    Solo se filtran las entradas de Universidad: el gimnasio, el tenis y el
+    trabajo sí siguen todas las semanas, que es lo que uno espera de ellos.
+
+    Ojo: el calendario académico que conoce la app es el de 2026/2027, así que
+    fuera de ese curso no se pinta ninguna clase.
+  */
+  const rutinaDe = (fechaISO, diaSemana) => {
+    const items = routineByDay[diaSemana] || [];
+    if (esLectivo(fechaISO)) return items;
+    return items.filter((r) => r.tipo !== "Universidad");
+  };
+
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const firstWeekday = (new Date(year, month, 1).getDay() + 6) % 7;
   const cells = [];
@@ -185,7 +205,7 @@ export default function Calendario() {
     const d = new Date(lunesSem);
     d.setDate(lunesSem.getDate() + i);
     const isoD = todayISO(d);
-    const rout = (routineByDay[i] || []).map((r) => ({ hora: r.hora, tipo: r.tipo, label: r.titulo }));
+    const rout = rutinaDe(isoD, i).map((r) => ({ hora: r.hora, tipo: r.tipo, label: r.titulo }));
     const ev = (byDate[isoD] || []).map((e) => ({ hora: "", tipo: e.tipo, label: e.label }));
     return { fecha: isoD, dia: d.getDate(), nombre: WEEKDAYS_FULL[i], esHoy: isoD === todayISO(now), items: [...rout, ...ev].sort((a, b) => (a.hora || "99").localeCompare(b.hora || "99")) };
   });
@@ -225,6 +245,13 @@ export default function Calendario() {
           </p>
         </div>
 
+        {/* Esta rejilla es la rutina en bruto: aquí sí se ven todas las
+            entradas, incluidas las clases, porque es donde se editan. */}
+        <p className="mb-2 text-xs text-slate-500">
+          Las actividades de <b>Universidad</b> solo se pintan en el calendario los días lectivos del
+          curso {CURSO}: en agosto, Navidad, Semana Santa, festivos y periodos de exámenes no
+          aparecen. El resto (gimnasio, tenis, trabajo) se repite todas las semanas.
+        </p>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
           {WEEKDAYS_FULL.map((dname, i) => (
             <div key={i} className="rounded-xl border border-slate-800 bg-slate-800/30 p-3">
@@ -286,7 +313,7 @@ export default function Calendario() {
           {cells.map((d, i) => {
             if (d === null) return <div key={`e${i}`} />;
             const oneoff = byDate[iso(d)] || [];
-            const rout = (routineByDay[weekdayOf(d)] || []).map((r) => ({ tipo: r.tipo, label: `${r.hora} ${r.titulo}` }));
+            const rout = rutinaDe(iso(d), weekdayOf(d)).map((r) => ({ tipo: r.tipo, label: `${r.hora} ${r.titulo}` }));
             const list = [...rout, ...oneoff];
             /*
               El calendario académico se pinta como fondo del día, no como un

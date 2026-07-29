@@ -42,6 +42,22 @@ describe("calendario académico 2026/2027", () => {
     expect(queHayEl("")).toBe(null);
   });
 
+  it("esLectivo dice que NO en todo lo que no sean clases", () => {
+    /*
+      Esto es lo que decide si el calendario pinta el horario de clase ese día.
+      La rutina semanal ("todos los martes a las 10:00") no tiene fecha, así
+      que sin este filtro se repetía las 52 semanas del año: agosto, Navidad,
+      Semana Santa y los exámenes salían con horario de clase.
+    */
+    expect(esLectivo("2026-09-08")).toBe(true); // martes de clase
+    expect(esLectivo("2026-08-11")).toBe(false); // agosto
+    expect(esLectivo("2026-12-29")).toBe(false); // Navidad
+    expect(esLectivo("2027-03-23")).toBe(false); // Semana Santa
+    expect(esLectivo("2026-10-12")).toBe(false); // festivo
+    expect(esLectivo("2027-05-18")).toBe(false); // convocatoria II
+    expect(esLectivo("2025-10-07")).toBe(false); // otro curso: no se conoce
+  });
+
   it("los periodos no se pisan entre sí", () => {
     const ordenados = [...PERIODOS_UMU].sort((a, b) => a.desde.localeCompare(b.desde));
     ordenados.forEach((p, i) => {
