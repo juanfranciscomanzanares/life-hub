@@ -30,6 +30,18 @@ describe("utilidades de UI", () => {
     expect(fmtEuro(0)).toContain("0");
   });
 
+  it("fmtEuro corta los restos de la coma flotante", () => {
+    // 800 - 600.9 en coma flotante da 199.10000000000002
+    expect(fmtEuro(199.10000000000002)).toBe("199,10€");
+    expect(fmtEuro(600.9000000000001)).toBe("600,90€");
+  });
+
+  it("fmtEuro pone los céntimos de dos en dos, o ninguno", () => {
+    expect(fmtEuro(68.4)).toBe("68,40€");
+    expect(fmtEuro(13)).toBe("13€");
+    expect(fmtEuro(-32.5)).toBe("-32,50€");
+  });
+
   it("toCSV escapa comillas y separadores", () => {
     const csv = toCSV([
       { a: 1, b: "x" },

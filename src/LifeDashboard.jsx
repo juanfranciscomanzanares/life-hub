@@ -32,7 +32,8 @@ import {
   TrendingDown,
 } from "lucide-react";
 import { usePersisted } from "./lib/store";
-import { Card, SectionTitle, Skeleton, SkeletonSeccion, todayISO } from "./lib/ui";
+import { Card, SectionTitle, Skeleton, SkeletonSeccion, todayISO, fmtEuro } from "./lib/ui";
+import { horasPorDiaDeLaSemana, horasPorSemana, redondear, fmtHoras } from "./lib/trabajo";
 import { Cifra } from "./lib/animar";
 import { confeti } from "./lib/confetti";
 import { SUBJECTS, urgenciasDeHoy } from "./lib/uni";
@@ -193,15 +194,12 @@ const INITIAL_HABITS = [];
 const INITIAL_NOTES = [];
 
 /* --- Trabajo (Agrosana) --- */
-const WORK_CATS = [
-  "Ingeniería de Datos",
-  "Ciencia de Datos",
-  "Análisis / Reporting",
-  "Reuniones",
-  "Formación",
-  "Documentación",
-  "Otro",
-];
+/*
+  Sin tipos de actividad: antes cada registro había que clasificarlo
+  (Ingeniería de Datos, Reuniones...) y solo servía para pintar un reparto que
+  no aportaba nada. Los registros antiguos conservan su campo `categoria`, pero
+  ya no se lee ni se pide.
+*/
 const INITIAL_WORK = [];
 
 const INITIAL_RUNBOOKS = [];
@@ -256,12 +254,11 @@ function Inicio() {
   // Se calcula desde las fechas cumplidas: el campo `streak` que se leía antes
   // no lo actualizaba nadie y siempre valía 0.
   const rachaMaxima = mejorRacha(habits.map((h) => normalizarHabito(h)));
-  const mesActual = ahora.toISOString().slice(0, 7);
-  const BAR_COLORS = ["bg-indigo-500", "bg-emerald-500", "bg-amber-500", "bg-rose-500", "bg-sky-500", "bg-fuchsia-500"];
-  const porTipo = {};
-  work.filter((w) => (w.fecha || "").slice(0, 7) === mesActual).forEach((w) => { porTipo[w.categoria] = (porTipo[w.categoria] || 0) + Number(w.horas || 0); });
-  const stats = Object.entries(porTipo).map(([label, hours], i) => ({ label, hours, color: BAR_COLORS[i % BAR_COLORS.length] }));
-  const totalTipo = stats.reduce((a, b) => a + b.hours, 0) || 1;
+  // Últimas 8 semanas de trabajo. Antes esta tarjeta repartía las horas por
+  // tipo de tarea; ese campo ya no existe, así que ahora enseña la evolución.
+  const semanasTrabajo = useMemo(() => horasPorSemana(work, todayISO(), 8), [work]);
+  const maxSemana = Math.max(...semanasTrabajo.map((s) => s.horas), 1);
+  const totalSemanas = semanasTrabajo.reduce((a, s) => a + s.horas, 0);
 
   return (
     <div>
@@ -391,28 +388,43 @@ function Inicio() {
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-6">
-        {/* Distribución de horas */}
+        {/* Evolución de las horas de trabajo */}
         <Card>
           <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-slate-100">
-            <Clock size={18} className="text-indigo-400" /> Horas de trabajo por tipo (mes)
+            <Clock size={18} className="text-indigo-400" /> Horas de trabajo (últimas 8 semanas)
           </h2>
-          <div className="space-y-4">
-            {stats.length === 0 && <p className="text-sm text-slate-500">Aún no hay horas de trabajo registradas este mes.</p>}
-            {stats.map((s) => (
-              <div key={s.label}>
-                <div className="mb-1 flex justify-between text-sm">
-                  <span className="text-slate-300">{s.label}</span>
-                  <span className="font-medium text-slate-400">{s.hours}h</span>
+          {/*
+            Las columnas se estiran a toda la altura (sin items-end): con
+            items-end se quedaban a la altura de su texto, el hueco flex-1 de la
+            barra medía 0 y no llegaba a pintarse ninguna barra.
+          */}
+          {totalSemanas === 0 ? (
+            <p className="text-sm text-slate-500">Aún no hay horas de trabajo registradas.</p>
+          ) : (
+            <div
+              role="img"
+              aria-label={`Horas de trabajo por semana: ${semanasTrabajo
+                .map((s) => `semana del ${s.etiqueta}, ${fmtHoras(s.horas)}`)
+                .join("; ")}.`}
+              className="flex h-36 justify-between gap-1.5 sm:gap-2"
+            >
+              {semanasTrabajo.map((s) => (
+                <div key={s.desde} className="flex flex-1 flex-col items-center justify-end gap-1.5">
+                  <span className="text-[10px] font-medium text-slate-400 sm:text-xs">
+                    {s.horas ? fmtHoras(s.horas) : ""}
+                  </span>
+                  <div className="flex w-full flex-1 items-end">
+                    <div
+                      className="lh-barra-v w-full rounded-t-lg bg-gradient-to-t from-indigo-600 to-indigo-400"
+                      style={{ height: `${(s.horas / maxSemana) * 100}%` }}
+                      title={`Semana del ${s.etiqueta}: ${fmtHoras(s.horas)}`}
+                    />
+                  </div>
+                  <span className="text-[10px] text-slate-400 sm:text-xs">{s.etiqueta}</span>
                 </div>
-                <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-800">
-                  <div
-                    className={`lh-barra h-full rounded-full ${s.color}`}
-                    style={{ width: `${(s.hours / totalTipo) * 100}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </Card>
       </div>
     </div>
@@ -1011,9 +1023,11 @@ function Finanzas() {
 
   const rowsMes = useMemo(() => rows.filter((r) => (r.fecha || "").slice(0, 7) === mes), [rows, mes]);
 
-  const income = rowsMes.filter((r) => r.monto > 0).reduce((a, b) => a + b.monto, 0);
-  const expenses = rowsMes.filter((r) => r.monto < 0).reduce((a, b) => a + Math.abs(b.monto), 0);
-  const balance = income - expenses;
+  // redondear() en cada total: sumar importes con decimales arrastra restos de
+  // coma flotante (600.9000000000001) que se veían tal cual en las tarjetas.
+  const income = redondear(rowsMes.filter((r) => r.monto > 0).reduce((a, b) => a + b.monto, 0));
+  const expenses = redondear(rowsMes.filter((r) => r.monto < 0).reduce((a, b) => a + Math.abs(b.monto), 0));
+  const balance = redondear(income - expenses);
 
   const [presupuesto, setPresupuesto] = usePersisted("lh_budget_mensual", PRESUPUESTO_INICIAL);
   const budgetPct = presupuesto > 0 ? Math.min(100, (expenses / presupuesto) * 100) : 0;
@@ -1023,9 +1037,25 @@ function Finanzas() {
   const [subs, setSubs] = usePersisted("lh_subs", []);
   const [sForm, setSForm] = useState({ label: "", target: "" });
   const [subForm, setSubForm] = useState({ nombre: "", monto: "", dia: "" });
-  const totalSubs = subs.reduce((a, b) => a + Number(b.monto || 0), 0);
+  const totalSubs = redondear(subs.reduce((a, b) => a + Number(b.monto || 0), 0));
   const addSaving = () => { if (!sForm.label.trim() || !sForm.target) return; setSavings([...savings, { id: Date.now(), label: sForm.label, target: Number(sForm.target), current: 0 }]); setSForm({ label: "", target: "" }); };
   const addSub = () => { if (!subForm.nombre.trim()) return; setSubs([...subs, { id: Date.now(), nombre: subForm.nombre, monto: Number(subForm.monto) || 0, dia: Number(subForm.dia) || 1 }]); setSubForm({ nombre: "", monto: "", dia: "" }); };
+
+  /*
+    Ingresos fijos: la contraparte de las suscripciones. Es lo que entra todos
+    los meses sí o sí (nómina, beca, alquiler que cobras...), y sirve para saber
+    con cuánto cuentas de partida sin esperar a que llegue el movimiento.
+  */
+  const [fijos, setFijos] = usePersisted("lh_ingresos_fijos", []);
+  const [fijoForm, setFijoForm] = useState({ nombre: "", monto: "", dia: "" });
+  const totalFijos = redondear(fijos.reduce((a, b) => a + Number(b.monto || 0), 0));
+  const addFijo = () => {
+    if (!fijoForm.nombre.trim()) return;
+    setFijos([...fijos, { id: Date.now(), nombre: fijoForm.nombre, monto: Number(fijoForm.monto) || 0, dia: Number(fijoForm.dia) || 1 }]);
+    setFijoForm({ nombre: "", monto: "", dia: "" });
+  };
+  // Lo que queda libre cada mes una vez pagado lo que no se puede evitar.
+  const disponibleFijo = redondear(totalFijos - totalSubs);
 
   /*
     Las categorías son las mismas que usa la importación del banco: si aquí
@@ -1107,34 +1137,39 @@ function Finanzas() {
         )}
       </Card>
 
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Card className="flex items-center gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-400">
-            <ArrowUpRight size={24} />
+      {/*
+        En el móvil van los tres en fila y en vertical (icono arriba): apilados
+        a lo ancho ocupaban tres pantallazos para tres cifras, y había que hacer
+        scroll para ver el balance.
+      */}
+      <div className="mb-6 grid grid-cols-3 gap-2 sm:gap-4">
+        <Card padding="p-3 sm:p-5" className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-4">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-400 sm:h-12 sm:w-12">
+            <ArrowUpRight className="h-5 w-5 sm:h-6 sm:w-6" />
           </div>
-          <div>
-            <p className="font-display text-2xl font-bold text-slate-100"><Cifra valor={income} sufijo="€" /></p>
-            <p className="text-sm text-slate-400">Ingresos</p>
-          </div>
-        </Card>
-        <Card className="flex items-center gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-rose-500/15 text-rose-400">
-            <ArrowDownRight size={24} />
-          </div>
-          <div>
-            <p className="font-display text-2xl font-bold text-slate-100"><Cifra valor={expenses} sufijo="€" /></p>
-            <p className="text-sm text-slate-400">Gastos</p>
+          <div className="min-w-0">
+            <p className="font-display text-lg font-bold tabular-nums text-slate-100 sm:text-2xl"><Cifra valor={income} decimales={income % 1 ? 2 : 0} sufijo="€" /></p>
+            <p className="text-xs text-slate-400 sm:text-sm">Ingresos</p>
           </div>
         </Card>
-        <Card className="flex items-center gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-500/15 text-indigo-400">
-            <Wallet size={24} />
+        <Card padding="p-3 sm:p-5" className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-4">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-500/15 text-rose-400 sm:h-12 sm:w-12">
+            <ArrowDownRight className="h-5 w-5 sm:h-6 sm:w-6" />
           </div>
-          <div>
-            <p className={`font-display text-2xl font-bold ${balance >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-              <Cifra valor={balance} sufijo="€" />
+          <div className="min-w-0">
+            <p className="font-display text-lg font-bold tabular-nums text-slate-100 sm:text-2xl"><Cifra valor={expenses} decimales={expenses % 1 ? 2 : 0} sufijo="€" /></p>
+            <p className="text-xs text-slate-400 sm:text-sm">Gastos</p>
+          </div>
+        </Card>
+        <Card padding="p-3 sm:p-5" className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-4">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-500/15 text-indigo-400 sm:h-12 sm:w-12">
+            <Wallet className="h-5 w-5 sm:h-6 sm:w-6" />
+          </div>
+          <div className="min-w-0">
+            <p className={`font-display text-lg font-bold tabular-nums sm:text-2xl ${balance >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+              <Cifra valor={balance} decimales={balance % 1 ? 2 : 0} sufijo="€" />
             </p>
-            <p className="text-sm text-slate-400">Balance</p>
+            <p className="text-xs text-slate-400 sm:text-sm">Balance</p>
           </div>
         </Card>
       </div>
@@ -1144,7 +1179,7 @@ function Finanzas() {
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-lg font-semibold text-slate-100">Presupuesto mensual</h2>
             <div className="flex items-center gap-1.5 text-sm text-slate-400">
-              <span>{expenses}€ /</span>
+              <span>{fmtEuro(expenses)} /</span>
               <label className="sr-only" htmlFor="presupuesto-mensual">
                 Presupuesto mensual en euros
               </label>
@@ -1169,7 +1204,7 @@ function Finanzas() {
           </div>
           <p className="mt-2 text-xs text-slate-500">
             {presupuesto > 0
-              ? `Te quedan ${Math.max(0, presupuesto - expenses)}€ de presupuesto en ${monthLabel(mes)}.`
+              ? `Te quedan ${fmtEuro(Math.max(0, presupuesto - expenses))} de presupuesto en ${monthLabel(mes)}.`
               : "Pon un tope mensual para ver cuánto te queda."}
           </p>
         </Card>
@@ -1222,7 +1257,7 @@ function Finanzas() {
                   <div key={cat} className="flex items-center gap-2">
                     <span className="h-3 w-3 rounded-full" style={{ background: catColor(cat) }} />
                     <span className="text-slate-300">{cat}</span>
-                    <span className="ml-auto font-medium text-slate-400">{v}€</span>
+                    <span className="ml-auto font-medium text-slate-400">{fmtEuro(v)}</span>
                   </div>
                 ))}
               </div>
@@ -1243,7 +1278,7 @@ function Finanzas() {
                   <div className="mb-1 flex items-center justify-between text-sm">
                     <span className="text-slate-300">{cat}</span>
                     <div className="flex items-center gap-1.5">
-                      <span className={over ? "text-rose-400" : "text-slate-400"}>{gastado}€ /</span>
+                      <span className={over ? "text-rose-400" : "text-slate-400"}>{fmtEuro(gastado)} /</span>
                       <input type="number" value={budgets[cat] || ""} onChange={(e) => setBudgets({ ...budgets, [cat]: Number(e.target.value) || 0 })} placeholder="0" className="w-16 rounded border border-slate-700 bg-slate-800 px-2 py-0.5 text-right text-xs text-slate-100 focus:border-indigo-500 focus:outline-none" />
                       <span className="text-slate-500">€</span>
                     </div>
@@ -1259,29 +1294,73 @@ function Finanzas() {
         </Card>
       </div>
 
-      <Card className="mb-4">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-slate-100">Suscripciones y gastos fijos</h2>
-          <span className="rounded-full bg-rose-500/15 px-3 py-1 text-sm font-semibold text-rose-300">{totalSubs}€/mes</span>
-        </div>
-        <div className="mb-3 flex flex-wrap items-end gap-2">
-          <input placeholder="Nombre (Netflix, gym...)" value={subForm.nombre} onChange={(e) => setSubForm({ ...subForm, nombre: e.target.value })} className={`flex-1 ${inputCls}`} />
-          <input type="number" placeholder="€/mes" value={subForm.monto} onChange={(e) => setSubForm({ ...subForm, monto: e.target.value })} className={`w-24 ${inputCls}`} />
-          <input type="number" placeholder="Día" value={subForm.dia} onChange={(e) => setSubForm({ ...subForm, dia: e.target.value })} className={`w-20 ${inputCls}`} />
-          <button onClick={addSub} className="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-400">Añadir</button>
-        </div>
-        <ul className="space-y-2">
-          {subs.length === 0 && <li className="py-1 text-center text-sm text-slate-500">Sin suscripciones. Añade tus gastos fijos.</li>}
-          {subs.map((sub) => (
-            <li key={sub.id} className="flex items-center gap-3 rounded-lg border border-slate-800 bg-slate-800/40 px-3 py-2 text-sm">
-              <span className="flex-1 text-slate-200">{sub.nombre}</span>
-              <span className="text-xs text-slate-500">día {sub.dia}</span>
-              <span className="font-semibold text-rose-300">{sub.monto}€</span>
-              <button onClick={() => removeWithUndo(subs, setSubs, sub.id, "Suscripción")} className="text-slate-500 hover:text-rose-400"><Trash2 size={14} /></button>
-            </li>
-          ))}
-        </ul>
-      </Card>
+      <div className="mb-4 grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Card>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-lg font-semibold text-slate-100">Ingresos fijos</h2>
+            <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-sm font-semibold text-emerald-300">
+              +{fmtEuro(totalFijos)}/mes
+            </span>
+          </div>
+          <div className="mb-3 flex flex-wrap items-end gap-2">
+            <input aria-label="Nombre del ingreso fijo" placeholder="Nombre (nómina, beca...)" value={fijoForm.nombre} onChange={(e) => setFijoForm({ ...fijoForm, nombre: e.target.value })} className={`min-w-32 flex-1 ${inputCls}`} />
+            <input aria-label="Importe al mes en euros" type="number" inputMode="decimal" placeholder="€/mes" value={fijoForm.monto} onChange={(e) => setFijoForm({ ...fijoForm, monto: e.target.value })} className={`lh-num w-24 ${inputCls}`} />
+            <input aria-label="Día del mes en que se cobra" type="number" inputMode="numeric" placeholder="Día" value={fijoForm.dia} onChange={(e) => setFijoForm({ ...fijoForm, dia: e.target.value })} className={`lh-num w-20 ${inputCls}`} />
+            <button onClick={addFijo} className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-400">Añadir</button>
+          </div>
+          <ul className="space-y-2">
+            {fijos.length === 0 && <li className="py-1 text-center text-sm text-slate-500">Sin ingresos fijos. Apunta tu nómina o tu beca.</li>}
+            {fijos.map((f) => (
+              <li key={f.id} className="flex items-center gap-3 rounded-lg border border-slate-800 bg-slate-800/40 px-3 py-2 text-sm">
+                <span className="min-w-0 flex-1 truncate text-slate-200">{f.nombre}</span>
+                <span className="shrink-0 text-xs text-slate-500">día {f.dia}</span>
+                <span className="shrink-0 font-semibold text-emerald-300">{fmtEuro(f.monto)}</span>
+                <button onClick={() => removeWithUndo(fijos, setFijos, f.id, "Ingreso fijo")} aria-label={`Borrar ${f.nombre}`} className="shrink-0 text-slate-500 hover:text-rose-400"><Trash2 size={14} /></button>
+              </li>
+            ))}
+          </ul>
+        </Card>
+
+        <Card>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-lg font-semibold text-slate-100">Suscripciones y gastos fijos</h2>
+            <span className="rounded-full bg-rose-500/15 px-3 py-1 text-sm font-semibold text-rose-300">
+              −{fmtEuro(totalSubs)}/mes
+            </span>
+          </div>
+          <div className="mb-3 flex flex-wrap items-end gap-2">
+            <input aria-label="Nombre de la suscripción o gasto fijo" placeholder="Nombre (Netflix, gym...)" value={subForm.nombre} onChange={(e) => setSubForm({ ...subForm, nombre: e.target.value })} className={`min-w-32 flex-1 ${inputCls}`} />
+            <input aria-label="Importe al mes en euros" type="number" inputMode="decimal" placeholder="€/mes" value={subForm.monto} onChange={(e) => setSubForm({ ...subForm, monto: e.target.value })} className={`lh-num w-24 ${inputCls}`} />
+            <input aria-label="Día del mes en que se paga" type="number" inputMode="numeric" placeholder="Día" value={subForm.dia} onChange={(e) => setSubForm({ ...subForm, dia: e.target.value })} className={`lh-num w-20 ${inputCls}`} />
+            <button onClick={addSub} className="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-400">Añadir</button>
+          </div>
+          <ul className="space-y-2">
+            {subs.length === 0 && <li className="py-1 text-center text-sm text-slate-500">Sin suscripciones. Añade tus gastos fijos.</li>}
+            {subs.map((sub) => (
+              <li key={sub.id} className="flex items-center gap-3 rounded-lg border border-slate-800 bg-slate-800/40 px-3 py-2 text-sm">
+                <span className="min-w-0 flex-1 truncate text-slate-200">{sub.nombre}</span>
+                <span className="shrink-0 text-xs text-slate-500">día {sub.dia}</span>
+                <span className="shrink-0 font-semibold text-rose-300">{fmtEuro(sub.monto)}</span>
+                <button onClick={() => removeWithUndo(subs, setSubs, sub.id, "Suscripción")} aria-label={`Borrar ${sub.nombre}`} className="shrink-0 text-slate-500 hover:text-rose-400"><Trash2 size={14} /></button>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      </div>
+
+      {(totalFijos > 0 || totalSubs > 0) && (
+        <Card className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="font-semibold text-slate-100">Te queda libre cada mes</h2>
+            <p className="text-xs text-slate-500">
+              {fmtEuro(totalFijos)} de ingresos fijos menos {fmtEuro(totalSubs)} de gastos fijos.
+            </p>
+          </div>
+          <p className={`font-display text-2xl font-bold tabular-nums ${disponibleFijo >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+            {fmtEuro(disponibleFijo)}
+          </p>
+        </Card>
+      )}
 
       <Suspense
         fallback={
@@ -1366,7 +1445,71 @@ function Finanzas() {
         </button>
       </div>
 
-      <Card className="overflow-x-auto p-0">
+      {/*
+        En el móvil, cada movimiento como ficha en vez de fila.
+
+        La tabla tiene cinco columnas de campos editables y no cabe en 390px:
+        el importe y el botón de borrar quedaban fuera de la pantalla, así que
+        había que arrastrar en horizontal para ver lo único que de verdad
+        importa de un movimiento.
+      */}
+      <div className="space-y-2 sm:hidden">
+        {rowsFin.length === 0 && (
+          <Card className="py-8 text-center text-sm text-slate-500">
+            Sin movimientos en {monthLabel(mes)}. Apunta uno arriba o sincroniza el banco.
+          </Card>
+        )}
+        {rowsFin.map((r) => (
+          <Card key={r.id} padding="p-3">
+            <div className="flex items-start gap-2">
+              <input
+                value={r.concepto}
+                onChange={(e) => updateFin(r.id, "concepto", e.target.value)}
+                aria-label="Concepto"
+                className="min-w-0 flex-1 rounded bg-slate-800/40 px-2 py-1.5 font-medium text-slate-100 focus:bg-slate-800"
+              />
+              <div className={`flex shrink-0 items-center font-semibold ${r.monto >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  value={r.monto}
+                  onChange={(e) => updateFin(r.id, "monto", e.target.value)}
+                  aria-label="Importe en euros"
+                  className="lh-num w-20 rounded bg-slate-800/40 px-2 py-1.5 text-right tabular-nums focus:bg-slate-800"
+                />
+                €
+              </div>
+            </div>
+            <div className="mt-1 flex items-center gap-2">
+              <input
+                type="date"
+                value={r.fecha}
+                onChange={(e) => updateFin(r.id, "fecha", e.target.value)}
+                aria-label="Fecha"
+                className="rounded bg-slate-800/40 px-2 py-1.5 text-xs text-slate-400 focus:bg-slate-800"
+              />
+              <select
+                value={r.categoria}
+                onChange={(e) => updateFin(r.id, "categoria", e.target.value)}
+                aria-label="Categoría"
+                className="rounded bg-slate-800 px-2 py-1.5 text-xs text-slate-300"
+              >
+                {CATS.map((c) => <option key={c}>{c}</option>)}
+              </select>
+              {/* p-2 y no p-1: con el icono de 16px deja una zona táctil de 32px. */}
+              <button
+                onClick={() => removeWithUndo(rows, setRows, r.id, "Movimiento")}
+                aria-label={`Borrar ${r.concepto}`}
+                className="ml-auto p-2 text-slate-500 transition hover:text-rose-400"
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      <Card className="hidden overflow-x-auto p-0 sm:block">
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-slate-800 text-slate-400">
@@ -1396,11 +1539,12 @@ function Finanzas() {
                   </select>
                 </td>
                 <td className={`px-3 py-2 text-right font-semibold ${r.monto >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                  <input type="number" value={r.monto} onChange={(e) => updateFin(r.id, "monto", e.target.value)} className="w-20 rounded bg-transparent px-1 py-1 text-right hover:bg-slate-800 focus:bg-slate-800 focus:outline-none" />€
+                  <input type="number" value={r.monto} onChange={(e) => updateFin(r.id, "monto", e.target.value)} aria-label="Importe en euros" className="lh-num w-20 rounded bg-transparent px-1 py-1 text-right hover:bg-slate-800 focus:bg-slate-800 focus:outline-none" />€
                 </td>
                 <td className="px-5 py-3 text-right">
                   <button
                     onClick={() => removeWithUndo(rows, setRows, r.id, "Movimiento")}
+                    aria-label={`Borrar ${r.concepto}`}
                     className="text-slate-500 transition hover:text-rose-400"
                   >
                     <Trash2 size={16} />
@@ -1752,7 +1896,7 @@ function lastNMonths(n) {
 function Trabajo() {
   const [log, setLog] = usePersisted("lh_work_log", INITIAL_WORK);
   const [runbooks, setRunbooks] = usePersisted("lh_runbooks", INITIAL_RUNBOOKS);
-  const [form, setForm] = useState({ fecha: "", actividad: "", categoria: WORK_CATS[0], horas: "" });
+  const [form, setForm] = useState({ fecha: "", actividad: "", horas: "" });
   const [rbForm, setRbForm] = useState({ titulo: "", pasos: "", herramientas: "" });
   const [showRb, setShowRb] = useState(false);
   const [crono, setCrono] = useState(null);
@@ -1765,7 +1909,7 @@ function Trabajo() {
   const toggleCrono = () => {
     if (!crono) { setCrono(Date.now()); return; }
     const horas = Math.max(0.01, Math.round(((Date.now() - crono) / 3600000) * 100) / 100);
-    setLog([{ id: Date.now(), fecha: todayISO(), actividad: form.actividad || "Sesión cronometrada", categoria: form.categoria, horas }, ...log]);
+    setLog([{ id: Date.now(), fecha: todayISO(), actividad: form.actividad || "Sesión cronometrada", horas }, ...log]);
     setCrono(null);
     setForm({ ...form, actividad: "" });
   };
@@ -1785,17 +1929,15 @@ function Trabajo() {
     const prev = byMonth[prevKey] || 0;
     const diffPct = prev > 0 ? Math.round(((current - prev) / prev) * 100) : null;
 
-    const catHours = {};
-    let currentCount = 0;
-    log.forEach((e) => {
-      if (monthKey(e.fecha) === currentKey) {
-        catHours[e.categoria] = (catHours[e.categoria] || 0) + (Number(e.horas) || 0);
-        currentCount += 1;
-      }
-    });
+    const currentCount = log.filter((e) => monthKey(e.fecha) === currentKey).length;
     const maxBar = Math.max(...series.map((s) => s.horas), 1);
-    return { series, current, prev, diffPct, catHours, currentCount, currentKey, maxBar };
+    return { series, current: redondear(current), prev: redondear(prev), diffPct, currentCount, currentKey, maxBar };
   }, [log]);
+
+  // Reparto de la semana en curso: sustituye al viejo reparto por tipo de tarea.
+  const semana = useMemo(() => horasPorDiaDeLaSemana(log, todayISO()), [log]);
+  const totalSemana = redondear(semana.reduce((a, d) => a + d.horas, 0));
+  const maxDia = Math.max(...semana.map((d) => d.horas), 1);
 
   const addEntry = () => {
     if (!form.actividad || !form.horas) return;
@@ -1804,12 +1946,11 @@ function Trabajo() {
         id: Date.now(),
         fecha: form.fecha || todayISO(),
         actividad: form.actividad,
-        categoria: form.categoria,
         horas: Number(form.horas) || 0,
       },
       ...log,
     ]);
-    setForm({ fecha: "", actividad: "", categoria: WORK_CATS[0], horas: "" });
+    setForm({ fecha: "", actividad: "", horas: "" });
   };
 
   const addRunbook = () => {
@@ -1822,18 +1963,6 @@ function Trabajo() {
   const inputCls =
     "rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none";
 
-  const catColor = (c) =>
-    ({
-      "Ingeniería de Datos": "bg-indigo-500/15 text-indigo-300",
-      "Ciencia de Datos": "bg-emerald-500/15 text-emerald-300",
-      "Análisis / Reporting": "bg-amber-500/15 text-amber-300",
-      "Reuniones": "bg-rose-500/15 text-rose-300",
-      "Formación": "bg-sky-500/15 text-sky-300",
-      "Documentación": "bg-fuchsia-500/15 text-fuchsia-300",
-    }[c] || "bg-slate-700 text-slate-300");
-
-  const catTotalCurrent = Object.values(analytics.catHours).reduce((a, b) => a + b, 0) || 1;
-
   return (
     <div>
       <SectionTitle icon={Sprout} title="Trabajo · Agrosana" subtitle="Prácticas de Ingeniería y Ciencia de Datos" />
@@ -1845,7 +1974,7 @@ function Trabajo() {
             <Clock size={24} />
           </div>
           <div>
-            <p className="text-2xl font-bold text-slate-100">{analytics.current}h</p>
+            <p className="text-2xl font-bold tabular-nums text-slate-100">{fmtHoras(analytics.current)}</p>
             <p className="text-sm text-slate-400">Este mes ({monthLabel(analytics.currentKey)})</p>
           </div>
         </Card>
@@ -1863,7 +1992,7 @@ function Trabajo() {
             <p className="text-2xl font-bold text-slate-100">
               {analytics.diffPct === null ? "—" : `${analytics.diffPct > 0 ? "+" : ""}${analytics.diffPct}%`}
             </p>
-            <p className="text-sm text-slate-400">vs mes anterior ({analytics.prev}h)</p>
+            <p className="text-sm text-slate-400">vs mes anterior ({fmtHoras(analytics.prev)})</p>
           </div>
         </Card>
         <Card className="flex items-center gap-4">
@@ -1883,15 +2012,23 @@ function Trabajo() {
           <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-slate-100">
             <BarChart3 size={18} className="text-indigo-400" /> Horas por mes (últimos 6)
           </h2>
-          <div className="flex h-44 items-end justify-between gap-2">
+          {/* Mismo motivo que en Inicio: con items-end las columnas no se
+              estiraban y las barras salían con altura cero. */}
+          <div
+            role="img"
+            aria-label={`Horas de trabajo por mes: ${analytics.series
+              .map((s) => `${s.label}, ${fmtHoras(s.horas)}`)
+              .join("; ")}.`}
+            className="flex h-44 justify-between gap-2"
+          >
             {analytics.series.map((s) => (
-              <div key={s.key} className="flex flex-1 flex-col items-center gap-2">
-                <span className="text-xs font-medium text-slate-400">{s.horas || ""}</span>
+              <div key={s.key} className="flex flex-1 flex-col items-center justify-end gap-2">
+                <span className="text-xs font-medium tabular-nums text-slate-400">{s.horas ? fmtHoras(s.horas) : ""}</span>
                 <div className="flex w-full flex-1 items-end">
                   <div
-                    className="w-full rounded-t-lg bg-gradient-to-t from-indigo-600 to-indigo-400 transition-all"
+                    className="lh-barra-v w-full rounded-t-lg bg-gradient-to-t from-indigo-600 to-indigo-400"
                     style={{ height: `${(s.horas / analytics.maxBar) * 100}%` }}
-                    title={`${s.horas}h`}
+                    title={`${s.label}: ${fmtHoras(s.horas)}`}
                   />
                 </div>
                 <span className="text-xs text-slate-500">{s.label}</span>
@@ -1900,31 +2037,37 @@ function Trabajo() {
           </div>
         </Card>
 
-        {/* Reparto por categoría del mes */}
+        {/* Reparto de la semana en curso, día a día */}
         <Card>
-          <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-slate-100">
-            <TrendingUp size={18} className="text-emerald-400" /> Reparto del mes por tipo
-          </h2>
-          {Object.keys(analytics.catHours).length === 0 ? (
-            <p className="py-6 text-center text-sm text-slate-500">Sin actividades este mes todavía.</p>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
+              <TrendingUp size={18} className="text-emerald-400" /> Esta semana, día a día
+            </h2>
+            <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-sm font-semibold tabular-nums text-emerald-300">
+              {fmtHoras(totalSemana)}
+            </span>
+          </div>
+          {totalSemana === 0 ? (
+            <p className="py-6 text-center text-sm text-slate-500">Sin horas apuntadas esta semana todavía.</p>
           ) : (
-            <div className="space-y-3">
-              {Object.entries(analytics.catHours)
-                .sort((a, b) => b[1] - a[1])
-                .map(([cat, h]) => (
-                  <div key={cat}>
-                    <div className="mb-1 flex justify-between text-sm">
-                      <span className={`rounded-md px-2 py-0.5 text-xs font-medium ${catColor(cat)}`}>{cat}</span>
-                      <span className="text-slate-400">{h}h</span>
-                    </div>
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-slate-800">
-                      <div
-                        className="h-full rounded-full bg-emerald-500"
-                        style={{ width: `${(h / catTotalCurrent) * 100}%` }}
-                      />
-                    </div>
+            <div className="space-y-2.5">
+              {semana.map((d) => (
+                <div key={d.fecha}>
+                  <div className="mb-1 flex justify-between text-sm">
+                    <span className={d.esHoy ? "font-semibold text-slate-100" : "text-slate-300"}>
+                      {d.etiqueta}
+                      {d.esHoy && <span className="ml-1.5 text-xs font-normal text-emerald-400">hoy</span>}
+                    </span>
+                    <span className="tabular-nums text-slate-400">{d.horas ? fmtHoras(d.horas) : "—"}</span>
                   </div>
-                ))}
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-slate-800">
+                    <div
+                      className="lh-barra h-full rounded-full bg-emerald-500"
+                      style={{ width: `${(d.horas / maxDia) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </Card>
@@ -1935,7 +2078,7 @@ function Trabajo() {
         <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-slate-100">
           <Briefcase size={18} className="text-indigo-400" /> Registrar tiempo
         </h2>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <input type="date" value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} className={inputCls} />
           <input
             placeholder="Actividad"
@@ -1943,11 +2086,6 @@ function Trabajo() {
             onChange={(e) => setForm({ ...form, actividad: e.target.value })}
             className={`col-span-2 ${inputCls}`}
           />
-          <select value={form.categoria} onChange={(e) => setForm({ ...form, categoria: e.target.value })} className={inputCls}>
-            {WORK_CATS.map((c) => (
-              <option key={c}>{c}</option>
-            ))}
-          </select>
           <input
             type="number"
             step="0.5"
@@ -1962,7 +2100,7 @@ function Trabajo() {
             {crono ? "Parar y registrar" : "▶ Empezar cronómetro"}
           </button>
           {crono && <span className="font-mono text-xl tabular-nums text-slate-100">{cronoTxt}</span>}
-          <span className="text-xs text-slate-500">Cronometra la actividad en curso (usa el campo Actividad y la categoría).</span>
+          <span className="text-xs text-slate-500">Cronometra la actividad en curso (usa el campo Actividad).</span>
         </div>
         <div className="mt-3 flex justify-end">
           <button onClick={addEntry} className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-400">
@@ -1978,22 +2116,25 @@ function Trabajo() {
             <tr className="border-b border-slate-800 text-slate-400">
               <th className="px-5 py-3 font-medium">Fecha</th>
               <th className="px-5 py-3 font-medium">Actividad</th>
-              <th className="px-5 py-3 font-medium">Categoría</th>
               <th className="px-5 py-3 text-right font-medium">Horas</th>
               <th className="px-5 py-3" />
             </tr>
           </thead>
           <tbody>
+            {log.length === 0 && (
+              <tr>
+                <td colSpan={4} className="px-5 py-8 text-center text-sm text-slate-500">
+                  Sin horas apuntadas todavía. Añade una actividad arriba o usa el cronómetro.
+                </td>
+              </tr>
+            )}
             {log.map((e) => (
               <tr key={e.id} className="border-b border-slate-800/60 transition hover:bg-slate-800/40">
                 <td className="px-5 py-3 text-slate-400">{e.fecha}</td>
                 <td className="px-5 py-3 font-medium text-slate-100">{e.actividad}</td>
-                <td className="px-5 py-3">
-                  <span className={`rounded-md px-2 py-0.5 text-xs font-medium ${catColor(e.categoria)}`}>{e.categoria}</span>
-                </td>
-                <td className="px-5 py-3 text-right text-slate-300">{e.horas}h</td>
+                <td className="px-5 py-3 text-right tabular-nums text-slate-300">{fmtHoras(e.horas)}</td>
                 <td className="px-5 py-3 text-right">
-                  <button onClick={() => removeWithUndo(log, setLog, e.id, "Actividad")} className="text-slate-500 transition hover:text-rose-400">
+                  <button onClick={() => removeWithUndo(log, setLog, e.id, "Actividad")} aria-label={`Borrar ${e.actividad}`} className="text-slate-500 transition hover:text-rose-400">
                     <Trash2 size={16} />
                   </button>
                 </td>

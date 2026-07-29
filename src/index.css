@@ -508,6 +508,25 @@ html[data-theme="light"] .lh-seccion::before {
 }
 
 /*
+  Importe pegado a su símbolo.
+
+  Los input[type=number] reservan sitio a la derecha para las flechitas de
+  subir/bajar aunque estén ocultas, así que en las fichas de movimientos el "€"
+  quedaba separado del número. Aquí las flechas no aportan nada: los importes
+  se teclean.
+*/
+.lh-num::-webkit-outer-spin-button,
+.lh-num::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+}
+.lh-num {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+/*
   --- Skeleton de carga ---
 
   Bloques grises con un barrido de luz. El barrido usa un degradado del propio

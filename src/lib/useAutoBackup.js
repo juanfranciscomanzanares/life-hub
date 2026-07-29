@@ -23,7 +23,7 @@ export const ALL_KEYS = [
   "lh_tenis_partidos", "lh_tenis_opens", "lh_tenis_rondas", "lh_tenis_oficiales",
   "lh_tenis_ficha", "lh_tenis_revisiones", "lh_tenis_config",
   // Dinero
-  "lh_finance", "lh_budgets", "lh_budget_mensual", "lh_savings", "lh_subs",
+  "lh_finance", "lh_budgets", "lh_budget_mensual", "lh_savings", "lh_subs", "lh_ingresos_fijos",
   "lh_investments", "lh_contribs", "lh_invest_goal", "lh_portfolio_history",
   "lh_banco_reglas", "lh_banco_conexion",
   // Salud y hábitos

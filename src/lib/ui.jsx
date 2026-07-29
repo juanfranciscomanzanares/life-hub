@@ -9,8 +9,15 @@
 
   El puntero solo se escucha en dispositivos con ratón: en táctil no hay hover,
   el brillo nunca se vería y el listener sería trabajo tirado en cada scroll.
+
+  El relleno va en `padding` y NO en `className`.
+
+  Tailwind no resuelve los choques por el orden del atributo class, sino por el
+  orden en la hoja generada, donde `p-5` va después de `p-0` y `p-3`. Es decir:
+  un `<Card className="p-3">` seguía teniendo 20px de relleno, en silencio. Con
+  la prop solo se emite una clase de relleno y gana la que se pide.
 */
-export function Card({ children, className = "", ...resto }) {
+export function Card({ children, className = "", padding = "p-5", ...resto }) {
   const seguirCursor = (e) => {
     const caja = e.currentTarget.getBoundingClientRect();
     e.currentTarget.style.setProperty("--mx", `${e.clientX - caja.left}px`);
@@ -20,7 +27,7 @@ export function Card({ children, className = "", ...resto }) {
   const conRaton = typeof window !== "undefined" && window.matchMedia?.("(hover: hover)").matches;
 
   return (
-    <div className={`lh-card p-5 ${className}`} onPointerMove={conRaton ? seguirCursor : undefined} {...resto}>
+    <div className={`lh-card ${padding} ${className}`} onPointerMove={conRaton ? seguirCursor : undefined} {...resto}>
       {children}
     </div>
   );
@@ -85,7 +92,22 @@ export function SkeletonSeccion() {
 }
 
 /* --- Formato --- */
-export const fmtEuro = (n) => `${Number(n || 0).toLocaleString("es-ES")}€`;
+/*
+  Importes con 0 o 2 decimales, nunca uno suelto ni quince.
+
+  Sumar en coma flotante deja restos como 199.10000000000002, y eso se colaba
+  tal cual en pantalla ("Te quedan 199.10000000000002€ de presupuesto"). Los
+  céntimos van siempre de dos en dos (600,90€, no 600,9€) para que las cifras
+  de una misma columna se lean alineadas.
+*/
+export const fmtEuro = (n) => {
+  const v = Number(n) || 0;
+  const decimales = Math.round(v * 100) % 100 === 0 ? 0 : 2;
+  return `${v.toLocaleString("es-ES", {
+    minimumFractionDigits: decimales,
+    maximumFractionDigits: decimales,
+  })}€`;
+};
 
 export const MONTHS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 
