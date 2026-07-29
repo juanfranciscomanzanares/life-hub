@@ -110,29 +110,41 @@ Deno.serve(async (req) => {
 
     const [tareas, sitios] = await Promise.all([
       get("/direct/assignment/my.json", cookie),
-      get("/direct/site.json", cookie),
+      /*
+        El `_limit` no es opcional: sin él, site.json devuelve solo los 10
+        primeros sitios y la mayoría de las tareas se quedan sin nombre de
+        asignatura (salían como "6596_G_2025_N_N").
+      */
+      get("/direct/site.json?_limit=200", cookie),
     ]);
 
-    const nombrePorSitio = new Map(
-      (sitios?.site_collection ?? sitios?.sites ?? []).map((s: any) => [
-        s.entityId ?? s.id,
-        s.title ?? s.entityTitle ?? s.entityId ?? s.id,
-      ])
-    );
-
-    const lista = (tareas?.assignment_collection ?? tareas?.assignments ?? [])
-      .filter((a: any) => !a.draft)
-      .map((a: any) => ({
+    /*
+      Se devuelve el JSON recortado, no interpretado: el estado de cada tarea,
+      los nombres y el agrupado se calculan en src/lib/aula.js, que sí está
+      cubierto por tests. Aquí solo se quitan los campos que no se usan, que
+      son casi todos: el crudo pasa de medio mega.
+    */
+    return json({
+      sitios: (sitios?.site_collection ?? sitios?.sites ?? []).map((s: any) => ({
+        id: s.entityId ?? s.id,
+        titulo: s.title ?? s.entityTitle ?? s.entityId ?? s.id,
+      })),
+      tareas: (tareas?.assignment_collection ?? tareas?.assignments ?? []).map((a: any) => ({
         id: a.id ?? a.entityId,
-        titulo: a.title ?? "(sin título)",
-        asignatura: nombrePorSitio.get(a.context) ?? a.context ?? "—",
+        titulo: a.title ?? "",
+        contexto: a.context ?? "",
+        borrador: Boolean(a.draft),
         abre: a.openTimeString ?? a.openTime ?? null,
         entrega: a.dueTimeString ?? a.dueTime ?? null,
         cierra: a.closeTimeString ?? a.closeTime ?? null,
-      }))
-      .sort((a: any, b: any) => String(b.entrega ?? "").localeCompare(String(a.entrega ?? "")));
-
-    return json({ tareas: lista });
+        /*
+          Que la hayas entregado TÚ. `submitted` a secas no vale: Sakai crea
+          una entrega vacía cuando el profesor califica, así que salían como
+          entregadas 126 de 129 tareas en vez de 62.
+        */
+        entregada: (a.submissions ?? []).some((s: any) => s.submitted && s.userSubmission),
+      })),
+    });
   } catch (e) {
     return json({ error: e instanceof Error ? e.message : String(e) }, 500);
   }

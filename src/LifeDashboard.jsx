@@ -35,6 +35,14 @@ import { usePersisted } from "./lib/store";
 import { todayISO } from "./lib/ui";
 import { CATEGORIAS as CATEGORIAS_BANCO } from "./lib/banco";
 import { sincronizarAulaVirtual } from "./lib/aulaVirtual";
+import {
+  normalizarTareas,
+  agruparPorAsignatura,
+  esPendiente,
+  aTareaDeApp,
+  yaAnadida,
+  tareasQueFaltan,
+} from "./lib/aula";
 import HoyWidget from "./sections/HoyWidget.jsx";
 import { useRoutineNotifier } from "./lib/useRoutineNotifier";
 import { useTheme } from "./lib/useTheme";
@@ -43,7 +51,7 @@ import CommandPalette from "./CommandPalette.jsx";
 import QuickAdd from "./QuickAdd.jsx";
 import Onboarding from "./Onboarding.jsx";
 import ToastHost from "./ToastHost.jsx";
-import { removeWithUndo } from "./lib/toast";
+import { removeWithUndo, toast } from "./lib/toast";
 
 /*
   Secciones con carga diferida.
@@ -166,6 +174,13 @@ const EXAM_DATES = [
 ];
 
 const INITIAL_UNI_TASKS = [];
+
+const ESTADO_AULA = {
+  abierta: { texto: "Abierta", clase: "bg-emerald-500/15 text-emerald-300" },
+  proxima: { texto: "Próxima", clase: "bg-sky-500/15 text-sky-300" },
+  entregada: { texto: "Entregada", clase: "bg-indigo-500/15 text-indigo-300" },
+  cerrada: { texto: "Cerrada", clase: "bg-slate-700/60 text-slate-400" },
+};
 
 const INITIAL_STUDY_HOURS = {};
 
@@ -369,19 +384,22 @@ function Universidad() {
   const [newTask, setNewTask] = useState("");
   const [newSubject, setNewSubject] = useState(SUBJECTS[0]);
 
-  const [aulaTareas, setAulaTareas] = usePersisted("lh_aula_tareas", []);
+  const [aulaCrudo, setAulaCrudo] = usePersisted("lh_aula_tareas", []);
   const [aulaUltimaSync, setAulaUltimaSync] = usePersisted("lh_aula_ultima_sync", null);
-  const [usuarioUMU, setUsuarioUMU] = useState("");
+  // El usuario sí se recuerda (no es un secreto); la contraseña nunca.
+  const [usuarioUMU, setUsuarioUMU] = usePersisted("lh_aula_usuario", "");
   const [contrasenaUMU, setContrasenaUMU] = useState("");
   const [sincronizando, setSincronizando] = useState(false);
   const [errorAula, setErrorAula] = useState("");
+  const [soloPendientes, setSoloPendientes] = useState(true);
+  const [asignaturaAbierta, setAsignaturaAbierta] = useState(null);
 
   const sincronizarAula = async () => {
     setSincronizando(true);
     setErrorAula("");
     try {
-      const tareas = await sincronizarAulaVirtual({ usuario: usuarioUMU, contrasena: contrasenaUMU });
-      setAulaTareas(tareas);
+      const crudo = await sincronizarAulaVirtual({ usuario: usuarioUMU, contrasena: contrasenaUMU });
+      setAulaCrudo(crudo);
       setAulaUltimaSync(new Date().toISOString());
     } catch (e) {
       setErrorAula(e.message || "No se pudo sincronizar.");
@@ -391,9 +409,51 @@ function Universidad() {
     }
   };
 
+  /*
+    El estado de cada tarea se recalcula al pintar y no al sincronizar: una
+    tarea "abierta" pasa a "cerrada" sola cuando vence el plazo, sin tener que
+    volver a entrar en el Aula Virtual.
+
+    Se guarda el crudo antiguo (un array de tareas ya interpretadas) además del
+    nuevo ({tareas, sitios}) porque una sincronización anterior a este cambio
+    dejaría la sección en blanco.
+  */
+  const aulaTareas = useMemo(
+    () => normalizarTareas(Array.isArray(aulaCrudo) ? { tareas: aulaCrudo, sitios: [] } : aulaCrudo),
+    [aulaCrudo]
+  );
+  const aulaPendientes = useMemo(() => aulaTareas.filter(esPendiente), [aulaTareas]);
+  const aulaGrupos = useMemo(
+    () => agruparPorAsignatura(soloPendientes ? aulaPendientes : aulaTareas),
+    [aulaTareas, aulaPendientes, soloPendientes]
+  );
+
+  const anadirDelAula = (tarea) => {
+    if (yaAnadida(tasks, tarea.id)) return;
+    setTasks([...tasks, aTareaDeApp(tarea, SUBJECTS)]);
+  };
+
+  const anadirGrupo = (tareas) => {
+    const faltan = tareasQueFaltan(tareas, tasks);
+    if (faltan.length === 0) return;
+    setTasks([...tasks, ...faltan.map((t) => aTareaDeApp(t, SUBJECTS))]);
+    toast(`${faltan.length} ${faltan.length === 1 ? "tarea añadida" : "tareas añadidas"}`);
+  };
+
   const filtered = useMemo(
     () => (filter === "Todas" ? tasks : tasks.filter((t) => t.subject === filter)),
     [tasks, filter]
+  );
+
+  /*
+    Las tuyas de este curso, más las que hayan entrado del Aula Virtual con una
+    asignatura que no está en SUBJECTS (las de cursos anteriores). Sin esto, una
+    tarea traída de "Procesamiento de Imagen [24/25]" no tendría ningún filtro
+    donde salir salvo "Todas".
+  */
+  const asignaturasConTareas = useMemo(
+    () => [...new Set([...SUBJECTS, ...tasks.map((t) => t.subject).filter(Boolean)])],
+    [tasks]
   );
 
   const totalStudy = Object.values(studyHours).reduce((a, b) => a + b, 0);
@@ -580,10 +640,10 @@ function Universidad() {
           <Link2 size={18} className="text-sky-400" /> Aula Virtual UMU
         </h2>
         <p className="mb-4 text-xs text-slate-500">
-          Inicia sesión con tu usuario y contraseña de la UMU para traer tus tareas. Solo se usan para
-          entrar en el Aula Virtual en el momento de sincronizar: no se guardan en ningún sitio (ni aquí,
-          ni en el servidor). Como las asignaturas de 2026/2027 aún no están publicadas, prueba primero con
-          el curso 2025/2026.
+          Trae tus tareas de todas las asignaturas, agrupadas y con su estado. La contraseña solo se usa
+          para entrar en el Aula Virtual en ese momento: no se guarda en ningún sitio (ni aquí, ni en el
+          servidor) y el campo se vacía al terminar. Salen también los cursos anteriores, así que hasta
+          que se publiquen las asignaturas de 2026/2027 verás sobre todo tareas ya cerradas.
         </p>
 
         <div className="mb-4 flex flex-wrap gap-2">
@@ -619,30 +679,105 @@ function Universidad() {
         )}
 
         {aulaUltimaSync && (
-          <p className="mb-3 text-xs text-slate-500">
-            Última sincronización: {new Date(aulaUltimaSync).toLocaleString("es-ES")} ·{" "}
-            {aulaTareas.length} tarea{aulaTareas.length === 1 ? "" : "s"}
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <p className="text-xs text-slate-500">
+              Última sincronización: {new Date(aulaUltimaSync).toLocaleString("es-ES")} ·{" "}
+              {aulaTareas.length} tarea{aulaTareas.length === 1 ? "" : "s"}
+            </p>
+            <div className="ml-auto flex gap-1.5">
+              {[
+                [true, `Pendientes (${aulaPendientes.length})`],
+                [false, `Todas (${aulaTareas.length})`],
+              ].map(([valor, etiqueta]) => (
+                <button
+                  key={etiqueta}
+                  onClick={() => setSoloPendientes(valor)}
+                  className={`rounded-lg px-3 py-1 text-xs font-medium transition ${
+                    soloPendientes === valor
+                      ? "bg-indigo-500 text-white"
+                      : "border border-slate-700 bg-slate-800 text-slate-300 hover:border-indigo-500"
+                  }`}
+                >
+                  {etiqueta}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {aulaUltimaSync && aulaGrupos.length === 0 && (
+          <p className="rounded-xl border border-slate-800 bg-slate-800/40 px-4 py-6 text-center text-sm text-slate-500">
+            {soloPendientes
+              ? "Ninguna tarea pendiente. Las de cursos ya cerrados están en «Todas»."
+              : "El Aula Virtual no ha devuelto ninguna tarea."}
           </p>
         )}
 
-        {aulaTareas.length > 0 && (
-          <ul className="space-y-2">
-            {aulaTareas.map((t) => (
-              <li
-                key={t.id}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-800 bg-slate-800/40 px-4 py-2.5"
-              >
-                <div>
-                  <p className="text-sm text-slate-200">{t.titulo}</p>
-                  <p className="text-xs text-slate-500">{t.asignatura}</p>
+        <div className="space-y-2">
+          {aulaGrupos.map((grupo) => {
+            const abierta = asignaturaAbierta === grupo.asignatura;
+            const faltan = tareasQueFaltan(grupo.tareas, tasks).length;
+            return (
+              <div key={grupo.asignatura} className="rounded-xl border border-slate-800 bg-slate-800/40">
+                <div className="flex flex-wrap items-center gap-2 px-4 py-2.5">
+                  <button
+                    onClick={() => setAsignaturaAbierta(abierta ? null : grupo.asignatura)}
+                    aria-expanded={abierta}
+                    className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                  >
+                    <span className="text-slate-500">{abierta ? "▾" : "▸"}</span>
+                    <span className="truncate text-sm font-medium text-slate-200">
+                      {grupo.asignatura}
+                    </span>
+                    {grupo.curso && (
+                      <span className="shrink-0 rounded bg-slate-700/60 px-1.5 py-0.5 text-[11px] text-slate-400">
+                        {grupo.curso}
+                      </span>
+                    )}
+                    <span className="shrink-0 text-xs text-slate-500">
+                      {grupo.tareas.length}
+                      {grupo.pendientes > 0 && ` · ${grupo.pendientes} pendiente${grupo.pendientes === 1 ? "" : "s"}`}
+                    </span>
+                  </button>
+                  {faltan > 0 && (
+                    <button
+                      onClick={() => anadirGrupo(grupo.tareas)}
+                      className="shrink-0 rounded-lg border border-indigo-800 bg-indigo-500/10 px-2.5 py-1 text-xs font-medium text-indigo-300 transition hover:bg-indigo-500/20"
+                    >
+                      + Añadir {faltan}
+                    </button>
+                  )}
                 </div>
-                <span className="text-xs text-slate-400">
-                  {t.entrega ? `Entrega: ${t.entrega}` : "Sin fecha de entrega"}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
+
+                {abierta && (
+                  <ul className="space-y-1.5 border-t border-slate-800 px-4 py-3">
+                    {grupo.tareas.map((t) => {
+                      const puesta = yaAnadida(tasks, t.id);
+                      return (
+                        <li key={t.id} className="flex flex-wrap items-center gap-2 text-sm">
+                          <span className={`shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium ${ESTADO_AULA[t.estado].clase}`}>
+                            {ESTADO_AULA[t.estado].texto}
+                          </span>
+                          <span className="min-w-0 flex-1 truncate text-slate-200">{t.titulo}</span>
+                          <span className="shrink-0 text-xs text-slate-500">
+                            {t.entrega ? new Date(t.entrega).toLocaleDateString("es-ES") : "sin plazo"}
+                          </span>
+                          <button
+                            onClick={() => anadirDelAula(t)}
+                            disabled={puesta}
+                            className="shrink-0 rounded-lg border border-slate-700 px-2 py-0.5 text-xs text-slate-300 transition hover:border-indigo-500 hover:text-indigo-300 disabled:border-transparent disabled:text-emerald-400"
+                          >
+                            {puesta ? "✓ puesta" : "+ poner"}
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </Card>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -653,7 +788,7 @@ function Universidad() {
           </h2>
 
           <div className="mb-4 flex flex-wrap gap-2">
-            {["Todas", ...SUBJECTS].map((s) => (
+            {["Todas", ...asignaturasConTareas].map((s) => (
               <button
                 key={s}
                 onClick={() => setFilter(s)}
@@ -713,10 +848,15 @@ function Universidad() {
                     <Circle size={18} className="text-slate-500" />
                   )}
                 </button>
-                <span className={`flex-1 text-sm ${t.done ? "text-slate-500 line-through" : "text-slate-200"}`}>
+                <span className={`min-w-0 flex-1 text-sm ${t.done ? "text-slate-500 line-through" : "text-slate-200"}`}>
                   {t.text}
+                  {t.entrega && (
+                    <span className="ml-2 text-xs text-slate-500">
+                      entrega {new Date(t.entrega).toLocaleDateString("es-ES")}
+                    </span>
+                  )}
                 </span>
-                <span className={`rounded-md px-2 py-0.5 text-xs font-medium ${subjectColor(t.subject)}`}>
+                <span className={`shrink-0 rounded-md px-2 py-0.5 text-xs font-medium ${subjectColor(t.subject)}`}>
                   {t.subject}
                 </span>
                 <button

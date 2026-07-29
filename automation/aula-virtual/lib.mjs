@@ -20,7 +20,9 @@ export async function estaConectado(page) {
 
 export async function leerTareas(page) {
   const [sitiosRes, tareasRes] = await Promise.all([
-    page.request.get(`${BASE}/direct/site.json`),
+    // El _limit no es opcional: sin él, site.json devuelve solo 10 sitios y la
+    // mayoría de las tareas se quedan sin nombre de asignatura.
+    page.request.get(`${BASE}/direct/site.json?_limit=200`),
     page.request.get(`${BASE}/direct/assignment/my.json`),
   ]);
 

@@ -20,5 +20,7 @@ export async function sincronizarAulaVirtual({ usuario, contrasena }) {
   });
   if (error) throw new Error(error.message || "No se pudo contactar con el servidor.");
   if (data?.error) throw new Error(data.error);
-  return data.tareas ?? [];
+
+  // Crudo (recortado): quien lo interpreta es src/lib/aula.js.
+  return { tareas: data.tareas ?? [], sitios: data.sitios ?? [] };
 }

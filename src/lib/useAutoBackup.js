@@ -5,7 +5,7 @@ export const ALL_KEYS = [
   "lh_tt_drills", "lh_tt_notes", "lh_finance", "lh_investments", "lh_contribs",
   "lh_invest_goal", "lh_habits", "lh_notes", "lh_goals", "lh_portfolio_history",
   "lh_events", "lh_routine", "lh_reminders", "lh_health", "lh_srs", "lh_adjuntos",
-  "lh_gym_sesiones", "lh_gym_rutinas", "lh_gym_ejercicios",
+  "lh_gym_sesiones", "lh_gym_rutinas", "lh_gym_ejercicios", "lh_aula_tareas",
   "lh_budgets", "lh_budget_mensual", "lh_savings", "lh_subs", "lh_banco_reglas",
 ];
 

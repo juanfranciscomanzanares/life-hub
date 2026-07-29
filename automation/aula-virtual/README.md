@@ -1,15 +1,24 @@
 # Sincronización automática con el Aula Virtual UMU
 
-Esto vive fuera de la app web (Vite) a propósito: necesita un navegador de
-verdad (Playwright/Chromium) para pasar el login CAS + 2FA de la UMU, cosa que
-una Edge Function no puede hacer. Corre en tu PC, programado con el
-Programador de tareas de Windows.
+> **Esto es el plan B.** El 29/07/2026 se comprobó que el login directo de
+> Sakai **sí funciona**: `POST /direct/session.json` con usuario y contraseña
+> devuelve 201 y una cookie con la que se leen `assignment/my.json` y
+> `site.json` sin tocar CAS ni el 2FA. Por eso la app usa la Edge Function
+> `aula-virtual-sync`, que es mucho más simple y no depende de tu PC.
+>
+> Esta automatización se queda por si la UMU cierra esa vía o bloquea las IPs
+> de Supabase. Si la app sincroniza bien, no necesitas nada de esto.
 
-## Por qué hace falta esto y no una función en la nube
+Vive fuera de la app web (Vite) a propósito: usa un navegador de verdad
+(Playwright/Chromium) para pasar el login CAS + 2FA de la UMU, cosa que una
+Edge Function no puede hacer. Corre en tu PC, programado con el Programador de
+tareas de Windows.
 
-- El login directo de Sakai y el HTTP Basic están desactivados en la UMU.
-- El login real es CAS, con un formulario que solo existe tras ejecutar
-  JavaScript (no se puede rellenar con `curl`/`fetch`).
+## Por qué existe esta vía
+
+- Si el login directo de Sakai se desactivara, el único que queda es CAS.
+- El formulario de CAS solo existe tras ejecutar JavaScript (no se puede
+  rellenar con `curl`/`fetch`).
 - Además pide un segundo factor (SMS, llamada, email o app OTP).
 
 La única vía que funciona: un navegador real hace el login una vez (con el
