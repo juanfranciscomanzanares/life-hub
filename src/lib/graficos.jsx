@@ -4,11 +4,19 @@
   Se apoyan en SVG en lugar de en divs con altura en porcentaje: se escalan
   solos al ancho disponible, permiten rejilla y etiquetas legibles, y no
   desbordan en el móvil.
+
+  Sobre los colores: lo ESTRUCTURAL (rejilla, fondo del anillo) usa las
+  variables de la paleta, así que sigue al tema claro y al color de acento. Un
+  hex fijo se veía bien en oscuro y desaparecía en claro.
+
+  Lo que sí queda fijo son los colores de SERIE cuando se pasan a mano desde
+  una sección (verde = ganado, rojo = perdido): ahí el color significa algo y
+  tiene que decir lo mismo en los dos temas.
 */
 
 // Anillo de proporción. Para un reparto de dos valores (ganados/perdidos) se
 // lee de un vistazo mucho mejor que dos barras.
-export function Anillo({ valor, total, etiqueta, color = "#10b981", fondo = "#334155" }) {
+export function Anillo({ valor, total, etiqueta, color = "rgb(var(--c-emerald-400))", fondo = "rgb(var(--c-slate-700))" }) {
   const r = 52;
   const circunferencia = 2 * Math.PI * r;
   const proporcion = total ? valor / total : 0;
@@ -56,7 +64,7 @@ export function Anillo({ valor, total, etiqueta, color = "#10b981", fondo = "#33
   Línea de evolución con área. Para una serie temporal es mucho más claro que
   barras: la tendencia se ve de un vistazo.
 */
-export function Linea({ datos, valor, etiqueta, color = "#818cf8", sufijo = "", max = 100 }) {
+export function Linea({ datos, valor, etiqueta, color = "rgb(var(--c-indigo-400))", sufijo = "", max = 100 }) {
   if (datos.length < 2)
     return (
       <p className="py-10 text-center text-sm text-slate-500">
@@ -87,7 +95,7 @@ export function Linea({ datos, valor, etiqueta, color = "#818cf8", sufijo = "", 
         const v = (p / 100) * tope;
         return (
           <g key={p}>
-            <line x1={pad.i} x2={W - pad.d} y1={y(v)} y2={y(v)} stroke="#1e293b" strokeWidth="1" />
+            <line x1={pad.i} x2={W - pad.d} y1={y(v)} y2={y(v)} stroke="rgb(var(--c-slate-800))" strokeWidth="1" />
             <text x={pad.i - 6} y={y(v) + 4} textAnchor="end" className="fill-slate-600 text-[11px]">
               {Math.round(v)}
             </text>
@@ -182,7 +190,7 @@ export function BarrasApiladas({ datos }) {
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img">
       {Array.from({ length: max + 1 }, (_, i) => i).map((v) => (
         <g key={v}>
-          <line x1={pad.i} x2={W - pad.d} y1={y(v)} y2={y(v)} stroke="#1e293b" strokeWidth="1" />
+          <line x1={pad.i} x2={W - pad.d} y1={y(v)} y2={y(v)} stroke="rgb(var(--c-slate-800))" strokeWidth="1" />
           <text x={pad.i - 6} y={y(v) + 4} textAnchor="end" className="fill-slate-600 text-[11px]">
             {v}
           </text>

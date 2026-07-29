@@ -3,6 +3,7 @@ import { Plus, Trash2, Copy, Dumbbell, CheckCircle2, RotateCcw, Timer } from "lu
 import { usePersisted } from "../../lib/store";
 import { removeWithUndo, toast } from "../../lib/toast";
 import { Card, todayISO } from "../../lib/ui";
+import { confeti } from "../../lib/confetti";
 import {
   catalogo,
   grupoDe,
@@ -71,6 +72,7 @@ export default function Sesion({ fecha, setFecha, filas, setFilas, sesiones, set
 
   const terminar = () => {
     setSesiones(cerrarSesion(sesiones, fecha));
+    confeti();
     toast("Sesión terminada");
   };
 

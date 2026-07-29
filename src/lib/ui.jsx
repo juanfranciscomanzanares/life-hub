@@ -2,9 +2,25 @@
 /*  UI compartida y utilidades                                         */
 /* ------------------------------------------------------------------ */
 
-export function Card({ children, className = "" }) {
+/*
+  Tarjeta de la app: translúcida, con desenfoque y un brillo que sigue al
+  cursor. El aspecto vive en `.lh-card` (src/index.css); aquí solo se calcula
+  la posición del ratón para el foco radial.
+
+  El puntero solo se escucha en dispositivos con ratón: en táctil no hay hover,
+  el brillo nunca se vería y el listener sería trabajo tirado en cada scroll.
+*/
+export function Card({ children, className = "", ...resto }) {
+  const seguirCursor = (e) => {
+    const caja = e.currentTarget.getBoundingClientRect();
+    e.currentTarget.style.setProperty("--mx", `${e.clientX - caja.left}px`);
+    e.currentTarget.style.setProperty("--my", `${e.clientY - caja.top}px`);
+  };
+
+  const conRaton = typeof window !== "undefined" && window.matchMedia?.("(hover: hover)").matches;
+
   return (
-    <div className={`rounded-2xl border border-slate-800 bg-slate-900/60 p-5 shadow-lg ${className}`}>
+    <div className={`lh-card p-5 ${className}`} onPointerMove={conRaton ? seguirCursor : undefined} {...resto}>
       {children}
     </div>
   );
@@ -13,13 +29,52 @@ export function Card({ children, className = "" }) {
 export function SectionTitle({ icon: Icon, title, subtitle }) {
   return (
     <div className="mb-6 flex items-center gap-3">
-      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-500/15 text-indigo-400">
+      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-500/15 text-indigo-400 ring-1 ring-inset ring-indigo-500/20">
         {Icon ? <Icon size={22} /> : null}
       </div>
       <div>
-        <h1 className="text-2xl font-bold text-slate-100">{title}</h1>
+        <h1 className="font-display text-2xl font-bold tracking-tight text-slate-100">{title}</h1>
         {subtitle && <p className="text-sm text-slate-400">{subtitle}</p>}
       </div>
+    </div>
+  );
+}
+
+/*
+  Bloque de carga con barrido. `lineas` pinta varias barras de alto de texto;
+  sin él, un solo bloque de la altura que se le pase por className.
+*/
+export function Skeleton({ lineas = 0, className = "" }) {
+  if (lineas > 0) {
+    return (
+      <div className={`space-y-2 ${className}`} role="status" aria-label="Cargando">
+        {Array.from({ length: lineas }, (_, i) => (
+          // La última línea más corta: imita el final de un párrafo real.
+          <div key={i} className={`lh-skeleton h-4 ${i === lineas - 1 ? "w-2/3" : "w-full"}`} />
+        ))}
+      </div>
+    );
+  }
+  return <div className={`lh-skeleton ${className}`} role="status" aria-label="Cargando" />;
+}
+
+// Skeleton con forma de sección: título, fila de tarjetas y bloque grande.
+export function SkeletonSeccion() {
+  return (
+    <div className="section-fade">
+      <div className="mb-6 flex items-center gap-3">
+        <div className="lh-skeleton h-11 w-11 rounded-xl" />
+        <div className="space-y-2">
+          <div className="lh-skeleton h-5 w-40" />
+          <div className="lh-skeleton h-3 w-56" />
+        </div>
+      </div>
+      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="lh-skeleton h-24" />
+        ))}
+      </div>
+      <div className="lh-skeleton h-64" />
     </div>
   );
 }

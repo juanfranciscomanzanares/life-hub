@@ -4,6 +4,15 @@ export default {
   theme: {
     extend: {
       /*
+        Inter para el texto corrido y Space Grotesk (font-display) para títulos
+        y cifras grandes. Las dos llegan por npm (@fontsource-variable), no por
+        CDN, y se importan en index.css.
+      */
+      fontFamily: {
+        sans: ["Inter Variable", "system-ui", "-apple-system", "Segoe UI", "sans-serif"],
+        display: ["Space Grotesk Variable", "Inter Variable", "system-ui", "sans-serif"],
+      },
+      /*
         Los colores apuntan a variables CSS en vez de a valores fijos, para que
         el tema claro se consiga cambiando la paleta y no invirtiendo la página
         entera con un filtro. Los valores están en src/index.css.

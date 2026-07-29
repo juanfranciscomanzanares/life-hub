@@ -3,6 +3,7 @@ import { Flag, Plus, Trash2, TrendingUp, Dumbbell, Briefcase, Coins, GraduationC
 import { usePersisted } from "../lib/store";
 import { removeWithUndo } from "../lib/toast";
 import { Card, SectionTitle, fmtEuro, monthKey, monthLabel } from "../lib/ui";
+import { confeti } from "../lib/confetti";
 
 // Vacío a propósito: estas metas eran de ejemplo y se guardaban como reales,
 // contando además en las "metas conseguidas" de Analítica.
@@ -43,8 +44,21 @@ export default function Metas() {
     setForm({ titulo: "", objetivo: "", unidad: "€" });
   };
 
-  const bump = (id, delta) =>
-    setGoals(goals.map((g) => (g.id === id ? { ...g, actual: Math.max(0, Math.round((g.actual + delta) * 10) / 10) } : g)));
+  /*
+    Sube o baja el progreso de una meta. Si con este cambio la meta se alcanza
+    por primera vez, se celebra: solo al CRUZAR el objetivo, no cada vez que
+    tocas una meta que ya estaba cumplida.
+  */
+  const bump = (id, delta) => {
+    const meta = goals.find((g) => g.id === id);
+    if (!meta) return;
+
+    const nuevo = Math.max(0, Math.round((meta.actual + delta) * 10) / 10);
+    const cruzaAhora = meta.objetivo > 0 && meta.actual < meta.objetivo && nuevo >= meta.objetivo;
+
+    setGoals(goals.map((g) => (g.id === id ? { ...g, actual: nuevo } : g)));
+    if (cruzaAhora) confeti();
+  };
 
   const inputCls =
     "rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none";

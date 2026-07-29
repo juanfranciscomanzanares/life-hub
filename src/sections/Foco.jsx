@@ -3,6 +3,7 @@ import { Timer, Play, Pause, RotateCcw } from "lucide-react";
 import { usePersisted } from "../lib/store";
 import { Card, SectionTitle, todayISO } from "../lib/ui";
 import { SUBJECTS } from "../lib/uni";
+import { confeti } from "../lib/confetti";
 
 /*
   Pomodoro que apunta las horas de estudio solas.
@@ -35,6 +36,7 @@ export default function Foco() {
       registrar(dur);
       setHechas((n) => n + 1);
       setLeft(Math.max(1, dur) * 60);
+      confeti({ piezas: 50 });
       if (typeof Notification !== "undefined" && Notification.permission === "granted") {
         try { new Notification("Sesión de foco completada", { body: `${dur} min de ${asignatura}` }); } catch {}
       }
@@ -85,12 +87,23 @@ export default function Foco() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card className="flex flex-col items-center justify-center py-10">
           <div className="relative mb-6 flex h-52 w-52 items-center justify-center">
+            {/* Los colores salen de las variables de la paleta y no de un hex
+                fijo: así el círculo sigue al tema claro y al color de acento. */}
             <svg className="absolute inset-0 -rotate-90" viewBox="0 0 100 100">
-              <circle cx="50" cy="50" r="46" fill="none" stroke="#1e293b" strokeWidth="6" />
-              <circle cx="50" cy="50" r="46" fill="none" stroke="#6366f1" strokeWidth="6" strokeLinecap="round"
-                strokeDasharray={`${(pct / 100) * 289} 289`} />
+              <circle cx="50" cy="50" r="46" fill="none" stroke="rgb(var(--c-slate-800))" strokeWidth="6" />
+              <circle
+                cx="50"
+                cy="50"
+                r="46"
+                fill="none"
+                stroke="rgb(var(--c-indigo-500))"
+                strokeWidth="6"
+                strokeLinecap="round"
+                strokeDasharray={`${(pct / 100) * 289} 289`}
+                style={{ transition: "stroke-dasharray 0.9s linear" }}
+              />
             </svg>
-            <span className="text-5xl font-bold tabular-nums text-slate-100">{mm}:{ss}</span>
+            <span className="font-display text-5xl font-bold tabular-nums text-slate-100">{mm}:{ss}</span>
           </div>
           <div className="mb-3 flex flex-wrap justify-center gap-2">
             {[15, 25, 50].map((m) => (

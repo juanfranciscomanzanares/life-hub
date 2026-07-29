@@ -40,8 +40,8 @@ export default function AppLock({ children }) {
   if (!locked) return children;
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-950 p-6 text-slate-200">
-      <div className="w-full max-w-xs rounded-2xl border border-slate-800 bg-slate-900 p-8 text-center shadow-xl">
+    <div className="flex min-h-screen items-center justify-center p-6 text-slate-200">
+      <div className="lh-card w-full max-w-xs p-8 text-center">
         <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-500/15 text-indigo-400">
           <Lock size={26} />
         </div>

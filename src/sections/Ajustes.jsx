@@ -1,9 +1,11 @@
-import { Settings, RotateCcw } from "lucide-react";
+import { Settings, RotateCcw, Palette, Check } from "lucide-react";
 import { usePersisted } from "../lib/store";
 import { Card, SectionTitle } from "../lib/ui";
+import { ACENTOS, useAccent } from "../lib/useTheme";
 
 export default function Ajustes() {
   const [aj, setAj] = usePersisted("lh_settings", { nombre: "Quico", metaAgua: 2, metaSueno: 8 });
+  const { accent, setAccent } = useAccent();
 
   const set = (campo, valor) => setAj({ ...aj, [campo]: valor });
   const inputCls =
@@ -35,6 +37,41 @@ export default function Ajustes() {
             <label className="mb-1 block text-xs text-slate-400">Meta de sueño (h/día)</label>
             <input type="number" step="0.5" value={aj.metaSueno} onChange={(e) => set("metaSueno", Number(e.target.value) || 0)} className={inputCls} />
           </div>
+        </div>
+      </Card>
+
+      <Card className="mb-6">
+        <h2 className="mb-1 flex items-center gap-2 text-lg font-semibold text-slate-100">
+          <Palette size={18} className="text-indigo-400" /> Color de acento
+        </h2>
+        <p className="mb-4 text-xs text-slate-500">
+          Cambia el color principal de toda la app: botones, enlaces, gráficas y el resaltado del
+          teclado. Se aplica al instante y se recuerda en este dispositivo.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {ACENTOS.map((a) => {
+            const activo = accent === a.id;
+            return (
+              <button
+                key={a.id}
+                onClick={() => setAccent(a.id)}
+                aria-pressed={activo}
+                className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition ${
+                  activo
+                    ? "border-indigo-500 bg-indigo-500/10 text-slate-100"
+                    : "border-slate-700 bg-slate-800 text-slate-300 hover:border-slate-600"
+                }`}
+              >
+                <span
+                  className="flex h-5 w-5 items-center justify-center rounded-full"
+                  style={{ background: a.muestra }}
+                >
+                  {activo && <Check size={13} className="text-white" />}
+                </span>
+                {a.nombre}
+              </button>
+            );
+          })}
         </div>
       </Card>
 

@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { BarChart3, ChevronLeft, ChevronRight, Flag, Lightbulb } from "lucide-react";
 import { usePersisted } from "../lib/store";
 import { Card, SectionTitle, fmtEuro, todayISO } from "../lib/ui";
+import { Cifra } from "../lib/animar";
 import {
   PERIODOS,
   rangoDe,
@@ -150,15 +151,17 @@ export default function Analitica() {
               key={m.id}
               onClick={() => setGrafica(m.id)}
               aria-pressed={activa}
-              className={`rounded-2xl border p-4 text-left shadow-lg transition ${
-                activa
-                  ? "border-indigo-500 bg-slate-900/80"
-                  : "border-slate-800 bg-slate-900/60 hover:border-slate-700"
-              }`}
+              // lh-card para que compartan el cristal y el relieve del resto de
+              // tarjetas; la activa se distingue por el borde de acento.
+              className={`lh-card p-4 text-left ${activa ? "!border-indigo-500" : ""}`}
             >
               <p className="text-xs text-slate-400">{m.nombre}</p>
-              <p className={`text-2xl font-bold ${m.color}`}>
-                {m.dinero ? fmtEuro(valor) : `${valor}${m.unidad}`}
+              <p className={`font-display text-2xl font-bold ${m.color}`}>
+                <Cifra
+                  valor={valor}
+                  decimales={valor % 1 ? 1 : 0}
+                  sufijo={m.dinero ? "€" : m.unidad}
+                />
               </p>
               <p
                 className={`text-xs ${
@@ -186,8 +189,14 @@ export default function Analitica() {
             <div key={i} className="flex min-w-0 flex-1 flex-col items-center gap-1">
               <div className="flex w-full flex-1 items-end">
                 <div
-                  className="w-full rounded-t bg-gradient-to-t from-indigo-600 to-indigo-400"
-                  style={{ height: `${(b.valor / maximo) * 100}%` }}
+                  className="lh-barra-v w-full rounded-t bg-gradient-to-t from-indigo-600 to-indigo-400"
+                  style={{
+                    height: `${(b.valor / maximo) * 100}%`,
+                    // Escalonado: las barras crecen de izquierda a derecha, no
+                    // todas de golpe. Se corta a 400 ms para que un año (12
+                    // barras) no tarde más que una semana en terminar.
+                    animationDelay: `${Math.min(400, i * 22)}ms`,
+                  }}
                   title={`${b.etiqueta}: ${b.valor}${metricaGrafica.unidad}`}
                 />
               </div>
@@ -205,8 +214,8 @@ export default function Analitica() {
           <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-slate-100">
             <Flag size={18} className="text-indigo-400" /> Metas conseguidas
           </h2>
-          <p className="text-3xl font-bold text-slate-100">
-            {metaInfo.cumplidas}
+          <p className="font-display text-3xl font-bold text-slate-100">
+            <Cifra valor={metaInfo.cumplidas} />
             <span className="text-lg font-medium text-slate-500"> / {metaInfo.total}</span>
           </p>
           {metaInfo.lista.length > 0 ? (

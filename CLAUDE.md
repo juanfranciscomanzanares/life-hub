@@ -26,9 +26,12 @@ Ejecuta `npm test` y `npm run build` antes de dar por terminado un cambio.
 
 ## Convenciones de UI
 
-- Componentes `Card` y `SectionTitle` (definidos en `LifeDashboard.jsx`) para mantener el aspecto uniforme.
-- Tema claro/oscuro mediante variables CSS en [src/index.css](src/index.css) (`--c-slate-*`, etc.). **No** usar colores Tailwind directos que se salten esas variables; la paleta ya está mapeada en [tailwind.config.js](tailwind.config.js).
-- Animaciones definidas en `index.css` (`section-fade`, `dropdown-pop`, `nav-link`...): siempre con su variante en `@media (prefers-reduced-motion: reduce)`.
+- Componentes `Card`, `SectionTitle`, `Skeleton` y `SkeletonSeccion`, todos en [src/lib/ui.jsx](src/lib/ui.jsx). **No** volver a definirlos en otro archivo: estuvieron duplicados en `LifeDashboard.jsx` y las dos copias se separaron.
+- Tema claro/oscuro mediante variables CSS en [src/index.css](src/index.css) (`--c-slate-*`, etc.). **No** usar colores Tailwind directos ni hex fijos que se salten esas variables; la paleta ya está mapeada en [tailwind.config.js](tailwind.config.js). Única excepción: colores de serie con significado propio en una gráfica (verde = ganado, rojo = perdido).
+- **Color de acento**: el color principal son las variables `--c-indigo-*`, que se redefinen según `html[data-accent]` (ver `ACENTOS` en [src/lib/useTheme.js](src/lib/useTheme.js)). Por eso todo lo acentuado debe usar clases `indigo-*` y no otro tono: así sigue al acento que elija el usuario en Ajustes.
+- **Tipografía**: `font-sans` (Inter) para texto y `font-display` (Space Grotesk) para títulos y cifras grandes. Las cifras, con `tabular-nums` o con el componente `Cifra` de [src/lib/animar.jsx](src/lib/animar.jsx), que además las anima al aparecer.
+- **Cristal**: el aspecto de las tarjetas vive en la clase `.lh-card` de `index.css`, no en clases sueltas. El desenfoque solo se aplica desde 640px por rendimiento en el móvil. Cuidado: `backdrop-filter` crea bloque contenedor, así que nada con `position: fixed` puede ir dentro de una tarjeta.
+- Animaciones definidas en `index.css` (`section-fade`, `lh-card`, `lh-barra`, `lh-skeleton`...): siempre con su variante en `@media (prefers-reduced-motion: reduce)`. El confeti de [src/lib/confetti.js](src/lib/confetti.js) se calla solo en ese caso.
 - Registros iniciales vacíos (nada de datos de ejemplo): un dispositivo nuevo podría subirlos a Supabase como si fueran reales. Los catálogos (asignaturas, categorías) sí pueden ir rellenos.
 
 ## Skills y agentes disponibles

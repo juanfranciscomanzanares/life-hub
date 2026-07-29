@@ -32,7 +32,9 @@ import {
   TrendingDown,
 } from "lucide-react";
 import { usePersisted } from "./lib/store";
-import { todayISO } from "./lib/ui";
+import { Card, SectionTitle, Skeleton, SkeletonSeccion, todayISO } from "./lib/ui";
+import { Cifra } from "./lib/animar";
+import { confeti } from "./lib/confetti";
 import { SUBJECTS, urgenciasDeHoy } from "./lib/uni";
 import {
   normalizarHabito,
@@ -55,7 +57,7 @@ import {
 } from "./lib/aula";
 import HoyWidget from "./sections/HoyWidget.jsx";
 import { useRoutineNotifier } from "./lib/useRoutineNotifier";
-import { useTheme } from "./lib/useTheme";
+import { useTheme, useAccent } from "./lib/useTheme";
 import { useAutoBackup } from "./lib/useAutoBackup";
 import CommandPalette from "./CommandPalette.jsx";
 import QuickAdd from "./QuickAdd.jsx";
@@ -206,27 +208,12 @@ const INITIAL_RUNBOOKS = [];
 /*  COMPONENTES REUTILIZABLES                                          */
 /* ------------------------------------------------------------------ */
 
-function Card({ children, className = "" }) {
-  return (
-    <div className={`rounded-2xl border border-slate-800 bg-slate-900/60 p-5 shadow-lg transition duration-200 hover:-translate-y-0.5 hover:border-slate-700 hover:shadow-xl ${className}`}>
-      {children}
-    </div>
-  );
-}
-
-function SectionTitle({ icon: Icon, title, subtitle }) {
-  return (
-    <div className="mb-6 flex items-center gap-3">
-      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-500/15 text-indigo-400">
-        <Icon size={22} />
-      </div>
-      <div>
-        <h1 className="text-2xl font-bold text-slate-100">{title}</h1>
-        {subtitle && <p className="text-sm text-slate-400">{subtitle}</p>}
-      </div>
-    </div>
-  );
-}
+/*
+  Card y SectionTitle se importan de src/lib/ui.jsx. Antes estaban duplicados
+  aquí, y las secciones de este archivo tenían un aspecto ligeramente distinto
+  al del resto: cualquier retoque había que hacerlo en dos sitios y uno de los
+  dos se quedaba atrás.
+*/
 
 /* ------------------------------------------------------------------ */
 /*  SECCIÓN: INICIO                                                    */
@@ -288,7 +275,9 @@ function Inicio() {
             <Flame size={24} />
           </div>
           <div>
-            <p className="text-2xl font-bold text-slate-100">{urgencias.length}</p>
+            <p className="font-display text-2xl font-bold text-slate-100">
+              <Cifra valor={urgencias.length} />
+            </p>
             <p className="text-sm text-slate-400">Para hoy</p>
           </div>
         </Card>
@@ -297,7 +286,9 @@ function Inicio() {
             <CheckCircle2 size={24} />
           </div>
           <div>
-            <p className="text-2xl font-bold text-slate-100">{pendientesUni}</p>
+            <p className="font-display text-2xl font-bold text-slate-100">
+              <Cifra valor={pendientesUni} />
+            </p>
             <p className="text-sm text-slate-400">Tareas por hacer</p>
           </div>
         </Card>
@@ -306,7 +297,9 @@ function Inicio() {
             <Clock size={24} />
           </div>
           <div>
-            <p className="text-2xl font-bold text-slate-100">{horasSemana}h</p>
+            <p className="font-display text-2xl font-bold text-slate-100">
+              <Cifra valor={horasSemana} decimales={horasSemana % 1 ? 1 : 0} sufijo="h" />
+            </p>
             <p className="text-sm text-slate-400">Trabajo (semana)</p>
           </div>
         </Card>
@@ -315,7 +308,9 @@ function Inicio() {
             <TrendingUp size={24} />
           </div>
           <div>
-            <p className="text-2xl font-bold text-slate-100">{rachaMaxima}</p>
+            <p className="font-display text-2xl font-bold text-slate-100">
+              <Cifra valor={rachaMaxima} />
+            </p>
             <p className="text-sm text-slate-400">Racha hábitos</p>
           </div>
         </Card>
@@ -410,7 +405,7 @@ function Inicio() {
                 </div>
                 <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-800">
                   <div
-                    className={`h-full rounded-full ${s.color}`}
+                    className={`lh-barra h-full rounded-full ${s.color}`}
                     style={{ width: `${(s.hours / totalTipo) * 100}%` }}
                   />
                 </div>
@@ -762,14 +757,24 @@ function Universidad() {
           </p>
         )}
 
-        {aulaUltimaSync && aulaGrupos.length === 0 && (
+        {/* Sincronizar tarda unos segundos (el Aula Virtual va lenta): mejor
+            enseñar la forma de lo que viene que dejar la tarjeta en blanco. */}
+        {sincronizando && (
+          <div className="space-y-2">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="lh-skeleton h-12" />
+            ))}
+          </div>
+        )}
+
+        {!sincronizando && aulaUltimaSync && aulaGrupos.length === 0 && (
           <p className="rounded-xl border border-slate-800 bg-slate-800/40 px-4 py-6 text-center text-sm text-slate-500">
             Ninguna tarea pendiente ahora mismo.
           </p>
         )}
 
         <div className="space-y-2">
-          {aulaGrupos.map((grupo) => {
+          {!sincronizando && aulaGrupos.map((grupo) => {
             const abierta = asignaturaAbierta === grupo.asignatura;
             const faltan = tareasQueFaltan(grupo.tareas, tasks).length;
             return (
@@ -1107,7 +1112,7 @@ function Finanzas() {
             <ArrowUpRight size={24} />
           </div>
           <div>
-            <p className="text-2xl font-bold text-slate-100">{income}€</p>
+            <p className="font-display text-2xl font-bold text-slate-100"><Cifra valor={income} sufijo="€" /></p>
             <p className="text-sm text-slate-400">Ingresos</p>
           </div>
         </Card>
@@ -1116,7 +1121,7 @@ function Finanzas() {
             <ArrowDownRight size={24} />
           </div>
           <div>
-            <p className="text-2xl font-bold text-slate-100">{expenses}€</p>
+            <p className="font-display text-2xl font-bold text-slate-100"><Cifra valor={expenses} sufijo="€" /></p>
             <p className="text-sm text-slate-400">Gastos</p>
           </div>
         </Card>
@@ -1125,8 +1130,8 @@ function Finanzas() {
             <Wallet size={24} />
           </div>
           <div>
-            <p className={`text-2xl font-bold ${balance >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-              {balance}€
+            <p className={`font-display text-2xl font-bold ${balance >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+              <Cifra valor={balance} sufijo="€" />
             </p>
             <p className="text-sm text-slate-400">Balance</p>
           </div>
@@ -1157,7 +1162,7 @@ function Finanzas() {
           </div>
           <div className="h-3 w-full overflow-hidden rounded-full bg-slate-800">
             <div
-              className={`h-full rounded-full ${budgetPct > 85 ? "bg-rose-500" : "bg-emerald-500"}`}
+              className={`lh-barra h-full rounded-full ${budgetPct > 85 ? "bg-rose-500" : "bg-emerald-500"}`}
               style={{ width: `${budgetPct}%` }}
             />
           </div>
@@ -1191,7 +1196,7 @@ function Finanzas() {
                       <button onClick={() => removeWithUndo(savings, setSavings, sv.id, "Objetivo")} className="text-slate-500 hover:text-rose-400"><Trash2 size={13} /></button>
                     </div>
                   </div>
-                  <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-800"><div className="h-full rounded-full bg-gradient-to-r from-fuchsia-500 to-indigo-500" style={{ width: `${pct}%` }} /></div>
+                  <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-800"><div className="lh-barra h-full rounded-full bg-gradient-to-r from-fuchsia-500 to-indigo-500" style={{ width: `${pct}%` }} /></div>
                 </div>
               );
             })}
@@ -1243,7 +1248,7 @@ function Finanzas() {
                     </div>
                   </div>
                   <div className="h-2 w-full overflow-hidden rounded-full bg-slate-800">
-                    <div className={`h-full rounded-full ${over ? "bg-rose-500" : pct > 85 ? "bg-amber-500" : "bg-emerald-500"}`} style={{ width: `${pct}%` }} />
+                    <div className={`lh-barra h-full rounded-full ${over ? "bg-rose-500" : pct > 85 ? "bg-amber-500" : "bg-emerald-500"}`} style={{ width: `${pct}%` }} />
                   </div>
                 </div>
               );
@@ -1277,7 +1282,13 @@ function Finanzas() {
         </ul>
       </Card>
 
-      <Suspense fallback={<Card className="mb-6 text-sm text-slate-500">Cargando el banco...</Card>}>
+      <Suspense
+        fallback={
+          <Card className="mb-6">
+            <Skeleton lineas={3} />
+          </Card>
+        }
+      >
         <Banco movimientosActuales={rows} onImportar={importarDelBanco} />
       </Suspense>
 
@@ -1417,8 +1428,21 @@ function Habitos() {
   const habits = useMemo(() => habitsCrudo.map((h) => normalizarHabito(h, hoy)), [habitsCrudo, hoy]);
   const semana = useMemo(() => semanaDe(hoy), [hoy]);
 
-  const toggleDay = (hid, fecha) =>
-    setHabits(habits.map((h) => (h.id === hid ? alternarDia(h, fecha) : h)));
+  /*
+    Marca o desmarca un día. Si al marcarlo se completan los siete días de la
+    semana, se celebra: solo al cerrarla, no cada vez que se toca un día de una
+    semana ya completa.
+  */
+  const toggleDay = (hid, fecha) => {
+    const habito = habits.find((h) => h.id === hid);
+    if (!habito) return;
+
+    const actualizado = alternarDia(habito, fecha);
+    const completa = (h) => semana.every((d) => estaHecho(h, d));
+    if (!completa(habito) && completa(actualizado)) confeti();
+
+    setHabits(habits.map((h) => (h.id === hid ? actualizado : h)));
+  };
 
   const addHabit = () => {
     if (!newHabit.trim()) return;
@@ -2098,6 +2122,9 @@ export default function LifeDashboard({ userEmail = null, onSignOut = null }) {
   useRoutineNotifier();
   useAutoBackup();
   const { theme, toggle: toggleTheme } = useTheme();
+  // Aquí solo para que el acento guardado se aplique al arrancar la app; se
+  // elige en Ajustes.
+  useAccent();
   const [paletteOpen, setPaletteOpen] = useState(false);
   useEffect(() => {
     const onKey = (e) => {
@@ -2125,7 +2152,10 @@ export default function LifeDashboard({ userEmail = null, onSignOut = null }) {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 font-sans text-slate-200">
+    // Sin fondo propio: el color lo pone <body> y encima van las auroras
+    // (body::before). Con un bg-slate-950 aquí, ese degradado quedaba tapado y
+    // las tarjetas translúcidas no tenían nada que dejar ver.
+    <div className="min-h-screen font-sans text-slate-200">
       {/* Cabecera superior */}
       <header
         ref={headerRef}
@@ -2298,7 +2328,9 @@ export default function LifeDashboard({ userEmail = null, onSignOut = null }) {
       <main className="overflow-x-hidden">
         <div key={active} className="mx-auto max-w-6xl p-5 sm:p-8 section-fade">
           <Suspense
-            fallback={<div className="py-16 text-center text-sm text-slate-500">Cargando sección...</div>}
+            // Un esqueleto con la forma de una sección en vez de un texto: la
+            // página no da un salto cuando llega el contenido de verdad.
+            fallback={<SkeletonSeccion />}
           >
           {active === "inicio" && <Inicio />}
           {active === "trabajo" && <Trabajo />}

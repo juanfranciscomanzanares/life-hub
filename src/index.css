@@ -1,3 +1,11 @@
+/*
+  Tipografía autoalojada (npm, sin llamadas a CDN): Inter para el texto y
+  Space Grotesk para títulos y cifras grandes. Variables, así que un solo
+  archivo por familia cubre todos los pesos.
+*/
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/space-grotesk";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -146,6 +154,234 @@ body {
   background: rgb(var(--lh-fondo));
 }
 
+/*
+  --- Fondo con auroras ---
+
+  Tres manchas radiales difusas, fijas respecto a la ventana, que dan
+  profundidad detrás de las tarjetas translúcidas. Van en un ::before con
+  z-index -1 (y no en un background-attachment: fixed, que en iOS no existe).
+
+  La primera usa el color de acento, así que cambia con él.
+*/
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(42rem circle at 12% -5%, rgb(var(--c-indigo-500) / 0.16), transparent 60%),
+    radial-gradient(48rem circle at 90% 15%, rgb(var(--c-fuchsia-500) / 0.09), transparent 65%),
+    radial-gradient(52rem circle at 50% 110%, rgb(var(--c-sky-500) / 0.08), transparent 60%);
+}
+/* En claro las auroras bajan de intensidad: sobre blanco tiñen enseguida. */
+html[data-theme="light"] body::before {
+  background:
+    radial-gradient(42rem circle at 12% -5%, rgb(var(--c-indigo-500) / 0.1), transparent 60%),
+    radial-gradient(48rem circle at 90% 15%, rgb(var(--c-fuchsia-500) / 0.06), transparent 65%),
+    radial-gradient(52rem circle at 50% 110%, rgb(var(--c-sky-500) / 0.05), transparent 60%);
+}
+
+/*
+  --- Tarjeta glass ---
+
+  El fondo translúcido + desenfoque vive aquí y no en clases Tailwind sueltas
+  para que TODAS las tarjetas (Card de lib/ui) cambien a la vez.
+
+  El ::before es el brillo que sigue al cursor: un foco radial del color de
+  acento centrado en --mx/--my, que el componente Card actualiza al mover el
+  ratón. Solo aparece con hover real (ratón): en táctil no existe y ahorrarse
+  el listener es gratis.
+*/
+.lh-card {
+  position: relative;
+  border-radius: 1rem;
+  border: 1px solid rgb(var(--c-slate-800) / 0.9);
+  background: rgb(var(--c-slate-900) / 0.62);
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.25),
+    0 12px 32px -16px rgb(0 0 0 / 0.45);
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.2s, box-shadow 0.2s;
+}
+html[data-theme="light"] .lh-card {
+  background: rgb(var(--c-slate-900) / 0.78);
+  box-shadow:
+    0 1px 2px rgb(15 23 42 / 0.06),
+    0 12px 32px -16px rgb(15 23 42 / 0.14);
+}
+
+/*
+  El desenfoque solo a partir de tablet.
+
+  `backdrop-filter` es de lo más caro que hay para el compositor, y una pantalla
+  de esta app puede tener veinte tarjetas. En el móvil (que es donde se usa como
+  PWA, y con menos potencia) eso se nota al hacer scroll. Encima ahí las
+  tarjetas ocupan casi todo el ancho, así que apenas se ve fondo detrás: se
+  paga el coste sin ganar el efecto.
+
+  Con el fondo translúcido a secas se conserva la sensación de profundidad,
+  porque las auroras siguen viéndose a través.
+*/
+@media (min-width: 640px) {
+  .lh-card {
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+}
+.lh-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    22rem circle at var(--mx, 50%) var(--my, 50%),
+    rgb(var(--c-indigo-500) / 0.09),
+    transparent 60%
+  );
+  opacity: 0;
+  transition: opacity 0.25s;
+  pointer-events: none;
+}
+@media (hover: hover) {
+  .lh-card:hover {
+    transform: translateY(-2px);
+    border-color: rgb(var(--c-slate-700));
+    box-shadow:
+      0 2px 4px rgb(0 0 0 / 0.25),
+      0 18px 44px -16px rgb(0 0 0 / 0.55);
+  }
+  .lh-card:hover::before {
+    opacity: 1;
+  }
+}
+
+/*
+  --- Acento elegible ---
+
+  El color principal de la app son las variables --c-indigo-*: TODO el código
+  usa clases indigo-*, así que cambiar el acento es solo redefinirlas aquí
+  según html[data-accent]. Cero cambios en los componentes.
+
+  Cada acento trae su bloque para tema claro, igual que la paleta base: los
+  tonos 300/400 se oscurecen para que el texto acentuado siga leyéndose sobre
+  blanco. En ámbar, además, el 500 de los botones baja a 600: amarillo puro
+  con texto blanco no llega al contraste mínimo.
+*/
+html[data-accent="esmeralda"] {
+  --c-indigo-300: 110 231 183;
+  --c-indigo-400: 52 211 153;
+  --c-indigo-500: 16 185 129;
+  --c-indigo-600: 5 150 105;
+}
+html[data-theme="light"][data-accent="esmeralda"] {
+  --c-indigo-300: 4 120 87;
+  --c-indigo-400: 5 150 105;
+  --c-indigo-500: 16 185 129;
+  --c-indigo-600: 5 150 105;
+}
+html[data-accent="ambar"] {
+  --c-indigo-300: 252 211 77;
+  --c-indigo-400: 251 191 36;
+  --c-indigo-500: 217 119 6;
+  --c-indigo-600: 180 83 9;
+}
+html[data-theme="light"][data-accent="ambar"] {
+  --c-indigo-300: 180 83 9;
+  --c-indigo-400: 217 119 6;
+  --c-indigo-500: 217 119 6;
+  --c-indigo-600: 180 83 9;
+}
+html[data-accent="rosa"] {
+  --c-indigo-300: 253 164 175;
+  --c-indigo-400: 251 113 133;
+  --c-indigo-500: 244 63 94;
+  --c-indigo-600: 225 29 72;
+}
+html[data-theme="light"][data-accent="rosa"] {
+  --c-indigo-300: 190 18 60;
+  --c-indigo-400: 225 29 72;
+  --c-indigo-500: 244 63 94;
+  --c-indigo-600: 225 29 72;
+}
+html[data-accent="cian"] {
+  --c-indigo-300: 125 211 252;
+  --c-indigo-400: 56 189 248;
+  --c-indigo-500: 14 165 233;
+  --c-indigo-600: 2 132 199;
+}
+html[data-theme="light"][data-accent="cian"] {
+  --c-indigo-300: 3 105 161;
+  --c-indigo-400: 2 132 199;
+  --c-indigo-500: 14 165 233;
+  --c-indigo-600: 2 132 199;
+}
+html[data-accent="violeta"] {
+  --c-indigo-300: 196 181 253;
+  --c-indigo-400: 167 139 250;
+  --c-indigo-500: 139 92 246;
+  --c-indigo-600: 124 58 237;
+}
+html[data-theme="light"][data-accent="violeta"] {
+  --c-indigo-300: 109 40 217;
+  --c-indigo-400: 124 58 237;
+  --c-indigo-500: 139 92 246;
+  --c-indigo-600: 124 58 237;
+}
+
+/*
+  --- Barras que se llenan ---
+
+  Las barras de progreso llevan su ancho/alto como style inline; animar la
+  escala (y no width) llena cualquier barra desde cero sin tocar el layout.
+*/
+.lh-barra {
+  transform-origin: left;
+  animation: lh-crecer 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.lh-barra-v {
+  transform-origin: bottom;
+  animation: lh-crecer-v 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes lh-crecer {
+  from { transform: scaleX(0); }
+}
+@keyframes lh-crecer-v {
+  from { transform: scaleY(0); }
+}
+
+/*
+  --- Skeleton de carga ---
+
+  Bloques grises con un barrido de luz. El barrido usa un degradado del propio
+  slate para funcionar en los dos temas.
+*/
+.lh-skeleton {
+  position: relative;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  background: rgb(var(--c-slate-800) / 0.7);
+}
+.lh-skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgb(var(--c-slate-700) / 0.6), transparent);
+  animation: lh-brillo 1.4s infinite;
+}
+@keyframes lh-brillo {
+  to { transform: translateX(100%); }
+}
+
+/* --- Confeti (partículas que crea src/lib/confetti.js) --- */
+.lh-confeti {
+  position: fixed;
+  top: -12px;
+  z-index: 100;
+  pointer-events: none;
+  border-radius: 2px;
+}
+
 /* --- Transición suave al cambiar de sección --- */
 .section-fade {
   animation: lh-fade 0.3s cubic-bezier(0.22, 1, 0.36, 1);
@@ -239,10 +475,24 @@ body {
   .section-fade,
   .section-fade > *,
   .dropdown-pop,
-  .mobile-panel {
+  .mobile-panel,
+  .lh-barra,
+  .lh-barra-v {
     animation: none;
   }
   .nav-link::after {
     transition: none;
+  }
+  /*
+    El skeleton conserva el bloque gris (sigue diciendo "esto está cargando")
+    pero sin el barrido, que es lo que molesta.
+  */
+  .lh-skeleton::after {
+    animation: none;
+  }
+  /* El relieve al pasar el cursor se queda solo en el cambio de borde. */
+  .lh-card,
+  .lh-card:hover {
+    transform: none;
   }
 }

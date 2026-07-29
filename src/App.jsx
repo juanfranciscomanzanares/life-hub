@@ -121,8 +121,22 @@ export default function App() {
 
   if (checking)
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-slate-950 p-6 text-slate-400">
-        <p>Cargando...</p>
+      // Esqueleto en vez de "Cargando...": mientras se comprueba la sesión ya
+      // se ve la forma de la app, y el salto al entrar es mucho menor.
+      <div className="mx-auto min-h-screen w-full max-w-5xl p-6">
+        <div className="mb-6 flex items-center gap-3">
+          <div className="lh-skeleton h-11 w-11 rounded-xl" />
+          <div className="space-y-2">
+            <div className="lh-skeleton h-5 w-40" />
+            <div className="lh-skeleton h-3 w-56" />
+          </div>
+        </div>
+        <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="lh-skeleton h-24" />
+          ))}
+        </div>
+        <div className="lh-skeleton mb-6 h-64" />
         <button onClick={reiniciarApp} className="text-xs text-slate-600 underline">
           ¿Se queda atascado? Reiniciar app
         </button>
@@ -196,8 +210,8 @@ export default function App() {
     );
 
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950 p-6 text-slate-200">
-        <div className="w-full max-w-sm rounded-2xl border border-slate-800 bg-slate-900 p-8 shadow-xl">
+      <div className="flex min-h-screen items-center justify-center p-6 text-slate-200">
+        <div className="lh-card w-full max-w-sm p-8">
           <div className="mb-6 flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-fuchsia-500 font-bold text-white">
               Q
