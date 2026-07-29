@@ -71,18 +71,42 @@ function cookieDeSesion(res: Response) {
   return crudas.map((c) => c.split(";")[0]).join("; ");
 }
 
-async function iniciarSesion(usuario: string, contrasena: string) {
-  const url = `${BASE}/direct/session.json?_username=${encodeURIComponent(usuario)}&_password=${encodeURIComponent(contrasena)}`;
-  const res = await fetch(url, { method: "POST", headers: { Accept: "application/json" } });
-  const cookie = cookieDeSesion(res);
-  const cuerpo: any = await res.json().catch(() => ({}));
+/*
+  Inicia sesión en Sakai.
 
-  // Sesión anónima válida (200 OK) pero sin usuario dentro = credenciales rechazadas.
-  const userId = cuerpo?.userId ?? cuerpo?.data?.userId ?? null;
-  if (!res.ok || !cookie || !userId) {
+  Lo que devuelve de verdad `/direct/session.json`, comprobado contra el
+  servidor de la UMU:
+
+    credenciales buenas -> 201, el id de sesión en TEXTO PLANO (no JSON) y la
+                           cookie en las cabeceras
+    credenciales malas  -> 403, una página HTML de error de Tomcat, sin cookie
+
+  La versión anterior hacía `res.json()` y exigía un campo `userId` que no
+  existe en ninguno de los dos casos, así que fallaba SIEMPRE, también con la
+  contraseña correcta. De ahí salió la idea de que la UMU tenía desactivada
+  esta vía y de que hacía falta un navegador con CAS + 2FA: no era cierto.
+
+  Las credenciales van en el cuerpo y no en la query string para que no acaben
+  escritas en los registros de acceso del servidor.
+*/
+async function iniciarSesion(usuario: string, contrasena: string) {
+  const res = await fetch(`${BASE}/direct/session.json`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Accept: "application/json",
+    },
+    body: new URLSearchParams({ _username: usuario, _password: contrasena }),
+  });
+  const cookie = cookieDeSesion(res);
+
+  if (res.status === 403) {
+    throw new Error("El Aula Virtual ha rechazado el usuario o la contraseña.");
+  }
+  if (!res.ok || !cookie) {
     throw new Error(
-      "El Aula Virtual no aceptó las credenciales. Revisa usuario/contraseña, o puede que tu cuenta " +
-        "requiera un inicio de sesión que esta vía no soporta (verificación en dos pasos, etc.)."
+      `El Aula Virtual respondió ${res.status} al iniciar sesión` +
+        (cookie ? "." : " y no devolvió cookie de sesión.")
     );
   }
   return cookie;

@@ -1,4 +1,4 @@
-import { supabase, cloudEnabled } from "./supabase";
+import { supabase, cloudEnabled, motivoDelError } from "./supabase";
 
 /*
   Cliente de la Edge Function `bank-sync` (GoCardless / PSD2).
@@ -21,7 +21,7 @@ async function llamar(accion, datos = {}) {
   const { data, error } = await supabase.functions.invoke(FUNCION, {
     body: { accion, ...datos },
   });
-  if (error) throw new Error(error.message || "No se pudo contactar con el servidor.");
+  if (error) throw new Error(await motivoDelError(error));
   // La función devuelve 200 con `error` dentro cuando el fallo es de GoCardless
   // y no del transporte; ahí está el motivo legible.
   if (data?.error) throw new Error(data.error);

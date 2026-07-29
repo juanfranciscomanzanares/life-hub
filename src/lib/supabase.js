@@ -40,6 +40,27 @@ const almacenSeguro = {
   },
 };
 
+/*
+  El motivo real de que falle una Edge Function.
+
+  Cuando la función responde con un código distinto de 2xx, supabase-js entrega
+  un error cuyo `message` es siempre el mismo: "Edge Function returned a non-2xx
+  status code". El motivo que escribió la función viaja en el cuerpo de la
+  respuesta, que queda en `error.context`. Sin leerlo, cualquier fallo (usuario
+  mal, sesión caducada, el servicio caído) se ve idéntico y no hay por dónde
+  empezar a mirar.
+*/
+export async function motivoDelError(error, porDefecto = "No se pudo contactar con el servidor.") {
+  try {
+    const cuerpo = await error?.context?.json?.();
+    if (cuerpo?.error) return String(cuerpo.error);
+  } catch {
+    // La respuesta no era JSON (un 502 del proxy, por ejemplo): nos quedamos
+    // con el mensaje genérico, que al menos dice que no fue un 2xx.
+  }
+  return error?.message || porDefecto;
+}
+
 export const supabase = cloudEnabled
   ? createClient(url, anonKey, {
       auth: {

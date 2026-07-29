@@ -1,4 +1,4 @@
-import { supabase, cloudEnabled } from "./supabase";
+import { supabase, cloudEnabled, motivoDelError } from "./supabase";
 
 /*
   Cliente de la sincronización con el Aula Virtual (Sakai) de la UMU.
@@ -18,7 +18,7 @@ export async function sincronizarAulaVirtual({ usuario, contrasena }) {
   const { data, error } = await supabase.functions.invoke(FUNCION, {
     body: { usuario: usuario.trim(), contrasena },
   });
-  if (error) throw new Error(error.message || "No se pudo contactar con el servidor.");
+  if (error) throw new Error(await motivoDelError(error));
   if (data?.error) throw new Error(data.error);
 
   // Crudo (recortado): quien lo interpreta es src/lib/aula.js.
