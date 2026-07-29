@@ -102,21 +102,39 @@ contraseña mal, o una cuenta con un inicio de sesión que esta vía no cubre
 ## 1. Leer tu banco (open banking / PSD2) — GoCardless Bank Account Data
 
 Permite **leer** tus movimientos y saldos (no mover dinero). Gratis para uso
-personal. Flujo:
+personal. La sección **Finanzas** lo tiene ya montado de punta a punta: la
+tarjeta "Banco" hace los tres pasos (elegir entidad → autorizar → importar).
+
+### Poner en marcha
 
 1. Crea una cuenta en https://bankaccountdata.gocardless.com y consigue
    `SECRET_ID` y `SECRET_KEY`.
-2. Despliega la Edge Function `supabase/functions/bank-sync` (ver código incluido).
-   Guarda las credenciales como secretos:
+2. Despliega la Edge Function con las credenciales como secretos:
    ```bash
    supabase secrets set GC_SECRET_ID=xxx GC_SECRET_KEY=yyy
    supabase functions deploy bank-sync
    ```
-3. El flujo real de GoCardless tiene 3 pasos: crear token → crear "requisition"
-   (el usuario autoriza en la web de su banco) → leer transacciones. La función
-   incluida muestra la estructura; añade el paso de autorización la primera vez.
-4. La app llama a la función, recibe los movimientos y los vuelca en la sección
-   **Finanzas** (clave `lh_finance`).
+3. En la app, **Finanzas → Banco → Conectar banco**: busca tu entidad, autoriza
+   en su web y, al volver, elige la cuenta que quieres seguir.
+
+### Cómo funciona
+
+- **La clave nunca sale del servidor.** `GC_SECRET_ID` y `GC_SECRET_KEY` son
+  secretos de la Edge Function; el navegador solo llama a `bank-sync`, que
+  además exige sesión iniciada para que no sea un servicio abierto a internet.
+- **Se previsualiza antes de importar.** Los movimientos llegan en crudo
+  ("PAGO TARJETA 4567 MERCADONA SA") y se categorizan con reglas por texto
+  (`src/lib/banco.js`, clave `lh_banco_reglas`). Aciertan bastante, pero no
+  siempre: por eso la app enseña la lista con su categoría y su casilla antes
+  de meterlos en `lh_finance`, y ahí puedes corregir o descartar.
+- **Reimportar es seguro.** Cada movimiento guarda el `refBanco` que da la
+  entidad; los que ya están no se vuelven a colar. Para las filas que apuntaste
+  a mano (sin `refBanco`) hay un segundo criterio por fecha + importe +
+  concepto.
+- **Solo movimientos contabilizados.** Los pendientes se ignoran a propósito:
+  cambian de importe y de fecha, y duplicarían al confirmarse.
+- **El consentimiento caduca a los 90 días** por normativa. Cuando pase, el
+  banco deja de dar movimientos y hay que volver a conectar. No es un fallo.
 
 **Importante:** invertir de verdad o pagar con tarjeta desde la app NO es posible
 sin ser una entidad regulada. Un bróker con API (p. ej. Interactive Brokers) sí
@@ -189,16 +207,20 @@ El service worker (`public/sw.js`) ya incluye los handlers `push` y
   archivo con su API (Google Drive API / Dropbox API). El patrón es el mismo que
   el banco: el token secreto vive en el servidor, no en el navegador.
 
-## 7. Completar la importación bancaria (GoCardless)
+## 7. Si algo falla en el banco
 
-La función `bank-sync` asume una cuenta ya autorizada. El flujo completo la
-primera vez:
+El error que enseña la tarjeta "Banco" es el que ha devuelto GoCardless, así
+que sirve para saber por dónde va:
 
-1. `POST /token/new/` → access token.
-2. `POST /requisitions/` con tu `institution_id` → devuelve un `link`.
-3. Rediriges al usuario a ese `link` para que autorice en la web de su banco.
-4. Al volver, la requisition tiene los `accounts`; guardas el `accountId`.
-5. A partir de ahí, `bank-sync` ya puede leer transacciones periódicamente.
+- *"GoCardless rechazó las credenciales"*: los secretos `GC_SECRET_ID` /
+  `GC_SECRET_KEY` no están puestos o no son los del proyecto.
+- *"El banco todavía no ha concedido ninguna cuenta"*: la autorización se quedó
+  a medias. Vuelve a "Conectar banco" y termínala en la web del banco.
+- **Sin movimientos nuevos pasados 90 días**: caducó el consentimiento (ver
+  arriba). Desconecta y vuelve a conectar.
+
+Las acciones que expone la función son `bancos`, `conectar`, `cuentas` y
+`movimientos`; el cliente que las llama es [src/lib/bancoSync.js](../src/lib/bancoSync.js).
 
 ## Resumen de qué va dónde
 

@@ -15,6 +15,14 @@ import {
   catalogo,
   descripcionDe,
   esPersonalizado,
+  sesionDe,
+  sesionTerminada,
+  abrirSesion,
+  cerrarSesion,
+  reabrirSesion,
+  duracionMinutos,
+  formatearDuracion,
+  resumenDelDia,
 } from "./gym";
 
 // Fila del formato ANTIGUO: series era un número y las cuatro eran idénticas.
@@ -230,5 +238,76 @@ describe("ejercicios propios", () => {
     expect(recordsPorEjercicio(filas)[0][0]).toBe("Press en multipower");
     // Y su grupo pasa a "Otro" al no encontrarlo, sin romper nada.
     expect(grupoDe("Press en multipower", [])).toBe("Otro");
+  });
+});
+
+describe("sesiones", () => {
+  const HOY = "2026-07-29";
+  const alas = (hora) => new Date(`${HOY}T${hora}:00`);
+
+  it("abrir marca el inicio y es idempotente", () => {
+    const uno = abrirSesion([], HOY, alas("18:00"));
+    expect(sesionDe(uno, HOY).inicio).toBe(alas("18:00").toISOString());
+
+    // Se llama al añadir CADA ejercicio: la segunda vez no debe reiniciar el
+    // cronómetro ni duplicar la sesión.
+    const dos = abrirSesion(uno, HOY, alas("18:40"));
+    expect(dos).toBe(uno);
+    expect(dos).toHaveLength(1);
+  });
+
+  it("cerrar deja la sesión terminada con su duración", () => {
+    const s = cerrarSesion(abrirSesion([], HOY, alas("18:00")), HOY, alas("19:15"));
+    expect(sesionTerminada(s, HOY)).toBe(true);
+    expect(duracionMinutos(sesionDe(s, HOY))).toBe(75);
+  });
+
+  it("reanudar la reabre sin perder el inicio", () => {
+    const cerrada = cerrarSesion(abrirSesion([], HOY, alas("18:00")), HOY, alas("19:00"));
+    const abierta = reabrirSesion(cerrada, HOY);
+    expect(sesionTerminada(abierta, HOY)).toBe(false);
+    expect(sesionDe(abierta, HOY).inicio).toBe(alas("18:00").toISOString());
+  });
+
+  it("cada día tiene la suya y no se pisan", () => {
+    const s = cerrarSesion(abrirSesion(abrirSesion([], "2026-07-28"), HOY), HOY);
+    expect(sesionTerminada(s, HOY)).toBe(true);
+    expect(sesionTerminada(s, "2026-07-28")).toBe(false);
+    expect(sesionDe(s, "2026-01-01")).toBe(null);
+  });
+
+  it("un día de antes de que existieran las sesiones se puede cerrar igual", () => {
+    // No tiene inicio, así que no hay duración, pero sí queda terminado.
+    const s = cerrarSesion([], "2026-01-15", alas("19:00"));
+    expect(sesionTerminada(s, "2026-01-15")).toBe(true);
+    expect(duracionMinutos(sesionDe(s, "2026-01-15"))).toBe(null);
+  });
+
+  it("una sesión abierta cuenta hasta ahora", () => {
+    const s = abrirSesion([], HOY, alas("18:00"));
+    expect(duracionMinutos(sesionDe(s, HOY), alas("18:45"))).toBe(45);
+  });
+
+  it("una sesión olvidada abierta no inventa una duración absurda", () => {
+    // Se queda abierta y se mira al día siguiente: 19 h de entreno no es un
+    // dato, es un despiste. Mejor no enseñar nada.
+    const s = abrirSesion([], HOY, alas("18:00"));
+    expect(duracionMinutos(sesionDe(s, HOY), new Date("2026-07-30T13:00:00"))).toBe(null);
+  });
+
+  it("formatea la duración en horas y minutos", () => {
+    expect(formatearDuracion(45)).toBe("45 min");
+    expect(formatearDuracion(60)).toBe("1 h");
+    expect(formatearDuracion(95)).toBe("1 h 35 min");
+    expect(formatearDuracion(null)).toBe("");
+  });
+
+  it("resumenDelDia cuenta solo las filas de ese día", () => {
+    const filas = [
+      { fecha: HOY, ejercicio: "Press banca", sets: [{ peso: 60, reps: 10 }, { peso: 60, reps: 8 }] },
+      { fecha: HOY, ejercicio: "Dominadas", sets: [{ peso: 0, reps: 10 }] },
+      { fecha: "2026-07-28", ejercicio: "Sentadilla", sets: [{ peso: 100, reps: 5 }] },
+    ];
+    expect(resumenDelDia(filas, HOY)).toEqual({ ejercicios: 2, series: 3, volumen: 1080 });
   });
 });

@@ -203,3 +203,74 @@ export function volumenDelDia(filas = [], fecha) {
 export function fechasEntrenadas(filas = []) {
   return [...new Set(filas.map((f) => f.fecha).filter(Boolean))].sort().reverse();
 }
+
+/*
+  Sesiones: cuándo empieza y cuándo termina el entreno de un día.
+
+  Una fila de `lh_gym_sesiones` es { fecha, inicio, fin }, con inicio y fin en
+  ISO completo (fecha y hora). Vive en su propia clave y no dentro de `lh_gym`
+  porque esas filas las leen otras seis secciones (Analítica, Calendario,
+  Coach, Logros, Metas, Resumen): meterles un estado obligaría a tocarlas todas
+  para algo que no usan. Un día sin sesión es simplemente una fecha que no está
+  en la lista, así que todo el histórico anterior sigue siendo válido.
+*/
+export function sesionDe(sesiones = [], fecha) {
+  return sesiones.find((s) => s.fecha === fecha) || null;
+}
+
+export const sesionTerminada = (sesiones = [], fecha) => Boolean(sesionDe(sesiones, fecha)?.fin);
+
+// Idempotente: se llama cada vez que se añade un ejercicio, y solo la primera
+// vez del día deja marca.
+export function abrirSesion(sesiones = [], fecha, ahora = new Date()) {
+  if (sesionDe(sesiones, fecha)) return sesiones;
+  return [{ fecha, inicio: ahora.toISOString(), fin: null }, ...sesiones];
+}
+
+export function cerrarSesion(sesiones = [], fecha, ahora = new Date()) {
+  const fin = ahora.toISOString();
+  // Un día registrado antes de que existieran las sesiones no tiene inicio;
+  // se cierra igual, solo que sin duración que enseñar.
+  if (!sesionDe(sesiones, fecha)) return [{ fecha, inicio: null, fin }, ...sesiones];
+  return sesiones.map((s) => (s.fecha === fecha ? { ...s, fin } : s));
+}
+
+export function reabrirSesion(sesiones = [], fecha) {
+  return sesiones.map((s) => (s.fecha === fecha ? { ...s, fin: null } : s));
+}
+
+/*
+  Duración en minutos: de inicio a fin, o de inicio a ahora si sigue abierta.
+
+  Devuelve null cuando no hay nada fiable que enseñar. El tope de 12 h es para
+  la sesión que te dejas abierta y cierras al día siguiente: mejor no poner
+  duración que poner "19 h de entreno".
+*/
+export function duracionMinutos(sesion, ahora = new Date()) {
+  if (!sesion?.inicio) return null;
+  const desde = new Date(sesion.inicio).getTime();
+  const hasta = sesion.fin ? new Date(sesion.fin).getTime() : ahora.getTime();
+  if (!Number.isFinite(desde) || !Number.isFinite(hasta)) return null;
+
+  const minutos = Math.round((hasta - desde) / 60000);
+  return minutos < 0 || minutos > 12 * 60 ? null : minutos;
+}
+
+export function formatearDuracion(minutos) {
+  if (minutos == null) return "";
+  if (minutos < 60) return `${minutos} min`;
+  const horas = Math.floor(minutos / 60);
+  const resto = minutos % 60;
+  return resto === 0 ? `${horas} h` : `${horas} h ${resto} min`;
+}
+
+// Resumen de un día para la tarjeta de sesión terminada.
+export function resumenDelDia(filas = [], fecha) {
+  const delDia = filas.filter((f) => f.fecha === fecha);
+  const sets = delDia.flatMap((f) => setsDe(f));
+  return {
+    ejercicios: delDia.length,
+    series: sets.length,
+    volumen: volumen(sets),
+  };
+}

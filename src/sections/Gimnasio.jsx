@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Dumbbell, CalendarDays, ListChecks, TrendingUp, BookOpen } from "lucide-react";
 import { usePersisted } from "../lib/store";
 import { SectionTitle, todayISO } from "../lib/ui";
-import { nuevoId, nuevaSerie, setsDe } from "../lib/gym";
+import { nuevoId, nuevaSerie, setsDe, abrirSesion } from "../lib/gym";
 import Sesion from "./gym/Sesion.jsx";
 import Rutinas from "./gym/Rutinas.jsx";
 import Progreso from "./gym/Progreso.jsx";
@@ -31,6 +31,7 @@ const PESTANAS = [
 
 export default function Gimnasio() {
   const [filas, setFilas] = usePersisted("lh_gym", []);
+  const [sesiones, setSesiones] = usePersisted("lh_gym_sesiones", []);
   const [pestana, setPestana] = useState("sesion");
   const [fecha, setFecha] = useState(todayISO());
 
@@ -65,7 +66,12 @@ export default function Gimnasio() {
         };
       });
 
-    if (nuevas.length) setFilas([...nuevas, ...filas]);
+    if (nuevas.length) {
+      setFilas([...nuevas, ...filas]);
+      // Empezar una rutina es empezar la sesión: a partir de aquí cuenta el
+      // tiempo y aparece el botón de terminarla.
+      setSesiones(abrirSesion(sesiones, fecha));
+    }
     setPestana("sesion");
   };
 
@@ -101,7 +107,14 @@ export default function Gimnasio() {
       </div>
 
       {pestana === "sesion" && (
-        <Sesion fecha={fecha} setFecha={setFecha} filas={filas} setFilas={setFilas} />
+        <Sesion
+          fecha={fecha}
+          setFecha={setFecha}
+          filas={filas}
+          setFilas={setFilas}
+          sesiones={sesiones}
+          setSesiones={setSesiones}
+        />
       )}
       {pestana === "rutinas" && <Rutinas onEmpezar={empezarRutina} />}
       {pestana === "ejercicios" && <Ejercicios />}

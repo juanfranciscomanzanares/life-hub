@@ -32,6 +32,8 @@ import {
   TrendingDown,
 } from "lucide-react";
 import { usePersisted } from "./lib/store";
+import { todayISO } from "./lib/ui";
+import { CATEGORIAS as CATEGORIAS_BANCO } from "./lib/banco";
 import { sincronizarAulaVirtual } from "./lib/aulaVirtual";
 import HoyWidget from "./sections/HoyWidget.jsx";
 import { useRoutineNotifier } from "./lib/useRoutineNotifier";
@@ -73,6 +75,9 @@ const TenisEntrenos = lazy(() => import("./sections/TenisEntrenos.jsx"));
 const Metas = lazy(() => import("./sections/Metas.jsx"));
 const Calendario = lazy(() => import("./sections/Calendario.jsx"));
 const Datos = lazy(() => import("./sections/Datos.jsx"));
+// La conexión bancaria vive dentro de Finanzas, pero solo la usa quien la
+// tenga configurada: en diferido no entra en el bundle de quien no la abre.
+const Banco = lazy(() => import("./sections/finanzas/Banco.jsx"));
 
 
 /* ------------------------------------------------------------------ */
@@ -166,7 +171,9 @@ const INITIAL_STUDY_HOURS = {};
 
 
 /* --- Finanzas --- */
-const FIN_BUDGET = 800;
+// Solo el valor de partida: el presupuesto real se edita en la sección y se
+// guarda en `lh_budget_mensual`.
+const PRESUPUESTO_INICIAL = 800;
 const INITIAL_FINANCE = [];
 const SAVINGS_GOAL = { label: "Portátil nuevo", target: 1200, current: 740 };
 
@@ -776,15 +783,39 @@ function Universidad() {
 /*  SECCIÓN: FINANZAS                                                  */
 /* ------------------------------------------------------------------ */
 
+/*
+  Finanzas va por MES natural: los ingresos, los gastos, el balance y el
+  presupuesto son siempre los del mes que estés mirando, y el día 1 empiezan de
+  cero solos. Antes los totales sumaban todo el histórico mientras el texto
+  decía "este mes", así que a los pocos meses el presupuesto salía siempre
+  desbordado.
+
+  Lo que NO se reinicia: los objetivos de ahorro, las suscripciones y los topes
+  por categoría, que son configuración y no movimientos del mes.
+*/
 function Finanzas() {
   const [rows, setRows] = usePersisted("lh_finance", INITIAL_FINANCE);
-  const [form, setForm] = useState({ concepto: "", categoria: "Ocio", monto: "" });
+  const [form, setForm] = useState({ concepto: "", categoria: "Ocio", monto: "", fecha: todayISO() });
   const [tipo, setTipo] = useState("gasto");
 
-  const income = rows.filter((r) => r.monto > 0).reduce((a, b) => a + b.monto, 0);
-  const expenses = rows.filter((r) => r.monto < 0).reduce((a, b) => a + Math.abs(b.monto), 0);
+  const [mes, setMes] = useState(() => todayISO().slice(0, 7));
+  const [verTodo, setVerTodo] = useState(false);
+  const esMesActual = mes === todayISO().slice(0, 7);
+
+  const moverMes = (delta) => {
+    const [y, m] = mes.split("-").map(Number);
+    const d = new Date(y, m - 1 + delta, 1);
+    setMes(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+  };
+
+  const rowsMes = useMemo(() => rows.filter((r) => (r.fecha || "").slice(0, 7) === mes), [rows, mes]);
+
+  const income = rowsMes.filter((r) => r.monto > 0).reduce((a, b) => a + b.monto, 0);
+  const expenses = rowsMes.filter((r) => r.monto < 0).reduce((a, b) => a + Math.abs(b.monto), 0);
   const balance = income - expenses;
-  const budgetPct = Math.min(100, (expenses / FIN_BUDGET) * 100);
+
+  const [presupuesto, setPresupuesto] = usePersisted("lh_budget_mensual", PRESUPUESTO_INICIAL);
+  const budgetPct = presupuesto > 0 ? Math.min(100, (expenses / presupuesto) * 100) : 0;
   const [savings, setSavings] = usePersisted("lh_savings", [{ id: 1, label: "Portátil nuevo", target: 1200, current: 740 }]);
   const [subs, setSubs] = usePersisted("lh_subs", []);
   const [sForm, setSForm] = useState({ label: "", target: "" });
@@ -793,46 +824,85 @@ function Finanzas() {
   const addSaving = () => { if (!sForm.label.trim() || !sForm.target) return; setSavings([...savings, { id: Date.now(), label: sForm.label, target: Number(sForm.target), current: 0 }]); setSForm({ label: "", target: "" }); };
   const addSub = () => { if (!subForm.nombre.trim()) return; setSubs([...subs, { id: Date.now(), nombre: subForm.nombre, monto: Number(subForm.monto) || 0, dia: Number(subForm.dia) || 1 }]); setSubForm({ nombre: "", monto: "", dia: "" }); };
 
-  const CATS = ["Comida", "Universidad", "Deporte", "Ocio", "Transporte", "Ingreso"];
+  /*
+    Las categorías son las mismas que usa la importación del banco: si aquí
+    hubiera menos, un movimiento importado como "Vivienda" no se podría ni
+    reasignar, porque su categoría no saldría en el desplegable.
+  */
+  const CATS = CATEGORIAS_BANCO;
 
   const [budgets, setBudgets] = usePersisted("lh_budgets", {});
-  const mesF = new Date().toISOString().slice(0, 7);
   const gastoPorCat = useMemo(() => {
     const m = {};
-    rows.filter((r) => r.monto < 0 && (r.fecha || "").slice(0, 7) === mesF).forEach((r) => { m[r.categoria] = (m[r.categoria] || 0) + Math.abs(r.monto); });
+    rowsMes.filter((r) => r.monto < 0).forEach((r) => { m[r.categoria] = (m[r.categoria] || 0) + Math.abs(r.monto); });
     return m;
-  }, [rows, mesF]);
-  const CAT_COLORS = { Comida: "#f43f5e", Universidad: "#6366f1", Deporte: "#10b981", Ocio: "#f59e0b", Transporte: "#0ea5e9", Banco: "#14b8a6" };
+  }, [rowsMes]);
+  const CAT_COLORS = { Comida: "#f43f5e", Universidad: "#6366f1", Deporte: "#10b981", Ocio: "#f59e0b", Transporte: "#0ea5e9", Vivienda: "#a855f7", Suscripciones: "#14b8a6", Salud: "#ec4899", Banco: "#14b8a6" };
   const catColor = (c) => CAT_COLORS[c] || "#94a3b8";
   const gastoCats = Object.entries(gastoPorCat).sort((a, b) => b[1] - a[1]);
   const totalGastoMes = gastoCats.reduce((a, b) => a + b[1], 0);
   const [finOrden, setFinOrden] = useState({ campo: "fecha", dir: "desc" });
   const rowsFin = useMemo(() => {
-    const arr = [...rows];
+    const arr = [...(verTodo ? rows : rowsMes)];
     const { campo, dir } = finOrden;
     arr.sort((a, b) => (campo === "monto" ? (Number(a.monto) || 0) - (Number(b.monto) || 0) : String(a[campo] || "").localeCompare(String(b[campo] || ""))));
     if (dir === "desc") arr.reverse();
     return arr;
-  }, [rows, finOrden]);
+  }, [rows, rowsMes, verTodo, finOrden]);
   const finSort = (c) => setFinOrden((o) => ({ campo: c, dir: o.campo === c && o.dir === "asc" ? "desc" : "asc" }));
   const updateFin = (id, campo, valor) => setRows(rows.map((r) => (r.id === id ? { ...r, [campo]: campo === "monto" ? Number(valor) || 0 : valor } : r)));
 
   const add = () => {
     if (!form.concepto || !form.monto) return;
     const signed = tipo === "gasto" ? -Math.abs(Number(form.monto)) : Math.abs(Number(form.monto));
+    const fecha = form.fecha || todayISO();
     setRows([
-      { id: Date.now(), fecha: new Date().toISOString().slice(0, 10), concepto: form.concepto, categoria: tipo === "gasto" ? form.categoria : "Ingreso", monto: signed },
+      { id: Date.now(), fecha, concepto: form.concepto, categoria: tipo === "gasto" ? form.categoria : "Ingreso", monto: signed },
       ...rows,
     ]);
-    setForm({ concepto: "", categoria: "Ocio", monto: "" });
+    // Si apuntas algo de otro mes, la vista salta a ese mes: si no, el
+    // movimiento se guardaría bien pero desaparecería de la pantalla.
+    setMes(fecha.slice(0, 7));
+    setForm({ concepto: "", categoria: "Ocio", monto: "", fecha });
   };
+
+  /*
+    Los movimientos del banco entran por delante y sin tocar los tuyos: la
+    detección de repetidos ya se hizo en la previsualización.
+  */
+  const importarDelBanco = (nuevos) => setRows([...nuevos, ...rows]);
 
   const inputCls =
     "rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none";
 
   return (
     <div>
-      <SectionTitle icon={Wallet} title="Finanzas" subtitle="Controla ingresos, gastos y ahorro" />
+      <SectionTitle icon={Wallet} title="Finanzas" subtitle="Ingresos, gastos y ahorro, mes a mes" />
+
+      <Card className="mb-6 flex flex-wrap items-center gap-3">
+        <button
+          onClick={() => moverMes(-1)}
+          aria-label="Mes anterior"
+          className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-sm text-slate-300 transition hover:border-indigo-500"
+        >
+          ‹
+        </button>
+        <span className="min-w-24 text-center text-lg font-semibold text-slate-100">{monthLabel(mes)}</span>
+        <button
+          onClick={() => moverMes(1)}
+          aria-label="Mes siguiente"
+          className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-sm text-slate-300 transition hover:border-indigo-500"
+        >
+          ›
+        </button>
+        {esMesActual ? (
+          <span className="text-xs text-slate-500">Los totales empiezan de cero el día 1 de cada mes.</span>
+        ) : (
+          <button onClick={() => setMes(todayISO().slice(0, 7))} className="text-xs text-indigo-400 underline">
+            Volver al mes actual
+          </button>
+        )}
+      </Card>
 
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Card className="flex items-center gap-4">
@@ -868,11 +938,25 @@ function Finanzas() {
 
       <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card>
-          <div className="mb-2 flex items-center justify-between">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-lg font-semibold text-slate-100">Presupuesto mensual</h2>
-            <span className="text-sm text-slate-400">
-              {expenses}€ / {FIN_BUDGET}€
-            </span>
+            <div className="flex items-center gap-1.5 text-sm text-slate-400">
+              <span>{expenses}€ /</span>
+              <label className="sr-only" htmlFor="presupuesto-mensual">
+                Presupuesto mensual en euros
+              </label>
+              <input
+                id="presupuesto-mensual"
+                name="presupuesto-mensual"
+                type="number"
+                min="0"
+                inputMode="numeric"
+                value={presupuesto}
+                onChange={(e) => setPresupuesto(Math.max(0, Number(e.target.value) || 0))}
+                className="w-20 rounded border border-slate-700 bg-slate-800 px-2 py-1 text-right text-sm text-slate-100 focus:border-indigo-500 focus:outline-none"
+              />
+              <span>€</span>
+            </div>
           </div>
           <div className="h-3 w-full overflow-hidden rounded-full bg-slate-800">
             <div
@@ -881,7 +965,9 @@ function Finanzas() {
             />
           </div>
           <p className="mt-2 text-xs text-slate-500">
-            Te quedan {Math.max(0, FIN_BUDGET - expenses)}€ de presupuesto este mes.
+            {presupuesto > 0
+              ? `Te quedan ${Math.max(0, presupuesto - expenses)}€ de presupuesto en ${monthLabel(mes)}.`
+              : "Pon un tope mensual para ver cuánto te queda."}
           </p>
         </Card>
 
@@ -918,9 +1004,11 @@ function Finanzas() {
 
       <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card>
-          <h2 className="mb-4 text-lg font-semibold text-slate-100">Gasto por categoría (mes)</h2>
+          <h2 className="mb-4 text-lg font-semibold text-slate-100">
+            Gasto por categoría ({monthLabel(mes)})
+          </h2>
           {totalGastoMes === 0 ? (
-            <p className="text-sm text-slate-500">Sin gastos este mes.</p>
+            <p className="text-sm text-slate-500">Sin gastos en {monthLabel(mes)}.</p>
           ) : (
             <div className="flex items-center gap-6">
               <svg viewBox="0 0 36 36" className="h-32 w-32 -rotate-90">
@@ -964,7 +1052,7 @@ function Finanzas() {
               );
             })}
           </div>
-          <p className="mt-3 text-xs text-slate-500">Define un tope por categoría; se marca en rojo si lo superas este mes.</p>
+          <p className="mt-3 text-xs text-slate-500">Define un tope por categoría; se marca en rojo si lo superas en {monthLabel(mes)}.</p>
         </Card>
       </div>
 
@@ -992,6 +1080,10 @@ function Finanzas() {
         </ul>
       </Card>
 
+      <Suspense fallback={<Card className="mb-6 text-sm text-slate-500">Cargando el banco...</Card>}>
+        <Banco movimientosActuales={rows} onImportar={importarDelBanco} />
+      </Suspense>
+
       <Card className="mb-4">
         <div className="flex flex-wrap items-end gap-3">
           <div className="flex overflow-hidden rounded-lg border border-slate-700">
@@ -1008,6 +1100,17 @@ function Finanzas() {
               Ingreso
             </button>
           </div>
+          <label className="sr-only" htmlFor="fin-fecha">
+            Fecha del movimiento
+          </label>
+          <input
+            id="fin-fecha"
+            name="fin-fecha"
+            type="date"
+            value={form.fecha}
+            onChange={(e) => setForm({ ...form, fecha: e.target.value })}
+            className={inputCls}
+          />
           <input
             placeholder="Concepto"
             value={form.concepto}
@@ -1041,6 +1144,19 @@ function Finanzas() {
         </div>
       </Card>
 
+      <div className="mb-2 flex flex-wrap items-center gap-2 px-1">
+        <h2 className="text-lg font-semibold text-slate-100">
+          Movimientos {verTodo ? "(todo el histórico)" : `de ${monthLabel(mes)}`}
+        </h2>
+        <span className="text-xs text-slate-500">{rowsFin.length}</span>
+        <button
+          onClick={() => setVerTodo(!verTodo)}
+          className="ml-auto text-xs text-indigo-400 underline"
+        >
+          {verTodo ? `Ver solo ${monthLabel(mes)}` : "Ver todo el histórico"}
+        </button>
+      </div>
+
       <Card className="overflow-x-auto p-0">
         <table className="w-full text-left text-sm">
           <thead>
@@ -1054,6 +1170,13 @@ function Finanzas() {
             </tr>
           </thead>
           <tbody>
+            {rowsFin.length === 0 && (
+              <tr>
+                <td colSpan={5} className="px-5 py-8 text-center text-sm text-slate-500">
+                  Sin movimientos en {monthLabel(mes)}. Apunta uno arriba o sincroniza el banco.
+                </td>
+              </tr>
+            )}
             {rowsFin.map((r) => (
               <tr key={r.id} className="border-b border-slate-800/60 transition hover:bg-slate-800/40">
                 <td className="px-3 py-2 text-slate-400"><input type="date" value={r.fecha} onChange={(e) => updateFin(r.id, "fecha", e.target.value)} className="w-32 rounded bg-transparent px-1 py-1 hover:bg-slate-800 focus:bg-slate-800 focus:outline-none" /></td>
