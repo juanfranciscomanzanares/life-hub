@@ -1,131 +1,259 @@
 import { useState, useMemo } from "react";
-import { BarChart3, ChevronLeft, ChevronRight, Lightbulb } from "lucide-react";
+import { BarChart3, ChevronLeft, ChevronRight, Flag, Lightbulb } from "lucide-react";
 import { usePersisted } from "../lib/store";
-import { Card, SectionTitle, MONTHS, fmtEuro } from "../lib/ui";
+import { Card, SectionTitle, fmtEuro, todayISO } from "../lib/ui";
+import {
+  PERIODOS,
+  rangoDe,
+  mover,
+  tramosDe,
+  metricas,
+  serie,
+  metasConseguidas,
+  variacion,
+} from "../lib/analitica";
+
+/*
+  Analítica por periodo: semana, mes, trimestre o año.
+
+  Cada número se compara con el MISMO periodo anterior (esta semana contra la
+  pasada, este trimestre contra el anterior), que es la comparación que dice
+  algo. Antes solo había resumen anual y no se podía bajar de ahí.
+
+  Dos avisos que van escritos en la propia pantalla porque son limitaciones de
+  los datos, no de esta sección:
+  - Las horas de estudio solo cuentan desde que se registran con fecha
+    (`lh_study_log`); el contador viejo por asignatura no las tenía.
+  - `lh_goals` no guarda cuándo se cumplió una meta, así que las conseguidas son
+    una foto de ahora y no del periodo.
+*/
+
+// Las tarjetas: de dónde sale cada número y cómo se enseña.
+const METRICAS = [
+  { id: "horasTrabajo", nombre: "Trabajo", unidad: "h", color: "text-indigo-400" },
+  { id: "horasEstudio", nombre: "Estudio", unidad: "h", color: "text-sky-400" },
+  { id: "horasTenis", nombre: "Entreno de tenis", unidad: "h", color: "text-amber-400" },
+  { id: "diasGym", nombre: "Días de gimnasio", unidad: "", color: "text-emerald-400" },
+  { id: "partidos", nombre: "Partidos disputados", unidad: "", color: "text-rose-400" },
+  { id: "entrenosTenis", nombre: "Sesiones de tenis", unidad: "", color: "text-amber-300" },
+  { id: "invertido", nombre: "Invertido", unidad: "€", color: "text-fuchsia-400", dinero: true },
+  { id: "gastos", nombre: "Gastos", unidad: "€", color: "text-rose-300", dinero: true },
+];
 
 export default function Analitica() {
-  const [year, setYear] = useState(new Date().getFullYear());
-  const [work] = usePersisted("lh_work_log", []);
+  const [periodo, setPeriodo] = useState("mes");
+  const [ancla, setAncla] = useState(todayISO());
+  const [grafica, setGrafica] = useState("horasTrabajo");
+
+  const [trabajo] = usePersisted("lh_work_log", []);
   const [gym] = usePersisted("lh_gym", []);
-  const [contribs] = usePersisted("lh_contribs", []);
-  const [health] = usePersisted("lh_health", []);
+  const [tenisSesiones] = usePersisted("lh_tt_sesiones", []);
+  const [tenisPartidos] = usePersisted("lh_tenis_partidos", []);
+  const [estudio] = usePersisted("lh_study_log", []);
+  const [aportaciones] = usePersisted("lh_contribs", []);
+  const [finanzas] = usePersisted("lh_finance", []);
+  const [metas] = usePersisted("lh_goals", []);
+  const [salud] = usePersisted("lh_health", []);
 
-  const yearOf = (f) => Number((f || "").slice(0, 4));
-  const monthOf = (f) => Number((f || "").slice(5, 7)) - 1;
-
-  const { workByMonth, gymByMonth, maxW, maxG } = useMemo(() => {
-    const w = Array(12).fill(0);
-    const g = Array(12).fill(0);
-    work.forEach((e) => { if (yearOf(e.fecha) === year) w[monthOf(e.fecha)] += Number(e.horas || 0); });
-    gym.forEach((e) => { if (yearOf(e.fecha) === year) g[monthOf(e.fecha)] += 1; });
-    return { workByMonth: w, gymByMonth: g, maxW: Math.max(...w, 1), maxG: Math.max(...g, 1) };
-  }, [work, gym, year]);
-
-  const sumYear = (arr, k, y) => arr.filter((e) => yearOf(e.fecha) === y).reduce((a, b) => a + Number(b[k] || 0), 0);
-  const workThis = sumYear(work, "horas", year);
-  const workPrev = sumYear(work, "horas", year - 1);
-  const invThis = sumYear(contribs, "monto", year);
-  const invPrev = sumYear(contribs, "monto", year - 1);
-
-  const pctDiff = (a, b) => (b > 0 ? Math.round(((a - b) / b) * 100) : null);
-
-  // Correlación sueño vs entrenar
-  const gymDates = new Set(gym.map((x) => x.fecha));
-  const avg = (arr) => (arr.length ? Math.round((arr.reduce((a, b) => a + b, 0) / arr.length) * 10) / 10 : 0);
-  const suenoGym = avg(health.filter((h) => gymDates.has(h.fecha) && h.sueno).map((h) => Number(h.sueno)));
-  const suenoNoGym = avg(health.filter((h) => !gymDates.has(h.fecha) && h.sueno).map((h) => Number(h.sueno)));
-
-  const exportarGrafica = () => {
-    const w = 680, h = 340, pad = 44;
-    const c = document.createElement("canvas");
-    c.width = w; c.height = h;
-    const ctx = c.getContext("2d");
-    ctx.fillStyle = "#0f172a"; ctx.fillRect(0, 0, w, h);
-    ctx.fillStyle = "#e2e8f0"; ctx.font = "bold 16px Arial";
-    ctx.fillText(`Horas de trabajo por mes · ${year}`, pad, 28);
-    const bw = (w - pad * 2) / 12;
-    workByMonth.forEach((v, i) => {
-      const bh = (v / maxW) * (h - pad * 2 - 20);
-      ctx.fillStyle = "#6366f1";
-      ctx.fillRect(pad + i * bw + 4, h - pad - bh, bw - 8, bh);
-      ctx.fillStyle = "#94a3b8"; ctx.font = "11px Arial";
-      ctx.fillText(MONTHS[i][0], pad + i * bw + bw / 2 - 4, h - pad + 16);
-      if (v) ctx.fillText(String(v), pad + i * bw + bw / 2 - 6, h - pad - bh - 4);
-    });
-    c.toBlob((b) => {
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(b);
-      a.download = `trabajo-${year}.png`;
-      a.click();
-    });
-  };
-
-  const Bars = ({ data, max, unidad, color }) => (
-    <div className="flex h-36 items-end justify-between gap-1">
-      {data.map((v, i) => (
-        <div key={i} className="flex flex-1 flex-col items-center gap-1">
-          <div className="flex w-full flex-1 items-end">
-            <div className={`w-full rounded-t ${color}`} style={{ height: `${(v / max) * 100}%` }} title={`${MONTHS[i]}: ${v}${unidad}`} />
-          </div>
-          <span className="text-[9px] text-slate-500">{MONTHS[i][0]}</span>
-        </div>
-      ))}
-    </div>
+  const datos = useMemo(
+    () => ({ trabajo, gym, tenisSesiones, tenisPartidos, estudio, aportaciones, finanzas }),
+    [trabajo, gym, tenisSesiones, tenisPartidos, estudio, aportaciones, finanzas]
   );
 
-  const Kpi = ({ label, val, prev, unidad, money }) => {
-    const d = pctDiff(val, prev);
-    return (
-      <Card>
-        <p className="text-sm text-slate-400">{label}</p>
-        <p className="text-2xl font-bold text-slate-100">{money ? fmtEuro(val) : `${val}${unidad || ""}`}</p>
-        <p className={`text-xs ${d === null ? "text-slate-500" : d >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-          {d === null ? `sin datos de ${year - 1}` : `${d >= 0 ? "▲" : "▼"} ${Math.abs(d)}% vs ${year - 1}`}
-        </p>
-      </Card>
-    );
-  };
+  const rango = useMemo(() => rangoDe(periodo, ancla), [periodo, ancla]);
+  const rangoPrevio = useMemo(() => rangoDe(periodo, mover(periodo, ancla, -1)), [periodo, ancla]);
+
+  const ahora = useMemo(() => metricas(datos, rango), [datos, rango]);
+  const antes = useMemo(() => metricas(datos, rangoPrevio), [datos, rangoPrevio]);
+
+  const tramos = useMemo(() => tramosDe(periodo, rango), [periodo, rango]);
+  const barras = useMemo(() => serie(datos, tramos, grafica), [datos, tramos, grafica]);
+  const maximo = Math.max(...barras.map((b) => b.valor), 1);
+
+  const metaInfo = useMemo(() => metasConseguidas(metas), [metas]);
+  const metricaGrafica = METRICAS.find((m) => m.id === grafica) ?? METRICAS[0];
+
+  // Sueño medio los días de gimnasio frente al resto.
+  const patron = useMemo(() => {
+    const diasGym = new Set(gym.map((g) => g.fecha));
+    const media = (filas) =>
+      filas.length ? Math.round((filas.reduce((t, h) => t + Number(h.sueno), 0) / filas.length) * 10) / 10 : 0;
+    const conSueno = salud.filter((h) => h.sueno);
+    return {
+      conGym: media(conSueno.filter((h) => diasGym.has(h.fecha))),
+      sinGym: media(conSueno.filter((h) => !diasGym.has(h.fecha))),
+    };
+  }, [gym, salud]);
+
+  const nombrePeriodo = PERIODOS.find((p) => p.id === periodo)?.nombre.toLowerCase() ?? "periodo";
 
   return (
     <div>
-      <SectionTitle icon={BarChart3} title="Analítica anual" subtitle="Compara años y descubre patrones" />
+      <SectionTitle
+        icon={BarChart3}
+        title="Analítica"
+        subtitle="Tus números por semana, mes, trimestre o año"
+      />
 
-      <div className="mb-6 flex items-center justify-center gap-4">
-        <button onClick={() => setYear(year - 1)} className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700"><ChevronLeft size={18} /></button>
-        <span className="text-lg font-bold text-slate-100">{year}</span>
-        <button onClick={() => setYear(year + 1)} className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700"><ChevronRight size={18} /></button>
-      </div>
+      <Card className="mb-6">
+        <div className="mb-3 flex flex-wrap gap-1.5">
+          {PERIODOS.map((p) => (
+            <button
+              key={p.id}
+              onClick={() => setPeriodo(p.id)}
+              className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                periodo === p.id
+                  ? "bg-indigo-500 text-white"
+                  : "border border-slate-700 bg-slate-800 text-slate-300 hover:border-indigo-500"
+              }`}
+            >
+              {p.nombre}
+            </button>
+          ))}
+        </div>
 
-      <div className="mb-6 grid grid-cols-2 gap-4">
-        <Kpi label={`Horas de trabajo ${year}`} val={workThis} prev={workPrev} unidad="h" />
-        <Kpi label={`Invertido ${year}`} val={invThis} prev={invPrev} money />
-      </div>
-
-      <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Card>
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-slate-100">Horas de trabajo por mes</h2>
-            <button onClick={exportarGrafica} className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-1 text-xs font-medium text-slate-300 transition hover:border-indigo-500">Descargar imagen</button>
-          </div>
-          <Bars data={workByMonth} max={maxW} unidad="h" color="bg-gradient-to-t from-indigo-600 to-indigo-400" />
-        </Card>
-        <Card>
-          <h2 className="mb-4 text-lg font-semibold text-slate-100">Sesiones de gym por mes</h2>
-          <Bars data={gymByMonth} max={maxG} unidad="" color="bg-gradient-to-t from-emerald-600 to-emerald-400" />
-        </Card>
-      </div>
-
-      <Card>
-        <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-slate-100"><Lightbulb size={18} className="text-amber-400" /> Patrones</h2>
-        {suenoGym && suenoNoGym ? (
-          <p className="text-sm text-slate-300">
-            Duermes de media <b className="text-emerald-400">{suenoGym}h</b> los días que entrenas frente a <b>{suenoNoGym}h</b> los que no.
-            {suenoGym > suenoNoGym ? " Entrenar parece ayudarte a descansar mejor." : " Los días de entreno descansas algo menos, ojo con la recuperación."}
-          </p>
-        ) : (
-          <p className="text-sm text-slate-500">Registra sueño (en Salud) y marcas de gym para ver correlaciones entre entrenar y descansar.</p>
-        )}
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={() => setAncla(mover(periodo, ancla, -1))}
+            aria-label={`${nombrePeriodo} anterior`}
+            className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-800 text-slate-300 transition hover:bg-slate-700"
+          >
+            <ChevronLeft size={18} />
+          </button>
+          <span className="text-lg font-bold text-slate-100">{rango.etiqueta}</span>
+          <button
+            onClick={() => setAncla(mover(periodo, ancla, 1))}
+            aria-label={`${nombrePeriodo} siguiente`}
+            className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-800 text-slate-300 transition hover:bg-slate-700"
+          >
+            <ChevronRight size={18} />
+          </button>
+          {ancla !== todayISO() && (
+            <button onClick={() => setAncla(todayISO())} className="text-xs text-indigo-400 underline">
+              Volver a hoy
+            </button>
+          )}
+          <span className="ml-auto text-xs text-slate-500">
+            Comparado con {rangoPrevio.etiqueta}
+          </span>
+        </div>
       </Card>
+
+      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {METRICAS.map((m) => {
+          const valor = ahora[m.id];
+          const previo = antes[m.id];
+          const dif = variacion(valor, previo);
+          const activa = grafica === m.id;
+          return (
+            <button
+              key={m.id}
+              onClick={() => setGrafica(m.id)}
+              aria-pressed={activa}
+              className={`rounded-2xl border p-4 text-left shadow-lg transition ${
+                activa
+                  ? "border-indigo-500 bg-slate-900/80"
+                  : "border-slate-800 bg-slate-900/60 hover:border-slate-700"
+              }`}
+            >
+              <p className="text-xs text-slate-400">{m.nombre}</p>
+              <p className={`text-2xl font-bold ${m.color}`}>
+                {m.dinero ? fmtEuro(valor) : `${valor}${m.unidad}`}
+              </p>
+              <p
+                className={`text-xs ${
+                  dif === null ? "text-slate-500" : dif >= 0 ? "text-emerald-400" : "text-rose-400"
+                }`}
+              >
+                {dif === null
+                  ? `sin datos anteriores`
+                  : `${dif >= 0 ? "▲" : "▼"} ${Math.abs(dif)}% vs ${nombrePeriodo} anterior`}
+              </p>
+            </button>
+          );
+        })}
+      </div>
+
+      <Card className="mb-6">
+        <h2 className="mb-1 text-lg font-semibold text-slate-100">
+          {metricaGrafica.nombre} · {rango.etiqueta}
+        </h2>
+        <p className="mb-4 text-xs text-slate-500">
+          Toca cualquier tarjeta de arriba para ver su evolución aquí.
+        </p>
+        <div className="flex h-40 items-end gap-1">
+          {barras.map((b, i) => (
+            <div key={i} className="flex min-w-0 flex-1 flex-col items-center gap-1">
+              <div className="flex w-full flex-1 items-end">
+                <div
+                  className="w-full rounded-t bg-gradient-to-t from-indigo-600 to-indigo-400"
+                  style={{ height: `${(b.valor / maximo) * 100}%` }}
+                  title={`${b.etiqueta}: ${b.valor}${metricaGrafica.unidad}`}
+                />
+              </div>
+              {/* Con 28-31 barras no caben todas las etiquetas: se pone una de cada tres. */}
+              <span className="truncate text-[9px] text-slate-500">
+                {barras.length > 12 && i % 3 !== 0 ? "" : b.etiqueta}
+              </span>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Card>
+          <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-slate-100">
+            <Flag size={18} className="text-indigo-400" /> Metas conseguidas
+          </h2>
+          <p className="text-3xl font-bold text-slate-100">
+            {metaInfo.cumplidas}
+            <span className="text-lg font-medium text-slate-500"> / {metaInfo.total}</span>
+          </p>
+          {metaInfo.lista.length > 0 ? (
+            <ul className="mt-3 space-y-1">
+              {metaInfo.lista.map((m) => (
+                <li key={m.id ?? m.titulo} className="flex items-center gap-2 text-sm text-slate-300">
+                  <span className="text-emerald-400">✓</span> {m.titulo}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-2 text-sm text-slate-500">
+              {metaInfo.total === 0 ? "Aún no tienes metas puestas." : "Ninguna alcanzada todavía."}
+            </p>
+          )}
+          <p className="mt-3 text-xs text-slate-500">
+            Es la situación de ahora mismo, no del {nombrePeriodo}: las metas no guardan la fecha en
+            que se cumplen.
+          </p>
+        </Card>
+
+        <Card>
+          <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-slate-100">
+            <Lightbulb size={18} className="text-amber-400" /> Patrones
+          </h2>
+          {patron.conGym && patron.sinGym ? (
+            <p className="text-sm text-slate-300">
+              Duermes de media <b className="text-emerald-400">{patron.conGym}h</b> los días que
+              entrenas frente a <b>{patron.sinGym}h</b> los que no.
+              {patron.conGym > patron.sinGym
+                ? " Entrenar parece ayudarte a descansar mejor."
+                : " Los días de entreno descansas algo menos, ojo con la recuperación."}
+            </p>
+          ) : (
+            <p className="text-sm text-slate-500">
+              Registra sueño (en Salud) y sesiones de gimnasio para ver si entrenar te hace descansar
+              mejor.
+            </p>
+          )}
+          {ahora.horasEstudio === 0 && (
+            <p className="mt-3 text-xs text-slate-500">
+              Las horas de estudio se cuentan desde que las apuntas en Universidad; el contador
+              antiguo por asignatura no guardaba la fecha, así que no entra aquí.
+            </p>
+          )}
+        </Card>
+      </div>
     </div>
   );
 }

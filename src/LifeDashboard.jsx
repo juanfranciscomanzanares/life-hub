@@ -69,15 +69,11 @@ const Salud = lazy(() => import("./sections/Salud.jsx"));
 const Resumen = lazy(() => import("./sections/Resumen.jsx"));
 const Gimnasio = lazy(() => import("./sections/Gimnasio.jsx"));
 const Foco = lazy(() => import("./sections/Foco.jsx"));
-const Logros = lazy(() => import("./sections/Logros.jsx"));
 const Analitica = lazy(() => import("./sections/Analitica.jsx"));
-const Repaso = lazy(() => import("./sections/Repaso.jsx"));
-const Adjuntos = lazy(() => import("./sections/Adjuntos.jsx"));
-const Etiquetas = lazy(() => import("./sections/Etiquetas.jsx"));
 const Coach = lazy(() => import("./sections/Coach.jsx"));
 const Proximos = lazy(() => import("./sections/Proximos.jsx"));
 const Ajustes = lazy(() => import("./sections/Ajustes.jsx"));
-import { Flag, CalendarDays, Database, HeartPulse, Sparkles, Timer, Trophy, Sun, Moon, Image, Tag, CalendarClock, Settings, ChevronDown } from "lucide-react";
+import { Flag, CalendarDays, Database, HeartPulse, Sparkles, Timer, Sun, Moon, CalendarClock, Settings, ChevronDown } from "lucide-react";
 const TenisMesa = lazy(() => import("./sections/TenisMesa.jsx"));
 const TenisEntrenos = lazy(() => import("./sections/TenisEntrenos.jsx"));
 const Metas = lazy(() => import("./sections/Metas.jsx"));
@@ -381,6 +377,7 @@ function Universidad() {
   const [tasks, setTasks] = usePersisted("lh_uni_tasks", INITIAL_UNI_TASKS);
   const [filter, setFilter] = useState("Todas");
   const [studyHours, setStudyHours] = usePersisted("lh_study_hours", INITIAL_STUDY_HOURS);
+  const [studyLog, setStudyLog] = usePersisted("lh_study_log", []);
   const [newTask, setNewTask] = useState("");
   const [newSubject, setNewSubject] = useState(SUBJECTS[0]);
 
@@ -391,7 +388,6 @@ function Universidad() {
   const [contrasenaUMU, setContrasenaUMU] = useState("");
   const [sincronizando, setSincronizando] = useState(false);
   const [errorAula, setErrorAula] = useState("");
-  const [soloPendientes, setSoloPendientes] = useState(true);
   const [asignaturaAbierta, setAsignaturaAbierta] = useState(null);
 
   const sincronizarAula = async () => {
@@ -422,11 +418,9 @@ function Universidad() {
     () => normalizarTareas(Array.isArray(aulaCrudo) ? { tareas: aulaCrudo, sitios: [] } : aulaCrudo),
     [aulaCrudo]
   );
-  const aulaPendientes = useMemo(() => aulaTareas.filter(esPendiente), [aulaTareas]);
-  const aulaGrupos = useMemo(
-    () => agruparPorAsignatura(soloPendientes ? aulaPendientes : aulaTareas),
-    [aulaTareas, aulaPendientes, soloPendientes]
-  );
+  // La función ya solo devuelve pendientes; se vuelve a filtrar por si una
+  // tarea venció entre la última sincronización y ahora.
+  const aulaGrupos = useMemo(() => agruparPorAsignatura(aulaTareas.filter(esPendiente)), [aulaTareas]);
 
   const anadirDelAula = (tarea) => {
     if (yaAnadida(tasks, tarea.id)) return;
@@ -456,7 +450,33 @@ function Universidad() {
     [tasks]
   );
 
-  const totalStudy = Object.values(studyHours).reduce((a, b) => a + b, 0);
+  const totalStudy = Object.values(studyHours).reduce((a, b) => a + (Number(b) || 0), 0);
+
+  /*
+    Sumar o restar una hora de estudio.
+
+    Se guardan dos cosas: el contador de siempre (`lh_study_hours`, un total por
+    asignatura) y un registro fechado (`lh_study_log`), que es el que puede
+    repartirse por semanas o meses en Analítica. El contador no vale para eso
+    porque nunca guardó la fecha.
+
+    Restar borra la última hora apuntada de esa asignatura en vez de meter una
+    de -1 h: así el registro no acumula horas negativas que descuadrarían
+    cualquier suma por periodo.
+  */
+  const cambiarEstudio = (asignatura, delta) => {
+    const actual = Number(studyHours[asignatura]) || 0;
+    if (delta < 0 && actual === 0) return;
+    setStudyHours({ ...studyHours, [asignatura]: Math.max(0, actual + delta) });
+
+    if (delta > 0) {
+      setStudyLog([...studyLog, { id: Date.now(), fecha: todayISO(), subject: asignatura, horas: 1 }]);
+      return;
+    }
+
+    const ultima = [...studyLog].reverse().find((e) => e.subject === asignatura);
+    if (ultima) setStudyLog(studyLog.filter((e) => e.id !== ultima.id));
+  };
 
   const addTask = () => {
     if (!newTask.trim()) return;
@@ -640,10 +660,11 @@ function Universidad() {
           <Link2 size={18} className="text-sky-400" /> Aula Virtual UMU
         </h2>
         <p className="mb-4 text-xs text-slate-500">
-          Trae tus tareas de todas las asignaturas, agrupadas y con su estado. La contraseña solo se usa
-          para entrar en el Aula Virtual en ese momento: no se guarda en ningún sitio (ni aquí, ni en el
-          servidor) y el campo se vacía al terminar. Salen también los cursos anteriores, así que hasta
-          que se publiquen las asignaturas de 2026/2027 verás sobre todo tareas ya cerradas.
+          Trae tus tareas <b>pendientes</b> de todas las asignaturas, agrupadas por asignatura. Las
+          cerradas y las que ya has entregado no se descargan: son casi todo el histórico y solo hacían
+          la sincronización más lenta. La contraseña solo se usa para entrar en el Aula Virtual en ese
+          momento: no se guarda en ningún sitio (ni aquí, ni en el servidor) y el campo se vacía al
+          terminar.
         </p>
 
         <div className="mb-4 flex flex-wrap gap-2">
@@ -679,37 +700,16 @@ function Universidad() {
         )}
 
         {aulaUltimaSync && (
-          <div className="mb-3 flex flex-wrap items-center gap-2">
-            <p className="text-xs text-slate-500">
-              Última sincronización: {new Date(aulaUltimaSync).toLocaleString("es-ES")} ·{" "}
-              {aulaTareas.length} tarea{aulaTareas.length === 1 ? "" : "s"}
-            </p>
-            <div className="ml-auto flex gap-1.5">
-              {[
-                [true, `Pendientes (${aulaPendientes.length})`],
-                [false, `Todas (${aulaTareas.length})`],
-              ].map(([valor, etiqueta]) => (
-                <button
-                  key={etiqueta}
-                  onClick={() => setSoloPendientes(valor)}
-                  className={`rounded-lg px-3 py-1 text-xs font-medium transition ${
-                    soloPendientes === valor
-                      ? "bg-indigo-500 text-white"
-                      : "border border-slate-700 bg-slate-800 text-slate-300 hover:border-indigo-500"
-                  }`}
-                >
-                  {etiqueta}
-                </button>
-              ))}
-            </div>
-          </div>
+          <p className="mb-3 text-xs text-slate-500">
+            Última sincronización: {new Date(aulaUltimaSync).toLocaleString("es-ES")} ·{" "}
+            {aulaTareas.length} tarea{aulaTareas.length === 1 ? "" : "s"} pendiente
+            {aulaTareas.length === 1 ? "" : "s"}
+          </p>
         )}
 
         {aulaUltimaSync && aulaGrupos.length === 0 && (
           <p className="rounded-xl border border-slate-800 bg-slate-800/40 px-4 py-6 text-center text-sm text-slate-500">
-            {soloPendientes
-              ? "Ninguna tarea pendiente. Las de cursos ya cerrados están en «Todas»."
-              : "El Aula Virtual no ha devuelto ninguna tarea."}
+            Ninguna tarea pendiente ahora mismo.
           </p>
         )}
 
@@ -889,18 +889,18 @@ function Universidad() {
                 <span className={`rounded-md px-2 py-0.5 text-xs font-medium ${subjectColor(s)}`}>{s}</span>
                 <div className="flex items-center gap-3">
                   <button
-                    onClick={() =>
-                      setStudyHours({ ...studyHours, [s]: Math.max(0, studyHours[s] - 1) })
-                    }
+                    onClick={() => cambiarEstudio(s, -1)}
+                    aria-label={`Quitar una hora de ${s}`}
                     className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-700 text-slate-200 transition hover:bg-slate-600"
                   >
                     −
                   </button>
                   <span className="w-10 text-center text-sm font-semibold text-slate-100">
-                    {studyHours[s]}h
+                    {studyHours[s] || 0}h
                   </span>
                   <button
-                    onClick={() => setStudyHours({ ...studyHours, [s]: studyHours[s] + 1 })}
+                    onClick={() => cambiarEstudio(s, 1)}
+                    aria-label={`Añadir una hora de ${s}`}
                     className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-500 text-white transition hover:bg-indigo-400"
                   >
                     +
@@ -2009,10 +2009,6 @@ const NAV_GROUPS = [
     icon: Brain,
     items: [
       { id: "cerebro", label: "Segundo Cerebro", icon: Brain },
-      { id: "repaso", label: "Repaso", icon: Brain },
-      { id: "adjuntos", label: "Adjuntos", icon: Image },
-      { id: "etiquetas", label: "Etiquetas", icon: Tag },
-      { id: "logros", label: "Logros", icon: Trophy },
       { id: "analitica", label: "Analítica", icon: BarChart3 },
     ],
   },
@@ -2260,11 +2256,11 @@ export default function LifeDashboard({ userEmail = null, onSignOut = null }) {
           {active === "proximos" && <Proximos />}
           {active === "cerebro" && <SegundoCerebro />}
           {active === "foco" && <Foco />}
-          {active === "logros" && <Logros />}
+          
           {active === "analitica" && <Analitica />}
-          {active === "repaso" && <Repaso />}
-          {active === "adjuntos" && <Adjuntos />}
-          {active === "etiquetas" && <Etiquetas />}
+          
+          
+          
           {active === "datos" && <Datos />}
           {active === "ajustes" && <Ajustes />}
           </Suspense>

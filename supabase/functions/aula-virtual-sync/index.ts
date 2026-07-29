@@ -153,7 +153,25 @@ Deno.serve(async (req) => {
         id: s.entityId ?? s.id,
         titulo: s.title ?? s.entityTitle ?? s.entityId ?? s.id,
       })),
-      tareas: (tareas?.assignment_collection ?? tareas?.assignments ?? []).map((a: any) => ({
+      tareas: (tareas?.assignment_collection ?? tareas?.assignments ?? [])
+        /*
+          Solo lo que sigue vivo. El histórico no se usa para nada y era casi
+          todo: de 129 tareas, unas 120 son de cursos ya cerrados. Filtrarlo
+          aquí es lo que hace que sincronizar deje de tardar tanto, porque lo
+          que se ahorra es lo que viaja por la red.
+
+          El corte es tosco a propósito (fecha pasada o ya entregada); el
+          estado fino lo calcula src/lib/aula.js al pintar, que es donde está
+          cubierto por tests y donde se puede recalcular sin volver a
+          sincronizar.
+        */
+        .filter((a: any) => {
+          if (a.draft) return false;
+          if ((a.submissions ?? []).some((s: any) => s.submitted && s.userSubmission)) return false;
+          const limite = a.closeTimeString ?? a.dueTimeString ?? a.closeTime ?? a.dueTime;
+          return !limite || new Date(limite) >= new Date();
+        })
+        .map((a: any) => ({
         id: a.id ?? a.entityId,
         titulo: a.title ?? "",
         contexto: a.context ?? "",
