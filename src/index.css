@@ -329,6 +329,164 @@ html[data-theme="light"][data-accent="violeta"] {
 }
 
 /*
+  --- Color por sección ---
+
+  Cada área tiene su tono. El shell pone `data-seccion` en el contenedor de la
+  sección activa y aquí se redefinen las variables --c-seccion-*, que Tailwind
+  expone como `text-seccion-400`, `bg-seccion-500/15`, etc.
+
+  Se usa para el título de sección, el resplandor superior y los detalles de
+  cada pantalla. El color de acento global (--c-indigo-*, elegible en Ajustes)
+  sigue mandando en botones y foco: son dos capas distintas, y mezclarlas
+  dejaría la app sin ningún color estable.
+
+  El gimnasio es el único con un neutro (acero). El validador de paletas lo
+  marcaría por "leerse gris", pero esa regla es para SERIES DE UNA GRÁFICA, que
+  compiten entre sí en la misma imagen; aquí es un acento de interfaz que nunca
+  aparece junto a los demás, y en el 300/400 tiene contraste de sobra.
+
+  Igual que la paleta base, cada tono trae su versión clara: los pasos 300 y
+  400 se oscurecen para que el texto siga leyéndose sobre blanco.
+*/
+:root,
+[data-seccion="inicio"],
+[data-seccion="analitica"] {
+  --c-seccion-300: 165 180 252;
+  --c-seccion-400: 129 140 248;
+  --c-seccion-500: 99 102 241;
+}
+[data-seccion="universidad"] {
+  --c-seccion-300: 103 232 249;
+  --c-seccion-400: 34 211 238;
+  --c-seccion-500: 6 182 212;
+}
+[data-seccion="trabajo"],
+[data-seccion="foco"],
+[data-seccion="cerebro"] {
+  --c-seccion-300: 196 181 253;
+  --c-seccion-400: 167 139 250;
+  --c-seccion-500: 139 92 246;
+}
+[data-seccion="gimnasio"] {
+  --c-seccion-300: 203 213 225;
+  --c-seccion-400: 148 163 184;
+  --c-seccion-500: 100 116 139;
+}
+[data-seccion="tenis"],
+[data-seccion="tenis-notas"] {
+  --c-seccion-300: 253 164 175;
+  --c-seccion-400: 251 113 133;
+  --c-seccion-500: 244 63 94;
+}
+[data-seccion="finanzas"],
+[data-seccion="inversiones"] {
+  --c-seccion-300: 110 231 183;
+  --c-seccion-400: 52 211 153;
+  --c-seccion-500: 16 185 129;
+}
+[data-seccion="salud"] {
+  --c-seccion-300: 240 171 252;
+  --c-seccion-400: 232 121 249;
+  --c-seccion-500: 217 70 239;
+}
+[data-seccion="habitos"],
+[data-seccion="metas"] {
+  --c-seccion-300: 252 211 77;
+  --c-seccion-400: 251 191 36;
+  --c-seccion-500: 245 158 11;
+}
+[data-seccion="calendario"],
+[data-seccion="proximos"] {
+  --c-seccion-300: 147 197 253;
+  --c-seccion-400: 96 165 250;
+  --c-seccion-500: 59 130 246;
+}
+[data-seccion="datos"],
+[data-seccion="ajustes"] {
+  --c-seccion-300: 203 213 225;
+  --c-seccion-400: 148 163 184;
+  --c-seccion-500: 100 116 139;
+}
+
+/*
+  Ojo con el selector: `html[data-theme="light"] :root` NO vale, porque :root
+  ES el propio html y no puede estar dentro de sí mismo. El valor por defecto
+  del tema claro va en el html directamente.
+*/
+html[data-theme="light"],
+html[data-theme="light"] [data-seccion="inicio"],
+html[data-theme="light"] [data-seccion="analitica"] {
+  --c-seccion-300: 67 56 202;
+  --c-seccion-400: 79 70 229;
+  --c-seccion-500: 99 102 241;
+}
+html[data-theme="light"] [data-seccion="universidad"] {
+  --c-seccion-300: 14 116 144;
+  --c-seccion-400: 8 145 178;
+}
+html[data-theme="light"] [data-seccion="trabajo"],
+html[data-theme="light"] [data-seccion="foco"],
+html[data-theme="light"] [data-seccion="cerebro"] {
+  --c-seccion-300: 109 40 217;
+  --c-seccion-400: 124 58 237;
+}
+html[data-theme="light"] [data-seccion="gimnasio"],
+html[data-theme="light"] [data-seccion="datos"],
+html[data-theme="light"] [data-seccion="ajustes"] {
+  --c-seccion-300: 51 65 85;
+  --c-seccion-400: 71 85 105;
+}
+html[data-theme="light"] [data-seccion="tenis"],
+html[data-theme="light"] [data-seccion="tenis-notas"] {
+  --c-seccion-300: 190 18 60;
+  --c-seccion-400: 225 29 72;
+}
+html[data-theme="light"] [data-seccion="finanzas"],
+html[data-theme="light"] [data-seccion="inversiones"] {
+  --c-seccion-300: 4 120 87;
+  --c-seccion-400: 5 150 105;
+}
+html[data-theme="light"] [data-seccion="salud"] {
+  --c-seccion-300: 162 28 175;
+  --c-seccion-400: 192 38 211;
+}
+html[data-theme="light"] [data-seccion="habitos"],
+html[data-theme="light"] [data-seccion="metas"] {
+  --c-seccion-300: 180 83 9;
+  --c-seccion-400: 217 119 6;
+  --c-seccion-500: 217 119 6;
+}
+html[data-theme="light"] [data-seccion="calendario"],
+html[data-theme="light"] [data-seccion="proximos"] {
+  --c-seccion-300: 29 78 216;
+  --c-seccion-400: 37 99 235;
+}
+
+/*
+  Resplandor del color de la sección en la parte de arriba del contenido. Es lo
+  que hace que se note el cambio de área al navegar sin tener que teñir las
+  tarjetas, que dejarían de leerse igual en todas las pantallas.
+*/
+.lh-seccion {
+  position: relative;
+}
+.lh-seccion::before {
+  content: "";
+  position: absolute;
+  top: -2rem;
+  left: 50%;
+  z-index: -1;
+  height: 22rem;
+  width: min(60rem, 120%);
+  transform: translateX(-50%);
+  pointer-events: none;
+  background: radial-gradient(50% 50% at 50% 0%, rgb(var(--c-seccion-500) / 0.16), transparent 70%);
+}
+html[data-theme="light"] .lh-seccion::before {
+  background: radial-gradient(50% 50% at 50% 0%, rgb(var(--c-seccion-500) / 0.12), transparent 70%);
+}
+
+/*
   --- Barras que se llenan ---
 
   Las barras de progreso llevan su ancho/alto como style inline; animar la

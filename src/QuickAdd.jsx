@@ -52,7 +52,8 @@ export default function QuickAdd() {
       <button
         onClick={() => setOpen(true)}
         aria-label="Añadido rápido"
-        className="fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-indigo-500 text-white shadow-xl transition hover:bg-indigo-400"
+        // En movil sube para no quedar debajo de la barra inferior de navegacion.
+        className="fixed bottom-20 right-4 z-40 lg:bottom-6 lg:right-6 flex h-14 w-14 items-center justify-center rounded-full bg-indigo-500 text-white shadow-xl transition hover:bg-indigo-400"
       >
         <Plus size={26} />
       </button>

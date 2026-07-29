@@ -13,6 +13,8 @@
   una sección (verde = ganado, rojo = perdido): ahí el color significa algo y
   tiene que decir lo mismo en los dos temas.
 */
+import { useState, useId } from "react";
+import { caminoSuave } from "./curva";
 
 // Anillo de proporción. Para un reparto de dos valores (ganados/perdidos) se
 // lee de un vistazo mucho mejor que dos barras.
@@ -63,8 +65,24 @@ export function Anillo({ valor, total, etiqueta, color = "rgb(var(--c-emerald-40
 /*
   Línea de evolución con área. Para una serie temporal es mucho más claro que
   barras: la tendencia se ve de un vistazo.
+
+  Tres cosas que la hacen legible:
+
+  - La curva es una spline MONÓTONA (ver src/lib/curva.js): suaviza sin
+    inventarse valles ni picos entre dos puntos, cosa que una curva suave
+    normal sí hace y que en una gráfica de peso o de euros sería mentir.
+  - El área se rellena con un degradado que se desvanece hacia abajo, para que
+    no compita con la línea, que es la que lleva el dato.
+  - El cursor no tiene que acertar sobre la línea: una franja invisible por
+    punto captura el ratón y se marca el más cercano. Aciertas apuntando a una
+    jornada, no a una línea de 2 píxeles.
 */
 export function Linea({ datos, valor, etiqueta, color = "rgb(var(--c-indigo-400))", sufijo = "", max = 100 }) {
+  const [activo, setActivo] = useState(null);
+  // Un id propio por gráfica: dos degradados con el mismo id en la misma página
+  // hacen que la segunda gráfica use el color de la primera.
+  const idGrad = useId();
+
   if (datos.length < 2)
     return (
       <p className="py-10 text-center text-sm text-slate-500">
@@ -83,50 +101,123 @@ export function Linea({ datos, valor, etiqueta, color = "rgb(var(--c-indigo-400)
   const y = (v) => pad.arriba + alto - (v / tope) * alto;
 
   const puntos = datos.map((d, i) => [x(i), y(valor(d))]);
-  const linea = puntos.map((p, i) => `${i ? "L" : "M"}${p[0]},${p[1]}`).join(" ");
-  const area = `${linea} L${puntos[puntos.length - 1][0]},${pad.arriba + alto} L${puntos[0][0]},${pad.arriba + alto} Z`;
+  const linea = caminoSuave(puntos);
+  const base = pad.arriba + alto;
+  const area = `${linea} L${puntos[puntos.length - 1][0]},${base} L${puntos[0][0]},${base} Z`;
 
   // Una etiqueta de cada N para que no se amontonen con muchas jornadas.
   const salto = Math.ceil(datos.length / 10);
+  const anchoFranja = ancho / Math.max(1, datos.length - 1);
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img">
-      {[0, 25, 50, 75, 100].map((p) => {
-        const v = (p / 100) * tope;
-        return (
-          <g key={p}>
-            <line x1={pad.i} x2={W - pad.d} y1={y(v)} y2={y(v)} stroke="rgb(var(--c-slate-800))" strokeWidth="1" />
-            <text x={pad.i - 6} y={y(v) + 4} textAnchor="end" className="fill-slate-600 text-[11px]">
-              {Math.round(v)}
-            </text>
-          </g>
-        );
-      })}
+    <div className="relative">
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        className="w-full"
+        role="img"
+        onPointerLeave={() => setActivo(null)}
+      >
+        <defs>
+          <linearGradient id={`area-${idGrad}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.32" />
+            <stop offset="100%" stopColor={color} stopOpacity="0.02" />
+          </linearGradient>
+        </defs>
 
-      <path d={area} fill={color} opacity="0.14" />
-      <path d={linea} fill="none" stroke={color} strokeWidth="2.5" strokeLinejoin="round" />
+        {[0, 25, 50, 75, 100].map((p) => {
+          const v = (p / 100) * tope;
+          return (
+            <g key={p}>
+              <line x1={pad.i} x2={W - pad.d} y1={y(v)} y2={y(v)} stroke="rgb(var(--c-slate-800))" strokeWidth="1" />
+              <text x={pad.i - 6} y={y(v) + 4} textAnchor="end" className="fill-slate-600 text-[11px]">
+                {Math.round(v)}
+              </text>
+            </g>
+          );
+        })}
 
-      {puntos.map((p, i) => (
-        <g key={i}>
-          <circle cx={p[0]} cy={p[1]} r="3.5" fill={color} />
-          <title>{`${etiqueta(datos[i])}: ${valor(datos[i])}${sufijo}`}</title>
-        </g>
-      ))}
+        <path d={area} fill={`url(#area-${idGrad})`} />
+        <path d={linea} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
 
-      {datos.map((d, i) =>
-        i % salto === 0 ? (
-          <text
+        {/* Guía vertical del punto señalado. */}
+        {activo !== null && (
+          <line
+            x1={puntos[activo][0]}
+            x2={puntos[activo][0]}
+            y1={pad.arriba}
+            y2={base}
+            stroke={color}
+            strokeWidth="1"
+            strokeDasharray="3 3"
+            opacity="0.6"
+          />
+        )}
+
+        {puntos.map((p, i) => (
+          <circle
             key={i}
-            x={x(i)}
-            y={H - 6}
-            textAnchor="middle"
-            className="fill-slate-500 text-[11px]"
-          >
-            {etiqueta(d)}
-          </text>
-        ) : null
+            cx={p[0]}
+            cy={p[1]}
+            r={activo === i ? 5 : 3}
+            fill={color}
+            // El anillo del color del fondo despega el punto del área.
+            stroke="rgb(var(--lh-fondo))"
+            strokeWidth="2"
+          />
+        ))}
+
+        {datos.map((d, i) =>
+          i % salto === 0 ? (
+            <text key={i} x={x(i)} y={H - 6} textAnchor="middle" className="fill-slate-500 text-[11px]">
+              {etiqueta(d)}
+            </text>
+          ) : null
+        ) }
+
+        {/*
+          Zonas de captura: una franja por punto, de lado a lado en vertical.
+          Son transparentes y van al final para quedar por encima de todo.
+        */}
+        {datos.map((d, i) => (
+          <rect
+            key={`z${i}`}
+            x={puntos[i][0] - anchoFranja / 2}
+            y={pad.arriba}
+            width={anchoFranja}
+            height={alto}
+            fill="transparent"
+            onPointerEnter={() => setActivo(i)}
+            onFocus={() => setActivo(i)}
+            tabIndex={0}
+            role="img"
+            aria-label={`${etiqueta(d)}: ${valor(d)}${sufijo}`}
+          />
+        ))}
+      </svg>
+
+      {/*
+        El aviso va en HTML y no dentro del SVG: así hereda la tipografía y los
+        colores de la app sin repetirlos, y no hay que calcular saltos de línea
+        a mano. Se coloca en porcentaje sobre el contenedor, que es lo que hace
+        que siga al punto aunque el SVG se escale.
+      */}
+      {activo !== null && (
+        <div
+          className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full rounded-lg border border-slate-700 bg-slate-900/95 px-2.5 py-1.5 text-center shadow-lg"
+          style={{
+            left: `${(puntos[activo][0] / W) * 100}%`,
+            top: `${(puntos[activo][1] / H) * 100}%`,
+            marginTop: "-10px",
+          }}
+        >
+          <p className="text-sm font-bold tabular-nums text-slate-100">
+            {valor(datos[activo])}
+            {sufijo}
+          </p>
+          <p className="text-[11px] text-slate-400">{etiqueta(datos[activo])}</p>
+        </div>
       )}
-    </svg>
+    </div>
   );
 }
 
@@ -171,6 +262,8 @@ export function BarrasH({ datos, valor, etiqueta, detalle, color = "bg-indigo-50
   coordenadas son absolutas y no dependen del contexto de maquetación.
 */
 export function BarrasApiladas({ datos }) {
+  const [activo, setActivo] = useState(null);
+
   if (!datos.length)
     return <p className="py-8 text-center text-sm text-slate-500">Sin partidos todavía.</p>;
 
@@ -185,63 +278,116 @@ export function BarrasApiladas({ datos }) {
   const grosor = Math.min(paso * 0.7, 26);
   const y = (v) => pad.arriba + alto - (v / max) * alto;
   const salto = Math.ceil(datos.length / 14);
+  const base = pad.arriba + alto;
+
+  const GANADO = "rgb(var(--c-emerald-500))";
+  const PERDIDO = "rgb(var(--c-rose-500))";
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img">
-      {Array.from({ length: max + 1 }, (_, i) => i).map((v) => (
-        <g key={v}>
-          <line x1={pad.i} x2={W - pad.d} y1={y(v)} y2={y(v)} stroke="rgb(var(--c-slate-800))" strokeWidth="1" />
-          <text x={pad.i - 6} y={y(v) + 4} textAnchor="end" className="fill-slate-600 text-[11px]">
-            {v}
-          </text>
-        </g>
-      ))}
+    <div className="relative">
+      {/* Leyenda: con dos series el color no puede ser la única pista. */}
+      <div className="mb-2 flex justify-end gap-4 text-xs text-slate-400">
+        <span className="flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-sm" style={{ background: GANADO }} /> Ganados
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-sm" style={{ background: PERDIDO }} /> Perdidos
+        </span>
+      </div>
 
-      {datos.map((d, i) => {
-        const x = pad.i + i * paso + (paso - grosor) / 2;
-        const perdidos = d.jugados - d.ganados;
-        const altoGanados = (d.ganados / max) * alto;
-        const altoPerdidos = (perdidos / max) * alto;
-        return (
-          <g key={d.jornada}>
-            {perdidos > 0 && (
-              <rect
-                x={x}
-                y={pad.arriba + alto - altoPerdidos}
-                width={grosor}
-                height={altoPerdidos}
-                fill="#f43f5e"
-                opacity="0.75"
-              >
-                <title>{`J${d.jornada}: ${perdidos} perdidos`}</title>
-              </rect>
-            )}
-            {d.ganados > 0 && (
-              <rect
-                x={x}
-                y={pad.arriba + alto - altoPerdidos - altoGanados}
-                width={grosor}
-                height={altoGanados}
-                fill="#10b981"
-                rx="2"
-              >
-                <title>{`J${d.jornada}: ${d.ganados} ganados`}</title>
-              </rect>
-            )}
-            {i % salto === 0 && (
-              <text
-                x={x + grosor / 2}
-                y={H - 6}
-                textAnchor="middle"
-                className="fill-slate-500 text-[11px]"
-              >
-                {d.jornada}
-              </text>
-            )}
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        className="w-full"
+        role="img"
+        onPointerLeave={() => setActivo(null)}
+      >
+        {Array.from({ length: max + 1 }, (_, i) => i).map((v) => (
+          <g key={v}>
+            <line x1={pad.i} x2={W - pad.d} y1={y(v)} y2={y(v)} stroke="rgb(var(--c-slate-800))" strokeWidth="1" />
+            <text x={pad.i - 6} y={y(v) + 4} textAnchor="end" className="fill-slate-600 text-[11px]">
+              {v}
+            </text>
           </g>
-        );
-      })}
-    </svg>
+        ))}
+
+        {datos.map((d, i) => {
+          const x = pad.i + i * paso + (paso - grosor) / 2;
+          const perdidos = d.jugados - d.ganados;
+          const altoGanados = (d.ganados / max) * alto;
+          const altoPerdidos = (perdidos / max) * alto;
+          const señalada = activo === i;
+          return (
+            <g key={d.jornada} opacity={activo === null || señalada ? 1 : 0.45}>
+              {perdidos > 0 && (
+                <rect
+                  x={x}
+                  y={base - altoPerdidos}
+                  width={grosor}
+                  height={altoPerdidos}
+                  fill={PERDIDO}
+                  rx="2"
+                />
+              )}
+              {d.ganados > 0 && (
+                <rect
+                  x={x}
+                  /*
+                    Los 2px de separación entre los dos tramos son a propósito:
+                    sin ellos, verde y rojo se tocan y el ojo lee una sola barra
+                    bicolor en vez de dos cantidades apiladas.
+                  */
+                  y={base - altoPerdidos - altoGanados - (perdidos > 0 ? 2 : 0)}
+                  width={grosor}
+                  height={altoGanados}
+                  fill={GANADO}
+                  rx="2"
+                />
+              )}
+              {i % salto === 0 && (
+                <text x={x + grosor / 2} y={H - 6} textAnchor="middle" className="fill-slate-500 text-[11px]">
+                  {d.jornada}
+                </text>
+              )}
+            </g>
+          );
+        })}
+
+        {/* Zona de captura por jornada, más ancha que la barra: apuntar a una
+            barra de 20px con el dedo es pedir demasiado. */}
+        {datos.map((d, i) => (
+          <rect
+            key={`z${i}`}
+            x={pad.i + i * paso}
+            y={pad.arriba}
+            width={paso}
+            height={alto}
+            fill="transparent"
+            onPointerEnter={() => setActivo(i)}
+            onFocus={() => setActivo(i)}
+            tabIndex={0}
+            role="img"
+            aria-label={`Jornada ${d.jornada}: ${d.ganados} ganados, ${d.jugados - d.ganados} perdidos`}
+          />
+        ))}
+      </svg>
+
+      {activo !== null && (
+        <div
+          className="pointer-events-none absolute z-10 -translate-x-1/2 rounded-lg border border-slate-700 bg-slate-900/95 px-2.5 py-1.5 shadow-lg"
+          style={{ left: `${((pad.i + activo * paso + paso / 2) / W) * 100}%`, bottom: "22%" }}
+        >
+          <p className="mb-1 text-[11px] text-slate-400">Jornada {datos[activo].jornada}</p>
+          <p className="flex items-center gap-1.5 text-sm font-bold tabular-nums text-slate-100">
+            <span className="h-2 w-2 rounded-sm" style={{ background: GANADO }} />
+            {datos[activo].ganados} ganados
+          </p>
+          <p className="flex items-center gap-1.5 text-sm font-bold tabular-nums text-slate-100">
+            <span className="h-2 w-2 rounded-sm" style={{ background: PERDIDO }} />
+            {datos[activo].jugados - datos[activo].ganados} perdidos
+          </p>
+        </div>
+      )}
+    </div>
   );
 }
 

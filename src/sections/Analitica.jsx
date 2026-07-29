@@ -45,6 +45,7 @@ export default function Analitica() {
   const [periodo, setPeriodo] = useState("mes");
   const [ancla, setAncla] = useState(todayISO());
   const [grafica, setGrafica] = useState("horasTrabajo");
+  const [barra, setBarra] = useState(null); // barra señalada con el cursor
 
   const [trabajo] = usePersisted("lh_work_log", []);
   const [gym] = usePersisted("lh_gym", []);
@@ -184,20 +185,30 @@ export default function Analitica() {
         <p className="mb-4 text-xs text-slate-500">
           Toca cualquier tarjeta de arriba para ver su evolución aquí.
         </p>
-        <div className="flex h-40 items-end gap-1">
+        <div className="relative flex h-40 items-end gap-1" onPointerLeave={() => setBarra(null)}>
           {barras.map((b, i) => (
-            <div key={i} className="flex min-w-0 flex-1 flex-col items-center gap-1">
+            <div
+              key={i}
+              className="group flex min-w-0 flex-1 cursor-default flex-col items-center gap-1"
+              onPointerEnter={() => setBarra(i)}
+              onFocus={() => setBarra(i)}
+              tabIndex={0}
+              aria-label={`${b.etiqueta}: ${b.valor}${metricaGrafica.unidad}`}
+            >
               <div className="flex w-full flex-1 items-end">
                 <div
-                  className="lh-barra-v w-full rounded-t bg-gradient-to-t from-indigo-600 to-indigo-400"
+                  className={`lh-barra-v w-full rounded-t bg-gradient-to-t from-seccion-500 to-seccion-400 transition-opacity ${
+                    barra !== null && barra !== i ? "opacity-40" : ""
+                  }`}
                   style={{
-                    height: `${(b.valor / maximo) * 100}%`,
+                    // min-height para que un valor pequeño pero real siga
+                    // viéndose: una barra de 0,4px es indistinguible de cero.
+                    height: `${b.valor > 0 ? Math.max(2, (b.valor / maximo) * 100) : 0}%`,
                     // Escalonado: las barras crecen de izquierda a derecha, no
                     // todas de golpe. Se corta a 400 ms para que un año (12
                     // barras) no tarde más que una semana en terminar.
                     animationDelay: `${Math.min(400, i * 22)}ms`,
                   }}
-                  title={`${b.etiqueta}: ${b.valor}${metricaGrafica.unidad}`}
                 />
               </div>
               {/* Con 28-31 barras no caben todas las etiquetas: se pone una de cada tres. */}
@@ -206,6 +217,19 @@ export default function Analitica() {
               </span>
             </div>
           ))}
+
+          {barra !== null && (
+            <div
+              className="pointer-events-none absolute -top-2 z-10 -translate-x-1/2 -translate-y-full rounded-lg border border-slate-700 bg-slate-900/95 px-2.5 py-1.5 text-center shadow-lg"
+              style={{ left: `${((barra + 0.5) / barras.length) * 100}%` }}
+            >
+              <p className="font-display text-sm font-bold tabular-nums text-slate-100">
+                {barras[barra].valor.toLocaleString("es-ES")}
+                {metricaGrafica.dinero ? "€" : metricaGrafica.unidad}
+              </p>
+              <p className="text-[11px] text-slate-400">{barras[barra].etiqueta}</p>
+            </div>
+          )}
         </div>
       </Card>
 

@@ -84,6 +84,16 @@ export default {
           300: "rgb(var(--c-teal-300) / <alpha-value>)",
           500: "rgb(var(--c-teal-500) / <alpha-value>)",
         },
+        /*
+          Color de la sección abierta. No es un tono fijo: el shell pone
+          `data-seccion` en el contenedor y index.css redefine estas variables
+          según el área (gimnasio acero, tenis rojo, dinero verde...).
+        */
+        seccion: {
+          300: "rgb(var(--c-seccion-300) / <alpha-value>)",
+          400: "rgb(var(--c-seccion-400) / <alpha-value>)",
+          500: "rgb(var(--c-seccion-500) / <alpha-value>)",
+        },
       },
     },
   },

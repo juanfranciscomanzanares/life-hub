@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Database, Download, Upload, Bell, Plus, Trash2, FileSpreadsheet, FileText, Lock, Fingerprint } from "lucide-react";
+import { Database, Download, Upload, Bell, Plus, Trash2, FileSpreadsheet, FileText, Lock, Fingerprint, Eraser } from "lucide-react";
 import { usePersisted } from "../lib/store";
 import { Card, SectionTitle, exportCSV, downloadFile, MONTHS, todayISO } from "../lib/ui";
 import { isLockEnabled, hasBiometric, biometricSupported, enableLock, disableLock, registerBiometric } from "../lib/lock";
@@ -7,6 +7,7 @@ import { encryptJSON, decryptJSON } from "../lib/crypto";
 // ALL_KEYS sale de useAutoBackup para que la copia manual y la automática
 // guarden exactamente lo mismo: antes eran dos listas y esta se quedaba corta.
 import { restoreSnapshot, ALL_KEYS } from "../lib/useAutoBackup";
+import { contarEjemplos, limpiarEjemplos } from "../lib/limpiarEjemplo";
 
 const DATASETS = [
   { key: "lh_gym", file: "gimnasio.csv", label: "Gimnasio" },
@@ -33,6 +34,38 @@ function readKey(key, fallback) {
 
 export default function Datos() {
   const [reminders, setReminders] = usePersisted("lh_reminders", []);
+
+  /*
+    Limpieza de los datos de muestra que sembraban varias secciones.
+
+    Se escribe con los setters de usePersisted y no tocando localStorage a
+    mano: así el borrado sube también a Supabase y llega al resto de tus
+    dispositivos. Si se escribiera directo, en el móvil volverían a aparecer en
+    la siguiente sincronización.
+  */
+  const [, setInvestments] = usePersisted("lh_investments", []);
+  const [, setContribs] = usePersisted("lh_contribs", []);
+  const [, setGoals] = usePersisted("lh_goals", []);
+  const [, setHealth] = usePersisted("lh_health", []);
+  const [, setRoutine] = usePersisted("lh_routine", []);
+  const [, setSavings] = usePersisted("lh_savings", []);
+  const [ejemplos, setEjemplos] = useState(() => contarEjemplos((k) => readKey(k, null)));
+
+  const limpiar = () => {
+    const cambios = limpiarEjemplos((k) => readKey(k, null));
+    const setters = {
+      lh_investments: setInvestments,
+      lh_contribs: setContribs,
+      lh_goals: setGoals,
+      lh_health: setHealth,
+      lh_routine: setRoutine,
+      lh_savings: setSavings,
+    };
+    Object.entries(cambios).forEach(([clave, filas]) => setters[clave]?.(filas));
+    setEjemplos({ total: 0, detalle: [] });
+    alert("Datos de ejemplo borrados. Se sincronizarán con tus otros dispositivos.");
+  };
+
   const [form, setForm] = useState({ cuando: "", titulo: "", repetir: "una vez" });
   const [permiso, setPermiso] = useState(typeof Notification !== "undefined" ? Notification.permission : "unsupported");
 
@@ -236,6 +269,34 @@ export default function Datos() {
   return (
     <div>
       <SectionTitle icon={Database} title="Datos y recordatorios" subtitle="Exporta, haz copias y no olvides nada" />
+
+      {/*
+        Solo aparece si de verdad queda algo que limpiar; una vez hecho, la
+        tarjeta desaparece y no vuelve a estorbar.
+      */}
+      {ejemplos.total > 0 && (
+        <Card className="mb-6 !border-amber-500/40">
+          <h2 className="mb-1 flex items-center gap-2 text-lg font-semibold text-slate-100">
+            <Eraser size={18} className="text-amber-400" /> Datos de ejemplo
+          </h2>
+          <p className="mb-4 text-sm text-slate-400">
+            Quedan <b className="text-amber-300">{ejemplos.total}</b> registros que la app se
+            guardaba sola como muestra (carteras, metas, días de salud, la rutina semanal, un
+            objetivo de ahorro). No son tuyos y descuadran las cifras de Analítica.
+          </p>
+          <button
+            onClick={limpiar}
+            className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-400"
+          >
+            Borrar los {ejemplos.total} registros de ejemplo
+          </button>
+          <p className="mt-3 text-xs text-slate-500">
+            Se borra solo lo que coincide <b>exactamente</b> con la muestra original. Si tocaste
+            alguno de esos registros (cambiaste un importe, renombraste una meta), ya cuenta como
+            tuyo y se queda.
+          </p>
+        </Card>
+      )}
 
       {/* Recordatorios */}
       <Card className="mb-6">

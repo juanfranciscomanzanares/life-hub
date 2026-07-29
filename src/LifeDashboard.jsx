@@ -63,6 +63,7 @@ import CommandPalette from "./CommandPalette.jsx";
 import QuickAdd from "./QuickAdd.jsx";
 import Onboarding from "./Onboarding.jsx";
 import ToastHost from "./ToastHost.jsx";
+import BarraInferior from "./BarraInferior.jsx";
 import { removeWithUndo, toast } from "./lib/toast";
 
 /*
@@ -2326,7 +2327,13 @@ export default function LifeDashboard({ userEmail = null, onSignOut = null }) {
 
       {/* Contenido principal */}
       <main className="overflow-x-hidden">
-        <div key={active} className="mx-auto max-w-6xl p-5 sm:p-8 section-fade">
+        {/* data-seccion tiñe el área: de él salen las variables --c-seccion-*
+            que usan el título y el resplandor superior (ver src/index.css). */}
+        <div
+          key={active}
+          data-seccion={active}
+          className="lh-seccion section-fade mx-auto max-w-6xl p-5 pb-24 sm:p-8 sm:pb-8"
+        >
           <Suspense
             // Un esqueleto con la forma de una sección en vez de un texto: la
             // página no da un salto cuando llega el contenido de verdad.
@@ -2357,6 +2364,13 @@ export default function LifeDashboard({ userEmail = null, onSignOut = null }) {
           </Suspense>
         </div>
       </main>
+
+      <BarraInferior
+        active={active}
+        onNavigate={navigate}
+        onAbrirMenu={() => setMobileOpen(!mobileOpen)}
+        menuAbierto={mobileOpen}
+      />
 
       <CommandPalette open={paletteOpen} setOpen={setPaletteOpen} sections={NAV} onNavigate={(id) => setActive(id)} />
       <QuickAdd />

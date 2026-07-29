@@ -26,10 +26,15 @@ export function Card({ children, className = "", ...resto }) {
   );
 }
 
+/*
+  El icono va con el color de la SECCIÓN (`seccion-*`), no con el acento global:
+  es lo que hace que cada área se reconozca de un vistazo. Los tonos salen de
+  `data-seccion`, que pone el shell (ver src/index.css).
+*/
 export function SectionTitle({ icon: Icon, title, subtitle }) {
   return (
     <div className="mb-6 flex items-center gap-3">
-      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-500/15 text-indigo-400 ring-1 ring-inset ring-indigo-500/20">
+      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-seccion-500/15 text-seccion-400 ring-1 ring-inset ring-seccion-500/25">
         {Icon ? <Icon size={22} /> : null}
       </div>
       <div>

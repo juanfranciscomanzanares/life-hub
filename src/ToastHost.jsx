@@ -17,7 +17,7 @@ export default function ToastHost() {
   if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed bottom-24 left-1/2 z-[70] flex -translate-x-1/2 flex-col items-center gap-2">
+    <div className="fixed bottom-36 left-1/2 z-[70] lg:bottom-24 flex -translate-x-1/2 flex-col items-center gap-2">
       {toasts.map((t) => (
         <div key={t.id} className="flex items-center gap-3 rounded-xl border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm text-slate-100 shadow-xl">
           <span>{t.mensaje}</span>
