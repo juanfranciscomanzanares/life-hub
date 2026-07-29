@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight, Plus, Trash2, Repeat } from "lucide-react";
 import { usePersisted } from "../lib/store";
 import { removeWithUndo } from "../lib/toast";
-import { Card, SectionTitle, MONTHS } from "../lib/ui";
+import { Card, SectionTitle, MONTHS, todayISO } from "../lib/ui";
 import { CURSO, eventosDelCalendario, queHayEl } from "../lib/uni";
 
 // Fondo del día según el calendario académico. Suave a propósito: es contexto,
@@ -36,15 +36,13 @@ const TYPE_STYLE = {
 
 const ROUTINE_TYPES = ["Gym", "Tenis", "Universidad", "Trabajo", "Otro"];
 
-const INITIAL_ROUTINE = [
-  { id: 1, dia: 0, hora: "09:00", titulo: "Clases", tipo: "Universidad" },
-  { id: 2, dia: 0, hora: "18:00", titulo: "Gym (piernas)", tipo: "Gym" },
-  { id: 3, dia: 1, hora: "09:00", titulo: "Clases", tipo: "Universidad" },
-  { id: 4, dia: 1, hora: "20:00", titulo: "Entreno tenis de mesa", tipo: "Tenis" },
-  { id: 5, dia: 2, hora: "15:00", titulo: "Agrosana", tipo: "Trabajo" },
-  { id: 6, dia: 3, hora: "19:00", titulo: "Gym (torso)", tipo: "Gym" },
-  { id: 7, dia: 4, hora: "20:00", titulo: "Entreno tenis de mesa", tipo: "Tenis" },
-];
+/*
+  Vacío a propósito. Esta rutina ("Clases", "Gym (piernas)", "Agrosana"...) era
+  de ejemplo y se guardaba como real: salía en el widget de Inicio como si
+  fuera tu horario. El tuyo lo pone el botón de cargar el curso, o lo añades a
+  mano aquí abajo.
+*/
+const INITIAL_ROUTINE = [];
 
 
 // --- Horario y exámenes UM · GCID 26/27 (1er cuatrimestre) ---
@@ -186,10 +184,10 @@ export default function Calendario() {
   const semana = [...Array(7)].map((_, i) => {
     const d = new Date(lunesSem);
     d.setDate(lunesSem.getDate() + i);
-    const isoD = d.toISOString().slice(0, 10);
+    const isoD = todayISO(d);
     const rout = (routineByDay[i] || []).map((r) => ({ hora: r.hora, tipo: r.tipo, label: r.titulo }));
     const ev = (byDate[isoD] || []).map((e) => ({ hora: "", tipo: e.tipo, label: e.label }));
-    return { fecha: isoD, dia: d.getDate(), nombre: WEEKDAYS_FULL[i], esHoy: isoD === now.toISOString().slice(0, 10), items: [...rout, ...ev].sort((a, b) => (a.hora || "99").localeCompare(b.hora || "99")) };
+    return { fecha: isoD, dia: d.getDate(), nombre: WEEKDAYS_FULL[i], esHoy: isoD === todayISO(now), items: [...rout, ...ev].sort((a, b) => (a.hora || "99").localeCompare(b.hora || "99")) };
   });
 
   const inputCls =

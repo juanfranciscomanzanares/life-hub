@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { Plus, X } from "lucide-react";
 import { usePersisted } from "./lib/store";
+import { todayISO } from "./lib/ui";
 import { nuevoId, nuevaSerie } from "./lib/gym";
 
 const TIPOS = ["Gasto", "Gym", "Tarea", "Peso"];
-const todayISO = () => new Date().toISOString().slice(0, 10);
 
 export default function QuickAdd() {
   const [open, setOpen] = useState(false);

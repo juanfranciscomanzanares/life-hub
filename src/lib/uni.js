@@ -111,11 +111,13 @@ export function eventosDelCalendario() {
 }
 
 /*
-  Lo urgente de hoy para la pantalla de Inicio.
+  Lo de hoy para la pantalla de Inicio.
 
-  Urgente es lo que ya no admite espera: lo que vence hoy, lo que venció y
-  sigue sin hacer, y lo que ocurre hoy (un examen, una cita). No es "lo que
-  marqué como importante": esa marca había que ponerla a mano y nunca se ponía.
+  Solo HOY: lo que se entrega hoy y lo que pasa hoy (un examen, una cita). Lo
+  vencido queda fuera a propósito. Se probó a incluirlo y el resultado fue una
+  lista interminable: cualquier tarea antigua sin marcar como hecha se queda
+  ahí para siempre y tapa lo que de verdad toca hoy. Lo atrasado se ve en la
+  lista de tareas de Universidad, que es su sitio.
 
   Las tareas del Aula Virtual que ya has pasado a las tuyas no se cuentan dos
   veces; se reconocen por `aulaId`.
@@ -125,29 +127,14 @@ export function urgenciasDeHoy({ tareasUni = [], tareasAula = [], eventos = [], 
   const yaPuestas = new Set(tareasUni.map((t) => t.aulaId).filter(Boolean));
 
   tareasUni.forEach((t) => {
-    if (t.done || !t.entrega) return;
-    const fecha = dia(t.entrega);
-    if (fecha > hoy) return;
-    lista.push({
-      id: `tarea-${t.id}`,
-      tipo: fecha < hoy ? "vencida" : "entrega",
-      titulo: t.text,
-      detalle: t.subject,
-      fecha,
-    });
+    if (t.done || dia(t.entrega) !== hoy) return;
+    lista.push({ id: `tarea-${t.id}`, tipo: "entrega", titulo: t.text, detalle: t.subject, fecha: hoy });
   });
 
   tareasAula.forEach((t) => {
     if (yaPuestas.has(t.id)) return;
-    const fecha = dia(t.entrega ?? t.cierra);
-    if (!fecha || fecha > hoy) return;
-    lista.push({
-      id: `aula-${t.id}`,
-      tipo: fecha < hoy ? "vencida" : "entrega",
-      titulo: t.titulo,
-      detalle: t.asignatura,
-      fecha,
-    });
+    if (dia(t.entrega ?? t.cierra) !== hoy) return;
+    lista.push({ id: `aula-${t.id}`, tipo: "entrega", titulo: t.titulo, detalle: t.asignatura, fecha: hoy });
   });
 
   eventos.forEach((e) => {
@@ -162,7 +149,7 @@ export function urgenciasDeHoy({ tareasUni = [], tareasAula = [], eventos = [], 
     });
   });
 
-  // Lo vencido primero (es lo que llevas de retraso), luego los exámenes.
-  const orden = { vencida: 0, examen: 1, entrega: 2, evento: 3 };
+  // Los exámenes primero: es lo que no se puede mover de sitio.
+  const orden = { examen: 0, entrega: 1, evento: 2 };
   return lista.sort((a, b) => orden[a.tipo] - orden[b.tipo] || a.titulo.localeCompare(b.titulo));
 }

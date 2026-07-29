@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Database, Download, Upload, Bell, Plus, Trash2, FileSpreadsheet, FileText, Lock, Fingerprint } from "lucide-react";
 import { usePersisted } from "../lib/store";
-import { Card, SectionTitle, exportCSV, downloadFile, MONTHS } from "../lib/ui";
+import { Card, SectionTitle, exportCSV, downloadFile, MONTHS, todayISO } from "../lib/ui";
 import { isLockEnabled, hasBiometric, biometricSupported, enableLock, disableLock, registerBiometric } from "../lib/lock";
 import { encryptJSON, decryptJSON } from "../lib/crypto";
 // ALL_KEYS sale de useAutoBackup para que la copia manual y la automática
@@ -94,7 +94,7 @@ export default function Datos() {
       const v = window.localStorage.getItem(k);
       if (v !== null) dump[k] = JSON.parse(v);
     });
-    const fecha = new Date().toISOString().slice(0, 10);
+    const fecha = todayISO();
     downloadFile(`life-hub-backup-${fecha}.json`, JSON.stringify(dump, null, 2), "application/json");
   };
 
@@ -143,7 +143,7 @@ export default function Datos() {
     const dump = {};
     ALL_KEYS.forEach((k) => { const v = localStorage.getItem(k); if (v !== null) dump[k] = JSON.parse(v); });
     const cifrado = await encryptJSON(dump, pass);
-    downloadFile(`life-hub-cifrado-${new Date().toISOString().slice(0, 10)}.json`, cifrado, "application/json");
+    downloadFile(`life-hub-cifrado-${todayISO()}.json`, cifrado, "application/json");
   };
 
   const restaurarCifrado = (e) => {

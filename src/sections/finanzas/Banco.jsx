@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { Landmark, RefreshCw, Link2, Unlink, Check, AlertCircle, Search } from "lucide-react";
 import { usePersisted } from "../../lib/store";
 import { toast } from "../../lib/toast";
-import { Card } from "../../lib/ui";
+import { Card, todayISO } from "../../lib/ui";
 import { cloudEnabled } from "../../lib/supabase";
 import { listarBancos, conectarBanco, listarCuentas, listarMovimientos } from "../../lib/bancoSync";
 import { CATEGORIAS, REGLAS_POR_DEFECTO, separarNuevos } from "../../lib/banco";
@@ -131,7 +131,7 @@ export default function Banco({ movimientosActuales, onImportar }) {
       cuentaId: cuenta.id,
       cuentaNombre: cuenta.nombre,
       iban: cuenta.iban,
-      conectadoEl: new Date().toISOString().slice(0, 10),
+      conectadoEl: todayISO(),
     });
     setCuentas([]);
     setError("");

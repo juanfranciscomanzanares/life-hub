@@ -2,20 +2,18 @@ import { useState } from "react";
 import { LineChart, Coins, Wallet, TrendingUp, TrendingDown, BarChart3, PiggyBank, Plus, Trash2, RefreshCw } from "lucide-react";
 import { usePersisted } from "../lib/store";
 import { removeWithUndo } from "../lib/toast";
-import { Card, SectionTitle, fmtEuro } from "../lib/ui";
+import { Card, SectionTitle, fmtEuro, todayISO } from "../lib/ui";
 
 const INVEST_TYPES = ["Fondo indexado", "ETF", "Acciones", "Cripto", "Plan de pensiones", "Cuenta remunerada", "Otro"];
-const INITIAL_INVEST = [
-  { id: 1, nombre: "MSCI World (fondo indexado)", tipo: "Fondo indexado", aportado: 600, valorActual: 648 },
-  { id: 2, nombre: "S&P 500 ETF", tipo: "ETF", aportado: 300, valorActual: 291 },
-  { id: 3, nombre: "Bitcoin", tipo: "Cripto", aportado: 150, valorActual: 205, coingeckoId: "bitcoin", cantidad: 0.003 },
-];
-const INITIAL_CONTRIBS = [
-  { id: 1, fecha: "2026-07-05", monto: 150, destino: "MSCI World (fondo indexado)" },
-  { id: 2, fecha: "2026-07-05", monto: 50, destino: "Bitcoin" },
-  { id: 3, fecha: "2026-06-05", monto: 150, destino: "MSCI World (fondo indexado)" },
-];
-const INITIAL_INVEST_GOAL = 200;
+/*
+  Vacío a propósito. Estas tres carteras y tres aportaciones eran de ejemplo, y
+  al abrir la sección se guardaban en `lh_investments` y `lh_contribs` como si
+  fueran tuyas: se subían a Supabase igual que un dato real y sumaban 350 € de
+  inversión inventada en Analítica.
+*/
+const INITIAL_INVEST = [];
+const INITIAL_CONTRIBS = [];
+const INITIAL_INVEST_GOAL = 0;
 
 export default function Inversiones() {
   const [holdings, setHoldings] = usePersisted("lh_investments", INITIAL_INVEST);
@@ -118,7 +116,7 @@ export default function Inversiones() {
     }
     setHoldings([...holdings, h]);
     if (amount > 0)
-      setContribs([{ id: Date.now() + 1, fecha: new Date().toISOString().slice(0, 10), monto: amount, destino: form.nombre }, ...contribs]);
+      setContribs([{ id: Date.now() + 1, fecha: todayISO(), monto: amount, destino: form.nombre }, ...contribs]);
     setForm({ nombre: "", tipo: INVEST_TYPES[0], aportado: "", coingeckoId: "", cantidad: "", ticker: "" });
   };
 
@@ -126,7 +124,7 @@ export default function Inversiones() {
     const amount = Number(aporte[h.id]) || 0;
     if (amount <= 0) return;
     setHoldings(holdings.map((x) => (x.id === h.id ? { ...x, aportado: x.aportado + amount, valorActual: x.valorActual + amount } : x)));
-    setContribs([{ id: Date.now(), fecha: new Date().toISOString().slice(0, 10), monto: amount, destino: h.nombre }, ...contribs]);
+    setContribs([{ id: Date.now(), fecha: todayISO(), monto: amount, destino: h.nombre }, ...contribs]);
     setAporte({ ...aporte, [h.id]: "" });
   };
 

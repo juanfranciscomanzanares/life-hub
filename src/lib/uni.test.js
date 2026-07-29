@@ -81,10 +81,18 @@ describe("urgencias de hoy", () => {
 
   const urgencias = urgenciasDeHoy(base);
 
-  it("coge lo que vence hoy y lo que ya venció", () => {
-    const ids = urgencias.map((u) => u.id);
-    expect(ids).toContain("tarea-1");
-    expect(ids).toContain("tarea-2");
+  it("coge lo que se entrega hoy", () => {
+    expect(urgencias.map((u) => u.id)).toContain("tarea-1");
+  });
+
+  it("NO arrastra lo vencido", () => {
+    /*
+      Lo atrasado se quedaba en la lista para siempre: cualquier tarea vieja
+      sin marcar como hecha tapaba lo que de verdad tocaba hoy. Su sitio es la
+      lista de tareas de Universidad, no esta pantalla.
+    */
+    expect(urgencias.map((u) => u.id)).not.toContain("tarea-2");
+    expect(urgencias.some((u) => u.tipo === "vencida")).toBe(false);
   });
 
   it("deja fuera lo hecho, lo futuro y lo que no tiene fecha", () => {
@@ -94,26 +102,20 @@ describe("urgencias de hoy", () => {
     expect(ids).not.toContain("tarea-5");
   });
 
-  it("distingue vencida de entrega de hoy", () => {
-    expect(urgencias.find((u) => u.id === "tarea-2").tipo).toBe("vencida");
-    expect(urgencias.find((u) => u.id === "tarea-1").tipo).toBe("entrega");
-  });
-
   it("mete los eventos de hoy y reconoce los exámenes", () => {
     expect(urgencias.find((u) => u.id === "evento-10").tipo).toBe("examen");
     expect(urgencias.find((u) => u.id === "evento-11").tipo).toBe("evento");
     expect(urgencias.map((u) => u.id)).not.toContain("evento-12");
   });
 
-  it("lo vencido va primero y los exámenes después", () => {
-    expect(urgencias[0].tipo).toBe("vencida");
-    expect(urgencias[1].tipo).toBe("examen");
+  it("los exámenes van primero", () => {
+    expect(urgencias[0].tipo).toBe("examen");
   });
 
   it("una tarea del Aula Virtual ya puesta no sale dos veces", () => {
     const tareasAula = [
       { id: "av1", titulo: "Práctica 2", asignatura: "Deep Learning", entrega: "2026-11-10" },
-      { id: "av2", titulo: "Otra", asignatura: "Cálculo", entrega: "2026-11-09" },
+      { id: "av2", titulo: "Otra", asignatura: "Cálculo", entrega: "2026-11-10" },
     ];
     const conAula = urgenciasDeHoy({
       ...base,

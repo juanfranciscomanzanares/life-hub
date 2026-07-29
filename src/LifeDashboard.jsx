@@ -34,6 +34,15 @@ import {
 import { usePersisted } from "./lib/store";
 import { todayISO } from "./lib/ui";
 import { SUBJECTS, urgenciasDeHoy } from "./lib/uni";
+import {
+  normalizarHabito,
+  semanaDe,
+  estaHecho,
+  alternarDia,
+  racha,
+  mejorRacha,
+  hechosHoy,
+} from "./lib/habitos";
 import { CATEGORIAS as CATEGORIAS_BANCO } from "./lib/banco";
 import { sincronizarAulaVirtual } from "./lib/aulaVirtual";
 import {
@@ -151,9 +160,8 @@ const EXAM_DATES = [
 const INITIAL_UNI_TASKS = [];
 
 const URGENCIA = {
-  vencida: { texto: "Vencida", clase: "bg-rose-500/15 text-rose-300" },
   examen: { texto: "Examen", clase: "bg-amber-500/15 text-amber-300" },
-  entrega: { texto: "Hoy", clase: "bg-indigo-500/15 text-indigo-300" },
+  entrega: { texto: "Entrega", clase: "bg-indigo-500/15 text-indigo-300" },
   evento: { texto: "Hoy", clase: "bg-slate-700/60 text-slate-300" },
 };
 
@@ -255,9 +263,11 @@ function Inicio() {
   const hoyIdx = (ahora.getDay() + 6) % 7;
   const lunes = new Date(ahora);
   lunes.setDate(ahora.getDate() - hoyIdx);
-  const lunesISO = lunes.toISOString().slice(0, 10);
+  const lunesISO = todayISO(lunes);
   const horasSemana = work.filter((w) => w.fecha >= lunesISO).reduce((a, b) => a + Number(b.horas || 0), 0);
-  const racha = habits.reduce((m, h) => Math.max(m, h.streak || 0), 0);
+  // Se calcula desde las fechas cumplidas: el campo `streak` que se leía antes
+  // no lo actualizaba nadie y siempre valía 0.
+  const rachaMaxima = mejorRacha(habits.map((h) => normalizarHabito(h)));
   const mesActual = ahora.toISOString().slice(0, 7);
   const BAR_COLORS = ["bg-indigo-500", "bg-emerald-500", "bg-amber-500", "bg-rose-500", "bg-sky-500", "bg-fuchsia-500"];
   const porTipo = {};
@@ -279,7 +289,7 @@ function Inicio() {
           </div>
           <div>
             <p className="text-2xl font-bold text-slate-100">{urgencias.length}</p>
-            <p className="text-sm text-slate-400">Urgente hoy</p>
+            <p className="text-sm text-slate-400">Para hoy</p>
           </div>
         </Card>
         <Card className="flex items-center gap-4">
@@ -305,7 +315,7 @@ function Inicio() {
             <TrendingUp size={24} />
           </div>
           <div>
-            <p className="text-2xl font-bold text-slate-100">{racha}</p>
+            <p className="text-2xl font-bold text-slate-100">{rachaMaxima}</p>
             <p className="text-sm text-slate-400">Racha hábitos</p>
           </div>
         </Card>
@@ -315,12 +325,12 @@ function Inicio() {
         {/* Tareas urgentes */}
         <Card>
           <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-slate-100">
-            <Flame size={18} className="text-rose-400" /> Lo urgente de hoy
+            <Flame size={18} className="text-rose-400" /> Lo de hoy
           </h2>
           {urgencias.length === 0 ? (
             <p className="py-6 text-center text-sm text-slate-500">
-              Nada urgente hoy. Sale aquí lo que vence hoy, lo que llevas de retraso y lo que tengas
-              en el calendario para hoy.
+              Hoy no tienes nada señalado. Aquí sale lo que se entrega hoy y lo que tengas en el
+              calendario para hoy.
             </p>
           ) : (
             <ul className="space-y-2">
@@ -1001,7 +1011,9 @@ function Finanzas() {
 
   const [presupuesto, setPresupuesto] = usePersisted("lh_budget_mensual", PRESUPUESTO_INICIAL);
   const budgetPct = presupuesto > 0 ? Math.min(100, (expenses / presupuesto) * 100) : 0;
-  const [savings, setSavings] = usePersisted("lh_savings", [{ id: 1, label: "Portátil nuevo", target: 1200, current: 740 }]);
+  // Vacío: el objetivo "Portátil nuevo, 740 de 1200 €" era de ejemplo y se
+  // guardaba como si fuera tuyo.
+  const [savings, setSavings] = usePersisted("lh_savings", []);
   const [subs, setSubs] = usePersisted("lh_subs", []);
   const [sForm, setSForm] = useState({ label: "", target: "" });
   const [subForm, setSubForm] = useState({ nombre: "", monto: "", dia: "" });
@@ -1396,25 +1408,26 @@ function Finanzas() {
 /* ------------------------------------------------------------------ */
 
 function Habitos() {
-  const [habits, setHabits] = usePersisted("lh_habits", INITIAL_HABITS);
+  const [habitsCrudo, setHabits] = usePersisted("lh_habits", INITIAL_HABITS);
   const [newHabit, setNewHabit] = useState("");
 
-  const toggleDay = (hid, day) =>
-    setHabits(
-      habits.map((h) =>
-        h.id === hid ? { ...h, week: h.week.map((v, i) => (i === day ? !v : v)) } : h
-      )
-    );
+  const hoy = todayISO();
+  // Se normaliza al leer, no al guardar: así los hábitos del formato antiguo
+  // funcionan desde el primer render, sin migración destructiva.
+  const habits = useMemo(() => habitsCrudo.map((h) => normalizarHabito(h, hoy)), [habitsCrudo, hoy]);
+  const semana = useMemo(() => semanaDe(hoy), [hoy]);
+
+  const toggleDay = (hid, fecha) =>
+    setHabits(habits.map((h) => (h.id === hid ? alternarDia(h, fecha) : h)));
 
   const addHabit = () => {
     if (!newHabit.trim()) return;
-    setHabits([...habits, { id: Date.now(), name: newHabit, streak: 0, week: [false, false, false, false, false, false, false] }]);
+    setHabits([...habits, { id: Date.now(), name: newHabit, hecho: [] }]);
     setNewHabit("");
   };
 
-  const bestStreak = Math.max(...habits.map((h) => h.streak), 0);
-  const todayIdx = 3; // jueves (demo)
-  const doneToday = habits.filter((h) => h.week[todayIdx]).length;
+  const bestStreak = mejorRacha(habits, hoy);
+  const doneToday = hechosHoy(habits, hoy);
 
   return (
     <div>
@@ -1475,25 +1488,34 @@ function Habitos() {
           <div key={h.id} className="flex flex-col gap-3 border-b border-slate-800/60 pb-4 last:border-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
               <span className="flex items-center gap-1 rounded-lg bg-amber-500/15 px-2 py-1 text-xs font-semibold text-amber-400">
-                <Flame size={13} /> {h.streak}
+                <Flame size={13} /> {racha(h, hoy)}
               </span>
               <span className="font-medium text-slate-100">{h.name}</span>
             </div>
             <div className="flex gap-1.5">
-              {HABIT_DAYS.map((d, i) => (
-                <button
-                  key={i}
-                  onClick={() => toggleDay(h.id, i)}
-                  title={d}
-                  className={`flex h-9 w-9 items-center justify-center rounded-lg text-xs font-medium transition ${
-                    h.week[i]
-                      ? "bg-emerald-500 text-white"
-                      : "bg-slate-800 text-slate-500 hover:bg-slate-700"
-                  }`}
-                >
-                  {d}
-                </button>
-              ))}
+              {HABIT_DAYS.map((d, i) => {
+                const fecha = semana[i];
+                const hecho = estaHecho(h, fecha);
+                const esHoy = fecha === hoy;
+                const futuro = fecha > hoy;
+                return (
+                  <button
+                    key={fecha}
+                    onClick={() => toggleDay(h.id, fecha)}
+                    disabled={futuro}
+                    title={`${d} ${fecha}`}
+                    aria-label={`${h.name}, ${d} ${fecha}`}
+                    aria-pressed={hecho}
+                    className={`flex h-9 w-9 items-center justify-center rounded-lg text-xs font-medium transition ${
+                      hecho
+                        ? "bg-emerald-500 text-white"
+                        : "bg-slate-800 text-slate-500 hover:bg-slate-700"
+                    } ${esHoy ? "ring-2 ring-indigo-400" : ""} ${futuro ? "opacity-40" : ""}`}
+                  >
+                    {d}
+                  </button>
+                );
+              })}
               <button
                 onClick={() => setHabits(habits.filter((x) => x.id !== h.id))}
                 className="ml-1 flex h-9 w-9 items-center justify-center text-slate-500 transition hover:text-rose-400"
@@ -1718,7 +1740,7 @@ function Trabajo() {
   const toggleCrono = () => {
     if (!crono) { setCrono(Date.now()); return; }
     const horas = Math.max(0.01, Math.round(((Date.now() - crono) / 3600000) * 100) / 100);
-    setLog([{ id: Date.now(), fecha: new Date().toISOString().slice(0, 10), actividad: form.actividad || "Sesión cronometrada", categoria: form.categoria, horas }, ...log]);
+    setLog([{ id: Date.now(), fecha: todayISO(), actividad: form.actividad || "Sesión cronometrada", categoria: form.categoria, horas }, ...log]);
     setCrono(null);
     setForm({ ...form, actividad: "" });
   };
@@ -1755,7 +1777,7 @@ function Trabajo() {
     setLog([
       {
         id: Date.now(),
-        fecha: form.fecha || new Date().toISOString().slice(0, 10),
+        fecha: form.fecha || todayISO(),
         actividad: form.actividad,
         categoria: form.categoria,
         horas: Number(form.horas) || 0,

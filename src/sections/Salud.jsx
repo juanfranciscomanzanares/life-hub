@@ -4,12 +4,9 @@ import { usePersisted } from "../lib/store";
 import { removeWithUndo } from "../lib/toast";
 import { Card, SectionTitle, todayISO } from "../lib/ui";
 
-const INITIAL_HEALTH = [
-  { id: 1, fecha: "2026-07-21", peso: 74.2, sueno: 7.5, pasos: 9200, fc: 58, agua: 2.1 },
-  { id: 2, fecha: "2026-07-20", peso: 74.4, sueno: 6.8, pasos: 7400, fc: 60, agua: 1.8 },
-  { id: 3, fecha: "2026-07-19", peso: 74.5, sueno: 8.1, pasos: 11200, fc: 57, agua: 2.4 },
-  { id: 4, fecha: "2026-07-18", peso: 74.8, sueno: 7.0, pasos: 6100, fc: 61, agua: 1.5 },
-];
+// Vacío a propósito: estos cuatro días eran de ejemplo y se guardaban como
+// reales. Además falseaban el patrón de sueño frente a gimnasio de Analítica.
+const INITIAL_HEALTH = [];
 
 const empty = { fecha: "", peso: "", sueno: "", pasos: "", fc: "", agua: "" };
 

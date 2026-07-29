@@ -46,7 +46,19 @@ export function lastNMonths(n) {
   return arr;
 }
 
-export const todayISO = () => new Date().toISOString().slice(0, 10);
+/*
+  La fecha de hoy en HORA LOCAL.
+
+  Antes esto era `new Date().toISOString().slice(0, 10)`, que da la fecha en
+  UTC. En España (UTC+1 en invierno, +2 en verano) eso significa que entre
+  medianoche y las 01:00 o las 02:00 devolvía el día ANTERIOR: una serie de
+  gimnasio apuntada a las 00:30 se guardaba con la fecha de ayer, y "lo de hoy"
+  comparaba contra el día equivocado.
+*/
+export function todayISO(fecha = new Date()) {
+  const p2 = (n) => String(n).padStart(2, "0");
+  return `${fecha.getFullYear()}-${p2(fecha.getMonth() + 1)}-${p2(fecha.getDate())}`;
+}
 
 /* --- Exportar a CSV (compatible con Excel en español) --- */
 export function toCSV(rows) {

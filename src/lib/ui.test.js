@@ -1,5 +1,28 @@
 import { describe, it, expect } from "vitest";
-import { toCSV, monthLabel, lastNMonths, fmtEuro, monthKey } from "./ui";
+import { toCSV, monthLabel, lastNMonths, fmtEuro, monthKey, todayISO } from "./ui";
+
+describe("todayISO", () => {
+  it("usa la hora LOCAL, no UTC", () => {
+    /*
+      Fallo real: con toISOString(), a las 00:30 del 30 de julio en España
+      (UTC+2) la fecha en UTC sigue siendo el 29, así que una serie de gimnasio
+      apuntada de madrugada se guardaba con la fecha de ayer.
+
+      El test construye la medianoche y pico LOCAL, sea cual sea la zona de la
+      máquina, y comprueba que sale el mismo día que marca el calendario.
+    */
+    const madrugada = new Date(2026, 6, 30, 0, 30); // 30 de julio, 00:30 local
+    expect(todayISO(madrugada)).toBe("2026-07-30");
+  });
+
+  it("rellena mes y día con cero", () => {
+    expect(todayISO(new Date(2027, 0, 5))).toBe("2027-01-05");
+  });
+
+  it("sin argumentos devuelve hoy en formato ISO corto", () => {
+    expect(todayISO()).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+});
 
 describe("utilidades de UI", () => {
   it("fmtEuro añade el símbolo", () => {

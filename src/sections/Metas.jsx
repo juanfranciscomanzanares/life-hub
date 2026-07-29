@@ -4,11 +4,9 @@ import { usePersisted } from "../lib/store";
 import { removeWithUndo } from "../lib/toast";
 import { Card, SectionTitle, fmtEuro, monthKey, monthLabel } from "../lib/ui";
 
-const INITIAL_GOALS = [
-  { id: 1, titulo: "Invertir este año", objetivo: 2000, actual: 1050, unidad: "€" },
-  { id: 2, titulo: "Media de gym semanal", objetivo: 4, actual: 3, unidad: "sesiones" },
-  { id: 3, titulo: "Nota media del cuatrimestre", objetivo: 8, actual: 7.4, unidad: "/10" },
-];
+// Vacío a propósito: estas metas eran de ejemplo y se guardaban como reales,
+// contando además en las "metas conseguidas" de Analítica.
+const INITIAL_GOALS = [];
 
 export default function Metas() {
   const [goals, setGoals] = usePersisted("lh_goals", INITIAL_GOALS);

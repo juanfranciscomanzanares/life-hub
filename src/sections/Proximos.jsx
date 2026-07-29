@@ -1,8 +1,6 @@
 import { CalendarClock, Download, GraduationCap, Bell, CalendarDays } from "lucide-react";
 import { usePersisted } from "../lib/store";
-import { Card, SectionTitle, downloadFile } from "../lib/ui";
-
-const hoyISO = () => new Date().toISOString().slice(0, 10);
+import { Card, SectionTitle, downloadFile, todayISO as hoyISO } from "../lib/ui";
 
 function diasHasta(fechaISO) {
   const hoy = new Date(hoyISO() + "T00:00:00");

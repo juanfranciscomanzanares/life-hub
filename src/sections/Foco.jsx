@@ -34,7 +34,7 @@ export default function Foco() {
       setRun(false);
       registrar(dur);
       setHechas((n) => n + 1);
-      setLeft(dur * 60);
+      setLeft(Math.max(1, dur) * 60);
       if (typeof Notification !== "undefined" && Notification.permission === "granted") {
         try { new Notification("Sesión de foco completada", { body: `${dur} min de ${asignatura}` }); } catch {}
       }
@@ -53,11 +53,28 @@ export default function Foco() {
     setStudyLog([...studyLog, { id: Date.now(), fecha: todayISO(), subject: asignatura, horas }]);
   };
 
-  const setPreset = (m) => { setDur(m); setLeft(m * 60); setRun(false); };
-  const reset = () => { setRun(false); setLeft(dur * 60); };
+  /*
+    Cambiar la duración. Se admite cualquier valor entre 1 y 600 minutos: los
+    botones de 15/25/50 son atajos, no las únicas opciones.
+
+    Mientras escribes puede quedar vacío o a cero; en ese caso se guarda el
+    número tal cual para no pelearse con el cursor, pero el temporizador se
+    queda en un valor válido. Si no, borrar el campo dispararía el "se acabó"
+    con left = 0.
+  */
+  const setPreset = (valor) => {
+    const min = Math.min(600, Math.max(0, Math.floor(Number(valor) || 0)));
+    setRun(false);
+    setDur(min);
+    setLeft(Math.max(1, min) * 60);
+  };
+
+  const reset = () => { setRun(false); setLeft(Math.max(1, dur) * 60); };
   const mm = String(Math.floor(Math.max(0, left) / 60)).padStart(2, "0");
   const ss = String(Math.max(0, left) % 60).padStart(2, "0");
-  const pct = 100 - (left / (dur * 60)) * 100;
+  // Math.max(1, dur): con el campo vacío, dur es 0 y esto sería una división
+  // por cero, que pinta el círculo con un strokeDasharray de NaN.
+  const pct = 100 - (left / (Math.max(1, dur) * 60)) * 100;
 
   const inputCls = "rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none";
 
@@ -75,13 +92,33 @@ export default function Foco() {
             </svg>
             <span className="text-5xl font-bold tabular-nums text-slate-100">{mm}:{ss}</span>
           </div>
-          <div className="mb-4 flex gap-2">
+          <div className="mb-3 flex flex-wrap justify-center gap-2">
             {[15, 25, 50].map((m) => (
               <button key={m} onClick={() => setPreset(m)} className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${dur === m ? "bg-indigo-500 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700"}`}>{m} min</button>
             ))}
           </div>
+
+          {/* Duración libre: los tres botones de siempre son atajos, no el límite. */}
+          <div className="mb-4 flex items-center gap-2">
+            <label htmlFor="foco-minutos" className="text-xs text-slate-400">
+              o los minutos que quieras
+            </label>
+            <input
+              id="foco-minutos"
+              name="foco-minutos"
+              type="number"
+              min="1"
+              max="600"
+              inputMode="numeric"
+              value={dur}
+              onChange={(e) => setPreset(e.target.value)}
+              disabled={run}
+              className="w-20 rounded-lg border border-slate-700 bg-slate-800 px-2 py-1.5 text-center text-sm text-slate-100 focus:border-indigo-500 focus:outline-none disabled:opacity-50"
+            />
+            <span className="text-xs text-slate-400">min</span>
+          </div>
           <div className="flex gap-3">
-            <button onClick={() => setRun((r) => !r)} className="flex items-center gap-2 rounded-xl bg-emerald-500 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-400">
+            <button onClick={() => setRun((r) => !r)} disabled={dur < 1} className="flex items-center gap-2 rounded-xl bg-emerald-500 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-400 disabled:opacity-40">
               {run ? <Pause size={16} /> : <Play size={16} />} {run ? "Pausar" : "Empezar"}
             </button>
             <button onClick={reset} className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800 px-5 py-2.5 text-sm font-semibold text-slate-200 transition hover:border-indigo-500">
