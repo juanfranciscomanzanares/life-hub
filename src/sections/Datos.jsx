@@ -4,7 +4,9 @@ import { usePersisted } from "../lib/store";
 import { Card, SectionTitle, exportCSV, downloadFile, MONTHS } from "../lib/ui";
 import { isLockEnabled, hasBiometric, biometricSupported, enableLock, disableLock, registerBiometric } from "../lib/lock";
 import { encryptJSON, decryptJSON } from "../lib/crypto";
-import { restoreSnapshot } from "../lib/useAutoBackup";
+// ALL_KEYS sale de useAutoBackup para que la copia manual y la automática
+// guarden exactamente lo mismo: antes eran dos listas y esta se quedaba corta.
+import { restoreSnapshot, ALL_KEYS } from "../lib/useAutoBackup";
 
 const DATASETS = [
   { key: "lh_gym", file: "gimnasio.csv", label: "Gimnasio" },
@@ -12,15 +14,13 @@ const DATASETS = [
   { key: "lh_finance", file: "finanzas.csv", label: "Finanzas" },
   { key: "lh_contribs", file: "aportaciones.csv", label: "Aportaciones" },
   { key: "lh_investments", file: "inversiones.csv", label: "Inversiones" },
+  { key: "lh_tt_sesiones", file: "tenis_entrenos.csv", label: "Entrenos de tenis" },
+  { key: "lh_tenis_partidos", file: "tenis_partidos.csv", label: "Partidos de tenis" },
+  { key: "lh_study_log", file: "estudio.csv", label: "Horas de estudio" },
+  { key: "lh_uni_tasks", file: "tareas_universidad.csv", label: "Tareas de universidad" },
+  { key: "lh_health", file: "salud.csv", label: "Salud" },
 ];
 
-const ALL_KEYS = [
-  "lh_tasks", "lh_gym", "lh_work_log", "lh_runbooks", "lh_uni_tasks", "lh_study_hours",
-  "lh_tt_drills", "lh_tt_notes", "lh_finance", "lh_investments", "lh_contribs",
-  "lh_invest_goal", "lh_habits", "lh_notes", "lh_goals", "lh_portfolio_history", "lh_events", "lh_reminders",
-  "lh_gym_sesiones", "lh_gym_rutinas", "lh_gym_ejercicios", "lh_aula_tareas", "lh_study_log",
-  "lh_budgets", "lh_budget_mensual", "lh_savings", "lh_subs", "lh_banco_reglas",
-];
 
 function readKey(key, fallback) {
   try {
@@ -176,11 +176,17 @@ export default function Datos() {
     const fin = readKey("lh_finance", []).filter((r) => inM(r.fecha));
     const contr = readKey("lh_contribs", []).filter((r) => inM(r.fecha));
     const health = readKey("lh_health", []).filter((r) => inM(r.fecha));
+    const tenis = readKey("lh_tt_sesiones", []).filter((r) => inM(r.fecha));
+    const partidos = readKey("lh_tenis_partidos", []).filter((r) => inM(r.fecha));
+    const estudio = readKey("lh_study_log", []).filter((r) => inM(r.fecha));
 
     const sum = (arr, k) => arr.reduce((a, b) => a + Number(b[k] || 0), 0);
     const ingresos = fin.filter((f) => f.monto > 0).reduce((a, b) => a + b.monto, 0);
     const gastos = fin.filter((f) => f.monto < 0).reduce((a, b) => a + Math.abs(b.monto), 0);
     const sueno = health.length ? (sum(health, "sueno") / health.length).toFixed(1) : "—";
+    // Días distintos, no filas: hay una fila por ejercicio, así que contarlas
+    // daba "38 sesiones" en un mes de 12 días de gimnasio.
+    const diasGym = new Set(gym.map((r) => r.fecha)).size;
 
     const fila = (k, v) => `<tr><td>${k}</td><td style="text-align:right;font-weight:600">${v}</td></tr>`;
     const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Informe ${MONTHS[Number(m) - 1]} ${y}</title>
@@ -191,7 +197,9 @@ export default function Datos() {
       <h1>Life Hub · Informe mensual</h1>
       <p class="muted">${MONTHS[Number(m) - 1]} ${y}</p>
       <h2>Trabajo (Agrosana)</h2><table>${fila("Horas totales", sum(work, "horas") + " h")}${fila("Actividades", work.length)}</table>
-      <h2>Gimnasio</h2><table>${fila("Sesiones registradas", gym.length)}</table>
+      <h2>Universidad</h2><table>${fila("Horas de estudio", sum(estudio, "horas") + " h")}</table>
+      <h2>Gimnasio</h2><table>${fila("Días entrenados", diasGym)}${fila("Ejercicios registrados", gym.length)}</table>
+      <h2>Tenis de mesa</h2><table>${fila("Horas de entreno", sum(tenis, "horas") + " h")}${fila("Sesiones", tenis.length)}${fila("Partidos oficiales", partidos.length)}</table>
       <h2>Finanzas</h2><table>${fila("Ingresos", ingresos + " €")}${fila("Gastos", gastos + " €")}${fila("Balance", ingresos - gastos + " €")}</table>
       <h2>Inversión</h2><table>${fila("Aportado este mes", sum(contr, "monto") + " €")}</table>
       <h2>Salud</h2><table>${fila("Sueño medio", sueno + " h")}${fila("Días registrados", health.length)}</table>

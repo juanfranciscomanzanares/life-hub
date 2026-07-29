@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import { usePersisted } from "./lib/store";
 import { todayISO } from "./lib/ui";
+import { SUBJECTS, urgenciasDeHoy } from "./lib/uni";
 import { CATEGORIAS as CATEGORIAS_BANCO } from "./lib/banco";
 import { sincronizarAulaVirtual } from "./lib/aulaVirtual";
 import {
@@ -66,14 +67,12 @@ import { removeWithUndo, toast } from "./lib/toast";
 */
 const Inversiones = lazy(() => import("./sections/Inversiones.jsx"));
 const Salud = lazy(() => import("./sections/Salud.jsx"));
-const Resumen = lazy(() => import("./sections/Resumen.jsx"));
 const Gimnasio = lazy(() => import("./sections/Gimnasio.jsx"));
 const Foco = lazy(() => import("./sections/Foco.jsx"));
 const Analitica = lazy(() => import("./sections/Analitica.jsx"));
-const Coach = lazy(() => import("./sections/Coach.jsx"));
 const Proximos = lazy(() => import("./sections/Proximos.jsx"));
 const Ajustes = lazy(() => import("./sections/Ajustes.jsx"));
-import { Flag, CalendarDays, Database, HeartPulse, Sparkles, Timer, Sun, Moon, CalendarClock, Settings, ChevronDown } from "lucide-react";
+import { Flag, CalendarDays, Database, HeartPulse, Timer, Sun, Moon, CalendarClock, Settings, ChevronDown } from "lucide-react";
 const TenisMesa = lazy(() => import("./sections/TenisMesa.jsx"));
 const TenisEntrenos = lazy(() => import("./sections/TenisEntrenos.jsx"));
 const Metas = lazy(() => import("./sections/Metas.jsx"));
@@ -100,28 +99,8 @@ const Banco = lazy(() => import("./sections/finanzas/Banco.jsx"));
   Los CATÁLOGOS (asignaturas, categorías de trabajo, días de la semana) sí se
   mantienen: son opciones para elegir, no registros.
 */
-const INITIAL_TASKS = [];
-
-const TIME_STATS = [
-  { label: "Universidad", hours: 18, color: "bg-indigo-500", ring: "text-indigo-400" },
-  { label: "Gimnasio", hours: 6, color: "bg-emerald-500", ring: "text-emerald-400" },
-  { label: "Tenis de Mesa", hours: 4, color: "bg-amber-500", ring: "text-amber-400" },
-  { label: "Ocio / Otros", hours: 12, color: "bg-rose-500", ring: "text-rose-400" },
-];
-
-/* Curso 2026/2027, según resguardo de matrícula (28/07/2026) y horarios
-   oficiales GCID de la Facultad de Informática (UMU). */
-
-const SUBJECTS = [
-  "Fund. Computadores",
-  "Infraest. Comp. Altas Prest.",
-  "Deep Learning",
-  "Gestión de Proyectos",
-  "Ciberseguridad",
-  "Empresa y Emprendimiento",
-  "TFG",
-  "Prácticas Externas",
-];
+/* SUBJECTS y el calendario académico viven en src/lib/uni.js: los usan también
+   Inicio, el modo foco y el calendario. */
 
 /* Teoría (grupo completo, sin ambigüedad de subgrupo). Cada fila es una franja
    horaria; solo se rellena la columna del día en que cae esa clase. */
@@ -170,6 +149,13 @@ const EXAM_DATES = [
 ];
 
 const INITIAL_UNI_TASKS = [];
+
+const URGENCIA = {
+  vencida: { texto: "Vencida", clase: "bg-rose-500/15 text-rose-300" },
+  examen: { texto: "Examen", clase: "bg-amber-500/15 text-amber-300" },
+  entrega: { texto: "Hoy", clase: "bg-indigo-500/15 text-indigo-300" },
+  evento: { texto: "Hoy", clase: "bg-slate-700/60 text-slate-300" },
+};
 
 const ESTADO_AULA = {
   abierta: { texto: "Abierta", clase: "bg-emerald-500/15 text-emerald-300" },
@@ -238,12 +224,31 @@ function SectionTitle({ icon: Icon, title, subtitle }) {
 /*  SECCIÓN: INICIO                                                    */
 /* ------------------------------------------------------------------ */
 
-function Inicio({ tasks, toggleTask }) {
+function Inicio() {
   const [work] = usePersisted("lh_work_log", []);
   const [habits] = usePersisted("lh_habits", []);
   const [ajustes] = usePersisted("lh_settings", { nombre: "Quico" });
-  const urgent = tasks.filter((t) => t.urgent && !t.done);
-  const doneCount = tasks.filter((t) => t.done).length;
+
+  /*
+    Lo urgente sale de datos de verdad y no de una marca "urgente" puesta a
+    mano, que nadie ponía nunca: tareas de la UMU que vencen hoy o que ya
+    vencieron, y lo que tengas hoy en el calendario (exámenes, citas...).
+  */
+  const [uniTasks] = usePersisted("lh_uni_tasks", []);
+  const [aulaCrudo] = usePersisted("lh_aula_tareas", []);
+  const [eventos] = usePersisted("lh_events", []);
+
+  const urgencias = useMemo(() => {
+    const tareasAula = normalizarTareas(
+      Array.isArray(aulaCrudo) ? { tareas: aulaCrudo, sitios: [] } : aulaCrudo
+    );
+    return urgenciasDeHoy({ tareasUni: uniTasks, tareasAula, eventos, hoy: todayISO() });
+  }, [uniTasks, aulaCrudo, eventos]);
+
+  const pendientesUni = uniTasks.filter((t) => !t.done).length;
+
+  // Las que entran por el botón + flotante y por la paleta de comandos.
+  const [rapidas, setRapidas] = usePersisted("lh_tasks", []);
 
   const ahora = new Date();
   const saludo = ahora.getHours() < 12 ? "Buenos días" : ahora.getHours() < 20 ? "Buenas tardes" : "Buenas noches";
@@ -273,8 +278,8 @@ function Inicio({ tasks, toggleTask }) {
             <Flame size={24} />
           </div>
           <div>
-            <p className="text-2xl font-bold text-slate-100">{urgent.length}</p>
-            <p className="text-sm text-slate-400">Tareas urgentes</p>
+            <p className="text-2xl font-bold text-slate-100">{urgencias.length}</p>
+            <p className="text-sm text-slate-400">Urgente hoy</p>
           </div>
         </Card>
         <Card className="flex items-center gap-4">
@@ -282,10 +287,8 @@ function Inicio({ tasks, toggleTask }) {
             <CheckCircle2 size={24} />
           </div>
           <div>
-            <p className="text-2xl font-bold text-slate-100">
-              {doneCount}/{tasks.length}
-            </p>
-            <p className="text-sm text-slate-400">Completadas hoy</p>
+            <p className="text-2xl font-bold text-slate-100">{pendientesUni}</p>
+            <p className="text-sm text-slate-400">Tareas por hacer</p>
           </div>
         </Card>
         <Card className="flex items-center gap-4">
@@ -312,34 +315,76 @@ function Inicio({ tasks, toggleTask }) {
         {/* Tareas urgentes */}
         <Card>
           <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-slate-100">
-            <Flame size={18} className="text-rose-400" /> Tareas urgentes del día
+            <Flame size={18} className="text-rose-400" /> Lo urgente de hoy
           </h2>
-          <ul className="space-y-2">
-            {tasks.map((t) => (
-              <li
-                key={t.id}
-                onClick={() => toggleTask(t.id)}
-                className="flex cursor-pointer items-center gap-3 rounded-xl border border-slate-800 bg-slate-800/40 px-4 py-3 transition hover:border-slate-700"
-              >
-                {t.done ? (
-                  <CheckCircle2 size={20} className="shrink-0 text-emerald-400" />
-                ) : (
-                  <Circle size={20} className="shrink-0 text-slate-500" />
-                )}
-                <span className={`flex-1 text-sm ${t.done ? "text-slate-500 line-through" : "text-slate-200"}`}>
-                  {t.text}
-                </span>
-                {t.urgent && !t.done && (
-                  <span className="rounded-full bg-rose-500/15 px-2 py-0.5 text-xs font-medium text-rose-400">
-                    Urgente
+          {urgencias.length === 0 ? (
+            <p className="py-6 text-center text-sm text-slate-500">
+              Nada urgente hoy. Sale aquí lo que vence hoy, lo que llevas de retraso y lo que tengas
+              en el calendario para hoy.
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {urgencias.map((u) => (
+                <li
+                  key={u.id}
+                  className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-800/40 px-4 py-3"
+                >
+                  <span
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${URGENCIA[u.tipo].clase}`}
+                  >
+                    {URGENCIA[u.tipo].texto}
                   </span>
-                )}
-                <span className="text-xs text-slate-500">{t.hour}</span>
-              </li>
-            ))}
-          </ul>
+                  <span className="min-w-0 flex-1 truncate text-sm text-slate-200">{u.titulo}</span>
+                  <span className="shrink-0 text-xs text-slate-500">{u.detalle}</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </Card>
 
+        {/* Notas rápidas del botón + */}
+        <Card>
+          <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-slate-100">
+            <CheckCircle2 size={18} className="text-emerald-400" /> Tareas rápidas
+          </h2>
+          {rapidas.length === 0 ? (
+            <p className="py-6 text-center text-sm text-slate-500">
+              Nada apuntado. Usa el botón + de abajo a la derecha para añadir algo al vuelo.
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {rapidas.map((t) => (
+                <li
+                  key={t.id}
+                  className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-800/40 px-4 py-2.5"
+                >
+                  <button
+                    onClick={() => setRapidas(rapidas.map((x) => (x.id === t.id ? { ...x, done: !x.done } : x)))}
+                    aria-label={t.done ? `Marcar ${t.text} como pendiente` : `Marcar ${t.text} como hecha`}
+                  >
+                    {t.done ? (
+                      <CheckCircle2 size={18} className="text-emerald-400" />
+                    ) : (
+                      <Circle size={18} className="text-slate-500" />
+                    )}
+                  </button>
+                  <span className={`flex-1 text-sm ${t.done ? "text-slate-500 line-through" : "text-slate-200"}`}>
+                    {t.text}
+                  </span>
+                  <button
+                    onClick={() => removeWithUndo(rapidas, setRapidas, t.id, "Tarea")}
+                    className="text-slate-500 transition hover:text-rose-400"
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      </div>
+
+      <div className="mt-6 grid grid-cols-1 gap-6">
         {/* Distribución de horas */}
         <Card>
           <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-slate-100">
@@ -2000,8 +2045,6 @@ const NAV_GROUPS = [
       { id: "calendario", label: "Calendario", icon: CalendarDays },
       { id: "proximos", label: "Próximos", icon: CalendarClock },
       { id: "foco", label: "Modo foco", icon: Timer },
-      { id: "resumen", label: "Resumen semanal", icon: Sparkles },
-      { id: "coach", label: "Coach", icon: Sparkles },
     ],
   },
   {
@@ -2026,7 +2069,6 @@ const NAV = NAV_GROUPS.flatMap((g) => (g.items ? g.items : [g]));
 
 export default function LifeDashboard({ userEmail = null, onSignOut = null }) {
   const [active, setActive] = useState("inicio");
-  const [tasks, setTasks] = usePersisted("lh_tasks", INITIAL_TASKS);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openGroup, setOpenGroup] = useState(null);
   const headerRef = useRef(null);
@@ -2053,9 +2095,6 @@ export default function LifeDashboard({ userEmail = null, onSignOut = null }) {
     window.addEventListener("pointerdown", onDown);
     return () => window.removeEventListener("pointerdown", onDown);
   }, [openGroup]);
-
-  const toggleTask = (id) =>
-    setTasks(tasks.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));
 
   const navigate = (id) => {
     setActive(id);
@@ -2239,7 +2278,7 @@ export default function LifeDashboard({ userEmail = null, onSignOut = null }) {
           <Suspense
             fallback={<div className="py-16 text-center text-sm text-slate-500">Cargando sección...</div>}
           >
-          {active === "inicio" && <Inicio tasks={tasks} toggleTask={toggleTask} />}
+          {active === "inicio" && <Inicio />}
           {active === "trabajo" && <Trabajo />}
           {active === "gimnasio" && <Gimnasio />}
           {active === "universidad" && <Universidad />}
@@ -2250,8 +2289,6 @@ export default function LifeDashboard({ userEmail = null, onSignOut = null }) {
           {active === "inversiones" && <Inversiones />}
           {active === "habitos" && <Habitos />}
           {active === "metas" && <Metas />}
-          {active === "resumen" && <Resumen />}
-          {active === "coach" && <Coach onNavigate={setActive} />}
           {active === "calendario" && <Calendario />}
           {active === "proximos" && <Proximos />}
           {active === "cerebro" && <SegundoCerebro />}

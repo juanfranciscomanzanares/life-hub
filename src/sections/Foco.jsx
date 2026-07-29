@@ -1,21 +1,26 @@
 import { useState, useEffect, useRef } from "react";
 import { Timer, Play, Pause, RotateCcw } from "lucide-react";
 import { usePersisted } from "../lib/store";
-import { Card, SectionTitle } from "../lib/ui";
+import { Card, SectionTitle, todayISO } from "../lib/ui";
+import { SUBJECTS } from "../lib/uni";
 
-const SUBJECTS = ["Álgebra", "Cálculo", "Estadística", "Prog. I", "Física", "Lab. Datos"];
+/*
+  Pomodoro que apunta las horas de estudio solas.
 
+  Solo registra estudio: las horas de trabajo se apuntan a mano en su sección,
+  y tener aquí un segundo sitio donde meterlas solo servía para acabar con las
+  mismas horas contadas dos veces.
+*/
 export default function Foco() {
   const [dur, setDur] = useState(25); // minutos
   const [left, setLeft] = useState(25 * 60); // segundos
   const [run, setRun] = useState(false);
   const [hechas, setHechas] = useState(0);
-  const [destino, setDestino] = useState("Estudio");
   const [asignatura, setAsignatura] = useState(SUBJECTS[0]);
   const timer = useRef(null);
 
   const [study, setStudy] = usePersisted("lh_study_hours", {});
-  const [work, setWork] = usePersisted("lh_work_log", []);
+  const [studyLog, setStudyLog] = usePersisted("lh_study_log", []);
 
   useEffect(() => {
     if (run) {
@@ -31,19 +36,21 @@ export default function Foco() {
       setHechas((n) => n + 1);
       setLeft(dur * 60);
       if (typeof Notification !== "undefined" && Notification.permission === "granted") {
-        try { new Notification("Sesión de foco completada", { body: `${dur} min en ${destino}` }); } catch {}
+        try { new Notification("Sesión de foco completada", { body: `${dur} min de ${asignatura}` }); } catch {}
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [left]);
 
+  /*
+    Se escribe en los dos sitios: el contador de siempre por asignatura
+    (`lh_study_hours`) y el registro fechado (`lh_study_log`), que es el único
+    que Analítica puede repartir por semanas o meses.
+  */
   const registrar = (min) => {
     const horas = Math.round((min / 60) * 100) / 100;
-    if (destino === "Estudio") {
-      setStudy({ ...study, [asignatura]: (Number(study[asignatura]) || 0) + horas });
-    } else {
-      setWork([{ id: Date.now(), fecha: new Date().toISOString().slice(0, 10), actividad: "Sesión de foco", categoria: "Formación", horas }, ...work]);
-    }
+    setStudy({ ...study, [asignatura]: (Number(study[asignatura]) || 0) + horas });
+    setStudyLog([...studyLog, { id: Date.now(), fecha: todayISO(), subject: asignatura, horas }]);
   };
 
   const setPreset = (m) => { setDur(m); setLeft(m * 60); setRun(false); };
@@ -84,25 +91,27 @@ export default function Foco() {
         </Card>
 
         <Card>
-          <h2 className="mb-4 text-lg font-semibold text-slate-100">¿Dónde registrar estas horas?</h2>
-          <div className="mb-4 flex gap-2">
-            {["Estudio", "Trabajo"].map((d) => (
-              <button key={d} onClick={() => setDestino(d)} className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition ${destino === d ? "bg-indigo-500 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700"}`}>{d}</button>
-            ))}
+          <h2 className="mb-4 text-lg font-semibold text-slate-100">¿Qué estás estudiando?</h2>
+          <div className="mb-4">
+            <label htmlFor="foco-asignatura" className="mb-1 block text-xs text-slate-400">
+              Asignatura
+            </label>
+            <select
+              id="foco-asignatura"
+              name="foco-asignatura"
+              value={asignatura}
+              onChange={(e) => setAsignatura(e.target.value)}
+              className={`w-full ${inputCls}`}
+            >
+              {SUBJECTS.map((s) => <option key={s}>{s}</option>)}
+            </select>
           </div>
-          {destino === "Estudio" && (
-            <div className="mb-4">
-              <label className="mb-1 block text-xs text-slate-400">Asignatura</label>
-              <select value={asignatura} onChange={(e) => setAsignatura(e.target.value)} className={`w-full ${inputCls}`}>
-                {SUBJECTS.map((s) => <option key={s}>{s}</option>)}
-              </select>
-            </div>
-          )}
           <div className="rounded-xl border border-slate-800 bg-slate-800/40 p-4">
             <p className="text-sm text-slate-400">Sesiones completadas hoy</p>
             <p className="text-3xl font-bold text-slate-100">{hechas}</p>
             <p className="mt-1 text-xs text-slate-500">
-              Al terminar cada sesión se suman {Math.round((dur / 60) * 100) / 100}h a {destino === "Estudio" ? asignatura : "Trabajo (Agrosana)"}.
+              Al terminar cada sesión se suman {Math.round((dur / 60) * 100) / 100}h a {asignatura}, y
+              se apuntan con la fecha de hoy para que salgan en Analítica.
             </p>
           </div>
         </Card>

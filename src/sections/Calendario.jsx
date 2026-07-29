@@ -3,6 +3,22 @@ import { CalendarDays, ChevronLeft, ChevronRight, Plus, Trash2, Repeat } from "l
 import { usePersisted } from "../lib/store";
 import { removeWithUndo } from "../lib/toast";
 import { Card, SectionTitle, MONTHS } from "../lib/ui";
+import { CURSO, eventosDelCalendario, queHayEl } from "../lib/uni";
+
+// Fondo del día según el calendario académico. Suave a propósito: es contexto,
+// no un evento, y no debe competir con lo que haya escrito en la casilla.
+const FONDO_ACADEMICO = {
+  clases: "bg-slate-800/30",
+  examenes: "bg-amber-500/10",
+  festivo: "bg-rose-500/10",
+  vacaciones: "bg-emerald-500/10",
+};
+
+const ETIQUETA_ACADEMICA = {
+  examenes: "exámenes",
+  festivo: "festivo",
+  vacaciones: "vacaciones",
+};
 
 const WEEKDAYS = ["L", "M", "X", "J", "V", "S", "D"];
 const WEEKDAYS_FULL = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
@@ -54,6 +70,16 @@ const UM_ROUTINE = [
   { dia: 1, hora: "17:00", titulo: "Gestión de Proyectos (teoría)", tipo: "Universidad" },
   { dia: 2, hora: "19:00", titulo: "Gestión de Proyectos (prácticas)", tipo: "Universidad" },
 ];
+/*
+  Fechas de examen por asignatura.
+
+  OJO: tres de estas seis caen FUERA de las convocatorias oficiales del
+  calendario académico (Convocatoria I: 14–16 de diciembre y 8–16 de enero):
+  el 17 y el 21 de diciembre y el 7 de enero. Salieron de una lectura a ojo de
+  los PDF de horarios, no de la resolución oficial. Se dejan porque son la
+  única referencia que hay, pero hay que contrastarlas con la web de la
+  Facultad antes de fiarse; por eso el aviso también sale en pantalla.
+*/
 const UM_EXAMS = [
   { fecha: "2026-12-17", titulo: "Examen: Empresa y Emprendimiento (mañana)" },
   { fecha: "2026-12-21", titulo: "Examen: Deep Learning (tarde)" },
@@ -124,16 +150,35 @@ export default function Calendario() {
     setRForm({ dia: 0, hora: "18:00", titulo: "", tipo: "Gym" });
   };
 
+  /*
+    Vuelca el curso entero: clases semanales, exámenes y el calendario
+    académico oficial (cuatrimestres, convocatorias, festivos y vacaciones).
+
+    Se puede pulsar las veces que haga falta: lo que ya está no se duplica,
+    porque se compara por fecha + título.
+  */
   const cargarUM = () => {
     const rKey = (x) => `${x.dia}-${x.hora}-${x.titulo}`;
     const exist = new Set(routine.map(rKey));
     const nuevas = UM_ROUTINE.filter((x) => !exist.has(rKey(x))).map((x, i) => ({ id: Date.now() + i, ...x }));
     if (nuevas.length) setRoutine([...routine, ...nuevas]);
+
     const eKey = (x) => `${x.fecha}-${x.titulo}`;
     const evExist = new Set(events.map(eKey));
-    const nuevosEv = UM_EXAMS.filter((x) => !evExist.has(eKey(x))).map((x, i) => ({ id: Date.now() + 1000 + i, ...x }));
+    const porMeter = [...UM_EXAMS, ...eventosDelCalendario()].filter((x) => !evExist.has(eKey(x)));
+    // Sin deduplicar entre sí, un título repetido en dos sitios entraría dos veces.
+    const vistos = new Set();
+    const nuevosEv = porMeter
+      .filter((x) => !vistos.has(eKey(x)) && vistos.add(eKey(x)))
+      .map((x, i) => ({ id: Date.now() + 1000 + i, ...x }));
     if (nuevosEv.length) setEvents([...events, ...nuevosEv]);
-    alert(`Cargado: ${nuevas.length} clases y ${nuevosEv.length} exámenes. Revisa las horas por si acaso.`);
+
+    alert(
+      `Cargado: ${nuevas.length} clases y ${nuevosEv.length} fechas del curso ${CURSO} ` +
+        `(exámenes, cuatrimestres, convocatorias, festivos y vacaciones).\n\n` +
+        `Aviso: tres de las fechas de examen (17 y 21 de diciembre, 7 de enero) caen fuera de las ` +
+        `convocatorias oficiales. Contrástalas con la web de la Facultad.`
+    );
   };
 
   const lunesSem = new Date(now);
@@ -173,8 +218,13 @@ export default function Calendario() {
 
         <div className="mb-4">
           <button onClick={cargarUM} className="rounded-lg border border-sky-700/60 bg-sky-500/10 px-4 py-2 text-sm font-semibold text-sky-200 transition hover:bg-sky-500/20">
-            Cargar horario y exámenes UM (GCID 26/27)
+            Cargar curso UM {CURSO} (horario, exámenes y calendario académico)
           </button>
+          <p className="mt-2 text-xs text-slate-500">
+            Mete las clases semanales, las fechas de examen y el calendario oficial de la Facultad de
+            Informática: cuatrimestres, convocatorias, festivos y vacaciones. Se puede pulsar varias
+            veces sin duplicar nada.
+          </p>
         </div>
 
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
@@ -240,9 +290,30 @@ export default function Calendario() {
             const oneoff = byDate[iso(d)] || [];
             const rout = (routineByDay[weekdayOf(d)] || []).map((r) => ({ tipo: r.tipo, label: `${r.hora} ${r.titulo}` }));
             const list = [...rout, ...oneoff];
+            /*
+              El calendario académico se pinta como fondo del día, no como un
+              evento más: si no, "1er cuatrimestre" ocuparía una línea en cada
+              una de las 65 casillas y taparía lo que de verdad pasa ese día.
+            */
+            const academico = queHayEl(iso(d));
             return (
-              <div key={d} className={`min-h-[92px] rounded-lg border p-1.5 ${isToday(d) ? "border-indigo-500 bg-indigo-500/10" : "border-slate-800 bg-slate-800/30"}`}>
-                <div className="mb-1 text-right text-xs font-medium text-slate-400">{d}</div>
+              <div
+                key={d}
+                title={academico ? academico.titulo : undefined}
+                className={`min-h-[92px] rounded-lg border p-1.5 ${
+                  isToday(d)
+                    ? "border-indigo-500 bg-indigo-500/10"
+                    : `border-slate-800 ${FONDO_ACADEMICO[academico?.tipo] || "bg-slate-800/30"}`
+                }`}
+              >
+                <div className="mb-1 flex items-center justify-between gap-1">
+                  {academico && academico.tipo !== "clases" && (
+                    <span className="truncate text-[9px] uppercase tracking-wide text-slate-500">
+                      {ETIQUETA_ACADEMICA[academico.tipo]}
+                    </span>
+                  )}
+                  <span className="ml-auto text-xs font-medium text-slate-400">{d}</span>
+                </div>
                 <div className="space-y-1">
                   {list.slice(0, 4).map((ev, j) => (
                     <div key={j} title={`${ev.tipo}: ${ev.label}`} className={`truncate rounded px-1 py-0.5 text-[10px] ${TYPE_STYLE[ev.tipo] || TYPE_STYLE.Otro}`}>{ev.label}</div>
