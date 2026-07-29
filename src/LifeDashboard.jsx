@@ -79,6 +79,7 @@ import { removeWithUndo, toast } from "./lib/toast";
   onboarding. Cargarlas en diferido solo provocaría un parpadeo.
 */
 const Inversiones = lazy(() => import("./sections/Inversiones.jsx"));
+const PlanFinanciero = lazy(() => import("./sections/PlanFinanciero.jsx"));
 const Salud = lazy(() => import("./sections/Salud.jsx"));
 const Gimnasio = lazy(() => import("./sections/Gimnasio.jsx"));
 const Foco = lazy(() => import("./sections/Foco.jsx"));
@@ -2221,6 +2222,7 @@ const NAV_GROUPS = [
     icon: Wallet,
     items: [
       { id: "finanzas", label: "Finanzas", icon: Wallet },
+      { id: "plan", label: "Plan financiero", icon: Target },
       { id: "inversiones", label: "Inversiones", icon: LineChart },
     ],
   },
@@ -2489,6 +2491,7 @@ export default function LifeDashboard({ userEmail = null, onSignOut = null }) {
           {active === "salud" && <Salud />}
           {active === "finanzas" && <Finanzas />}
           {active === "inversiones" && <Inversiones />}
+          {active === "plan" && <PlanFinanciero />}
           {active === "habitos" && <Habitos />}
           {active === "metas" && <Metas />}
           {active === "calendario" && <Calendario />}

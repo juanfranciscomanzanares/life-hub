@@ -26,6 +26,7 @@ export const ALL_KEYS = [
   "lh_finance", "lh_budgets", "lh_budget_mensual", "lh_savings", "lh_subs", "lh_ingresos_fijos",
   "lh_investments", "lh_contribs", "lh_invest_goal", "lh_portfolio_history",
   "lh_banco_reglas", "lh_banco_conexion",
+  "lh_plan_regimenes", "lh_plan_config",
   // Salud y hábitos
   "lh_health", "lh_salud_perfil", "lh_habits",
 ];
