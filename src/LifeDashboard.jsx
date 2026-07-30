@@ -2499,6 +2499,17 @@ export default function LifeDashboard({ userEmail = null, onSignOut = null }) {
     return () => window.removeEventListener("pointerdown", onDown);
   }, [openGroup]);
 
+  /*
+    Con el menú abierto, la página de detrás se queda quieta. Sin esto el dedo
+    arrastraba unas veces el panel y otras el contenido del fondo, y al cerrar
+    aparecías en un punto distinto del que estabas.
+  */
+  useEffect(() => {
+    if (!mobileOpen) return;
+    document.body.style.overflow = "hidden";
+    return () => document.body.style.removeProperty("overflow");
+  }, [mobileOpen]);
+
   const navigate = (id) => {
     setActive(id);
     setOpenGroup(null);
@@ -2627,7 +2638,7 @@ export default function LifeDashboard({ userEmail = null, onSignOut = null }) {
 
         {/* Panel de navegación móvil */}
         {mobileOpen && (
-          <div className="mobile-panel max-h-[calc(100vh-4rem)] overflow-y-auto border-t border-slate-800 bg-slate-950/95 px-4 pb-6 backdrop-blur lg:hidden">
+          <div className="mobile-panel lh-panel-movil overflow-y-auto border-t border-slate-800 bg-slate-950/95 px-4 backdrop-blur lg:hidden">
             {NAV_GROUPS.map((g) => {
               const items = g.items || [g];
               return (
@@ -2676,8 +2687,15 @@ export default function LifeDashboard({ userEmail = null, onSignOut = null }) {
         <div className="fixed inset-0 z-20 bg-black/50 lg:hidden" onClick={() => setMobileOpen(false)} />
       )}
 
-      {/* Contenido principal */}
-      <main className="overflow-x-hidden">
+      {/*
+        Sin `overflow-x-hidden` aquí a propósito: por especificación, ocultar un
+        eje convierte el otro en `auto`, así que <main> pasaba a ser un segundo
+        contenedor de desplazamiento dentro de la página. En el móvil eso hace
+        que el dedo mueva unas veces la página y otras el contenedor, y que el
+        final de algunas secciones cueste alcanzar. El desbordamiento
+        horizontal se recorta ahora en el <body> (ver src/index.css).
+      */}
+      <main>
         {/* data-seccion tiñe el área: de él salen las variables --c-seccion-*
             que usan el título y el resplandor superior (ver src/index.css). */}
         <div

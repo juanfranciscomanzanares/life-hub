@@ -160,6 +160,13 @@ body,
 body {
   margin: 0;
   background: rgb(var(--lh-fondo));
+  /*
+    El recorte horizontal va aquí y no en un contenedor interno: en el <body>
+    se propaga a la ventana, así que la página sigue teniendo un único
+    desplazamiento vertical. Puesto en un <div>, ese div se convertiría en un
+    segundo contenedor de scroll y el móvil se vuelve errático.
+  */
+  overflow-x: hidden;
 }
 
 /*
@@ -647,6 +654,53 @@ html[data-theme="light"] .lh-seccion::before {
 .nav-link.is-active::after {
   left: 12px;
   width: calc(100% - 24px);
+}
+
+/*
+  Panel de navegación móvil (el menú "Más").
+
+  Dos motivos por los que las últimas secciones no se podían pulsar:
+
+  1. `100vh` en el móvil es la altura de la ventana CON la barra del navegador
+     oculta, que es más de lo que se ve en realidad. El panel se pasaba de
+     largo y sus últimas filas quedaban por debajo del borde de la pantalla,
+     sin forma de llegar a ellas. `100dvh` sí sigue a la ventana real; la
+     línea con `vh` se queda como respaldo para navegadores que no lo conocen.
+
+  2. La barra inferior está fija y por encima del panel, así que aunque
+     llegaras al final, los últimos botones quedaban debajo de ella. De ahí el
+     relleno: la altura de la barra más la franja de gestos del teléfono.
+*/
+.lh-panel-movil {
+  max-height: calc(100vh - 4rem);
+  max-height: calc(100dvh - 4rem);
+  padding-bottom: calc(env(safe-area-inset-bottom) + 5.5rem);
+  overscroll-behavior: contain;
+}
+
+/* Ventanas emergentes: nunca más altas que la pantalla real. */
+.lh-modal {
+  max-height: 85vh;
+  max-height: 85dvh;
+  overscroll-behavior: contain;
+}
+
+/*
+  Fila de pestañas que puede no caber de ancho (Gimnasio tiene cuatro). Se
+  desplaza a dedo en vez de comprimirse o salirse de la pantalla, y se le
+  esconde la barra de desplazamiento porque en el móvil sobra.
+*/
+.lh-pestanas {
+  display: flex;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.lh-pestanas::-webkit-scrollbar {
+  display: none;
+}
+.lh-pestanas > * {
+  flex-shrink: 0;
 }
 
 /* --- Accesibilidad: foco visible por teclado --- */

@@ -88,7 +88,7 @@ export default function Gimnasio() {
         subtitle="Tus rutinas, serie a serie, con su progreso"
       />
 
-      <div className="mb-5 flex gap-1.5" role="tablist">
+      <div className="lh-pestanas mb-5 gap-1.5 pb-1" role="tablist">
         {PESTANAS.map(({ id, nombre, icono: Icono }) => (
           <button
             key={id}

@@ -60,7 +60,9 @@ export default function QuickAdd() {
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 sm:items-center" onClick={() => setOpen(false)}>
-          <div className="w-full max-w-sm rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          {/* Con el teclado abierto el alto útil se queda en nada: sin límite y
+              sin scroll propio, el botón de guardar quedaba fuera de la pantalla. */}
+          <div className="lh-modal w-full max-w-sm overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-bold text-slate-100">Añadido rápido</h2>
               <button onClick={() => setOpen(false)} className="text-slate-400 hover:text-slate-200"><X size={20} /></button>
