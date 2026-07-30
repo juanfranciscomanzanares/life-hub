@@ -74,6 +74,11 @@ export default {
           700: "rgb(var(--c-sky-700) / <alpha-value>)",
           800: "rgb(var(--c-sky-800) / <alpha-value>)",
         },
+        violet: {
+          300: "rgb(var(--c-violet-300) / <alpha-value>)",
+          400: "rgb(var(--c-violet-400) / <alpha-value>)",
+          500: "rgb(var(--c-violet-500) / <alpha-value>)",
+        },
         fuchsia: {
           300: "rgb(var(--c-fuchsia-300) / <alpha-value>)",
           400: "rgb(var(--c-fuchsia-400) / <alpha-value>)",

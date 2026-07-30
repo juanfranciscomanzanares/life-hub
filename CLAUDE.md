@@ -23,6 +23,7 @@ Ejecuta `npm test` y `npm run build` antes de dar por terminado un cambio.
 - La navegación se define en `NAV_GROUPS` (grupos con desplegable) dentro de `LifeDashboard.jsx`; `NAV` (lista plana) se deriva de ahí y alimenta la paleta de comandos (Ctrl+K).
 - Estado persistente: hook `usePersisted(clave, inicial)` de [src/lib/store.js](src/lib/store.js). Las claves siempre con prefijo `lh_` (p. ej. `lh_habits`). Ese mismo store sincroniza con Supabase si hay sesión.
 - Lógica pura testeable en `src/lib/*.js` con su `*.test.js` al lado (vitest).
+- Los registros de trabajo (`lh_work_log`) llevan `modalidad` (`"oficina"` / `"teletrabajo"`, ausente en los antiguos) y, opcionalmente, `km`. Los kilómetros se cuentan **por día presencial**, no por registro: ver `diasEnOficina` en [src/lib/trabajo.js](src/lib/trabajo.js). La distancia habitual vive aparte, en `lh_trabajo_km_trayecto`.
 
 ## Convenciones de UI
 

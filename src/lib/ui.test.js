@@ -42,6 +42,18 @@ describe("utilidades de UI", () => {
     expect(fmtEuro(-32.5)).toBe("-32,50€");
   });
 
+  it("toCSV no pierde columnas que solo tienen algunas filas", () => {
+    // Caso real: registros de trabajo antiguos sin modalidad ni km.
+    const csv = toCSV([
+      { fecha: "2026-07-01", horas: 8 },
+      { fecha: "2026-07-02", horas: 8, modalidad: "oficina", km: 30 },
+    ]);
+    const filas = csv.split("\n");
+    expect(filas[0]).toBe("fecha;horas;modalidad;km");
+    expect(filas[1]).toBe("2026-07-01;8;;");
+    expect(filas[2]).toBe("2026-07-02;8;oficina;30");
+  });
+
   it("toCSV escapa comillas y separadores", () => {
     const csv = toCSV([
       { a: 1, b: "x" },

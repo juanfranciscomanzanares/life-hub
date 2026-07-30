@@ -6,6 +6,11 @@ import {
   totalHoras,
   redondear,
   fmtHoras,
+  repartoModalidad,
+  diasEnOficina,
+  kmTotales,
+  filtrarMes,
+  fmtKm,
 } from "./trabajo";
 
 // Miércoles 29/07/2026; el lunes de esa semana es el 27.
@@ -102,5 +107,128 @@ describe("fmtHoras", () => {
 
   it("sin valor devuelve 0h en vez de NaN", () => {
     expect(fmtHoras(undefined)).toBe("0h");
+  });
+});
+
+describe("repartoModalidad", () => {
+  it("separa las horas de oficina y de teletrabajo", () => {
+    const r = repartoModalidad([
+      { horas: 4, modalidad: "oficina" },
+      { horas: 3, modalidad: "teletrabajo" },
+      { horas: 2, modalidad: "oficina" },
+    ]);
+    expect(r.oficina).toBe(6);
+    expect(r.teletrabajo).toBe(3);
+    expect(r.pctOficina).toBe(67);
+  });
+
+  it("los registros sin modalidad quedan aparte y no alteran el porcentaje", () => {
+    const r = repartoModalidad([
+      { horas: 5, modalidad: "oficina" },
+      { horas: 5, modalidad: "teletrabajo" },
+      { horas: 90 }, // registro antiguo, sin clasificar
+    ]);
+    expect(r.sinIndicar).toBe(90);
+    expect(r.total).toBe(100);
+    expect(r.pctOficina).toBe(50);
+  });
+
+  it("sin horas clasificadas el porcentaje es null, no 0", () => {
+    expect(repartoModalidad([{ horas: 3 }]).pctOficina).toBe(null);
+    expect(repartoModalidad([]).pctOficina).toBe(null);
+  });
+
+  it("una modalidad desconocida no se cuela como oficina", () => {
+    const r = repartoModalidad([{ horas: 2, modalidad: "hibrido" }]);
+    expect(r.oficina).toBe(0);
+    expect(r.sinIndicar).toBe(2);
+  });
+});
+
+describe("diasEnOficina", () => {
+  it("cuenta cada día una sola vez aunque tenga varias actividades", () => {
+    const dias = diasEnOficina(
+      [
+        { fecha: "2026-07-27", horas: 4, modalidad: "oficina" },
+        { fecha: "2026-07-27", horas: 3, modalidad: "oficina" },
+        { fecha: "2026-07-28", horas: 8, modalidad: "oficina" },
+      ],
+      30
+    );
+    expect(dias).toHaveLength(2);
+    expect(dias[0]).toMatchObject({ fecha: "2026-07-27", horas: 7, km: 30 });
+    expect(kmTotales(
+      [
+        { fecha: "2026-07-27", horas: 4, modalidad: "oficina" },
+        { fecha: "2026-07-27", horas: 3, modalidad: "oficina" },
+      ],
+      30
+    )).toBe(30);
+  });
+
+  it("ignora el teletrabajo y los registros sin modalidad", () => {
+    const dias = diasEnOficina(
+      [
+        { fecha: "2026-07-27", horas: 8, modalidad: "teletrabajo" },
+        { fecha: "2026-07-28", horas: 8 },
+      ],
+      30
+    );
+    expect(dias).toEqual([]);
+    expect(kmTotales([{ fecha: "2026-07-28", horas: 8 }], 30)).toBe(0);
+  });
+
+  it("los km declarados en un día ganan a la distancia habitual", () => {
+    const dias = diasEnOficina(
+      [
+        { fecha: "2026-07-27", horas: 4, modalidad: "oficina", km: 12 },
+        { fecha: "2026-07-27", horas: 4, modalidad: "oficina" },
+        { fecha: "2026-07-28", horas: 8, modalidad: "oficina" },
+      ],
+      30
+    );
+    expect(dias.map((d) => d.km)).toEqual([12, 30]);
+    expect(kmTotales(
+      [
+        { fecha: "2026-07-27", horas: 4, modalidad: "oficina", km: 12 },
+        { fecha: "2026-07-28", horas: 8, modalidad: "oficina" },
+      ],
+      30
+    )).toBe(42);
+  });
+
+  it("sin distancia configurada los días cuentan pero suman 0 km", () => {
+    const dias = diasEnOficina([{ fecha: "2026-07-27", horas: 8, modalidad: "oficina" }], 0);
+    expect(dias).toHaveLength(1);
+    expect(dias[0].km).toBe(0);
+  });
+
+  it("devuelve los días ordenados por fecha", () => {
+    const dias = diasEnOficina(
+      [
+        { fecha: "2026-07-29", horas: 1, modalidad: "oficina" },
+        { fecha: "2026-07-27", horas: 1, modalidad: "oficina" },
+      ],
+      10
+    );
+    expect(dias.map((d) => d.fecha)).toEqual(["2026-07-27", "2026-07-29"]);
+  });
+});
+
+describe("filtrarMes", () => {
+  it("se queda solo con los registros del mes pedido", () => {
+    const log = [{ fecha: "2026-07-29" }, { fecha: "2026-06-30" }, { fecha: "2026-07-01" }];
+    expect(filtrarMes(log, "2026-07")).toHaveLength(2);
+  });
+});
+
+describe("fmtKm", () => {
+  it("usa coma decimal y una sola decimal", () => {
+    expect(fmtKm(12.5)).toBe("12,5 km");
+    expect(fmtKm(30)).toBe("30 km");
+  });
+
+  it("sin valor devuelve 0 km", () => {
+    expect(fmtKm(undefined)).toBe("0 km");
   });
 });

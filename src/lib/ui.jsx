@@ -143,9 +143,17 @@ export function todayISO(fecha = new Date()) {
 }
 
 /* --- Exportar a CSV (compatible con Excel en español) --- */
+/*
+  Las cabeceras salen de TODAS las filas, no solo de la primera.
+
+  Los registros no siempre tienen las mismas claves: los de trabajo anteriores
+  a que existiera la modalidad no la llevan, y los km solo aparecen en los días
+  con distancia distinta a la habitual. Mirando solo `rows[0]`, esas columnas
+  desaparecían del CSV exportado sin previo aviso.
+*/
 export function toCSV(rows) {
   if (!rows || rows.length === 0) return "";
-  const headers = Object.keys(rows[0]);
+  const headers = [...new Set(rows.flatMap((r) => Object.keys(r || {})))];
   const esc = (v) => {
     const s = String(v ?? "");
     return /[";\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
