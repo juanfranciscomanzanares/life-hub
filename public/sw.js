@@ -9,7 +9,10 @@
 //   - Resto de GET del propio origen: stale-while-revalidate.
 //   - Nunca devolvemos HTML como respuesta a una petición de JS/CSS (provocaría
 //     un error de MIME type y también dejaría la pantalla en negro).
-const VERSION = "v3";
+// Súbela al cambiar iconos o manifest: al activarse, el SW borra las cachés de
+// versiones anteriores. Sin eso, "stale-while-revalidate" serviría el icono
+// viejo durante toda la primera visita y el nuevo no se vería hasta la segunda.
+const VERSION = "v4";
 const CACHE = "life-hub-" + VERSION;
 const OFFLINE_URL = "/";
 

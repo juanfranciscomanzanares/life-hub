@@ -12,9 +12,169 @@
     <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <title>Life Hub</title>
+
+    <!--
+      Tema antes del primer pintado.
+
+      El tema lo aplica React en un efecto, así que hasta que monta el bundle
+      el documento no tiene data-theme y la paleta por defecto es la oscura:
+      con el tema claro guardado se veía un fogonazo negro en cada arranque.
+      Esto lo lee de localStorage y lo aplica antes de que se pinte nada.
+    -->
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem("lh_theme") === "light" ? "light" : "dark";
+          document.documentElement.dataset.theme = t;
+          var m = document.querySelector('meta[name="theme-color"]');
+          if (m) m.setAttribute("content", t === "light" ? "#f8fafc" : "#020617");
+        } catch (e) {
+          /* modo privado sin localStorage: se queda el tema oscuro */
+        }
+      })();
+    </script>
+
+    <style>
+      /*
+        Pantalla de carga.
+
+        Va en el HTML y con estilos propios porque tiene que verse ANTES de que
+        llegue el bundle: en ese momento no existen ni Tailwind ni las variables
+        de tema de index.css, así que los colores van a mano en los dos temas.
+
+        Aparece con retardo: si la app ya está en caché y monta en 150 ms, el
+        usuario no llega a verla y no hay parpadeo. Solo se nota cuando la carga
+        de verdad tarda, que es justo cuando hace falta.
+      */
+      #lh-splash {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 20px;
+        background: #020617;
+        font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+        opacity: 0;
+        animation: lh-splash-entra 0.25s ease 0.18s forwards;
+        transition: opacity 0.3s ease;
+      }
+      html[data-theme="light"] #lh-splash {
+        background: #f8fafc;
+      }
+      /*
+        `animation: none` es imprescindible, no un adorno: la animación de
+        entrada usa `forwards`, y un valor animado gana a una declaración
+        normal en la cascada. Sin cancelarla, la opacidad se quedaba clavada
+        en 1 y la pantalla de carga no se iba nunca.
+      */
+      #lh-splash.lh-splash-fuera {
+        animation: none;
+        opacity: 0;
+        pointer-events: none;
+      }
+      @keyframes lh-splash-entra {
+        to {
+          opacity: 1;
+        }
+      }
+      #lh-splash .lh-splash-marca {
+        width: 76px;
+        height: 76px;
+        border-radius: 22px;
+        box-shadow: 0 18px 40px -12px rgba(99, 102, 241, 0.55);
+      }
+      #lh-splash h1 {
+        margin: 0;
+        font-size: 19px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        color: #f1f5f9;
+      }
+      #lh-splash p {
+        margin: 4px 0 0;
+        font-size: 13px;
+        color: #64748b;
+        text-align: center;
+      }
+      html[data-theme="light"] #lh-splash h1 {
+        color: #0f172a;
+      }
+      /* Barra indeterminada: no sabemos el progreso real, solo que sigue vivo */
+      #lh-splash .lh-splash-barra {
+        position: relative;
+        width: 160px;
+        height: 4px;
+        border-radius: 999px;
+        overflow: hidden;
+        background: #1e293b;
+      }
+      html[data-theme="light"] #lh-splash .lh-splash-barra {
+        background: #e2e8f0;
+      }
+      #lh-splash .lh-splash-barra::after {
+        content: "";
+        position: absolute;
+        inset: 0 auto 0 0;
+        width: 40%;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #4f46e5, #d946ef);
+        animation: lh-splash-barra 1.1s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+      }
+      @keyframes lh-splash-barra {
+        0% {
+          transform: translateX(-100%);
+        }
+        100% {
+          transform: translateX(250%);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #lh-splash {
+          animation: none;
+          opacity: 1;
+        }
+        /* Sin recorrido: una barra fija a media asta sigue diciendo "cargando" */
+        #lh-splash .lh-splash-barra::after {
+          animation: none;
+          width: 55%;
+        }
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>
+
+    <!--
+      Fuera de #root a propósito: el guardián de errores de más abajo decide si
+      React llegó a pintar mirando si #root tiene hijos, y meter aquí la carga
+      le habría hecho creer que todo fue bien.
+    -->
+    <div id="lh-splash">
+      <svg class="lh-splash-marca" viewBox="0 0 512 512" aria-hidden="true">
+        <defs>
+          <linearGradient id="lh-splash-grad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#4f46e5" />
+            <stop offset="1" stop-color="#d946ef" />
+          </linearGradient>
+        </defs>
+        <rect width="512" height="512" rx="140" fill="url(#lh-splash-grad)" />
+        <circle cx="256" cy="256" r="148" fill="none" stroke="#fff" stroke-width="16" opacity="0.38" />
+        <g fill="#fff">
+          <circle cx="256" cy="256" r="62" />
+          <circle cx="256" cy="108" r="44" />
+          <circle cx="384" cy="330" r="36" />
+          <circle cx="128" cy="330" r="36" />
+        </g>
+      </svg>
+      <div>
+        <h1>Life Hub</h1>
+        <p>Panel personal</p>
+      </div>
+      <div class="lh-splash-barra" role="progressbar" aria-label="Cargando Life Hub"></div>
+    </div>
     <!--
       Red de seguridad temprana. El ErrorBoundary de React solo existe una vez
       React ha montado; si un módulo falla al importarse (o el bundle no carga),
@@ -26,6 +186,9 @@
         function pintar(titulo, detalle) {
           var root = document.getElementById("root");
           if (!root || root.childElementCount > 0) return; // React ya pintó algo
+          // Sin esto la carga taparía el error: está por encima de todo.
+          var splash = document.getElementById("lh-splash");
+          if (splash) splash.remove();
           root.innerHTML =
             '<div style="min-height:100vh;background:#020617;color:#e2e8f0;padding:16px;font-family:system-ui,-apple-system,sans-serif">' +
             '<div style="max-width:32rem;margin:0 auto;background:#0f172a;border:1px solid #881337;border-radius:16px;padding:20px">' +

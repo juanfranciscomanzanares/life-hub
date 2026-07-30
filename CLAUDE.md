@@ -27,7 +27,9 @@ Ejecuta `npm test` y `npm run build` antes de dar por terminado un cambio.
 
 ## Convenciones de UI
 
-- Componentes `Card`, `SectionTitle`, `Skeleton` y `SkeletonSeccion`, todos en [src/lib/ui.jsx](src/lib/ui.jsx). **No** volver a definirlos en otro archivo: estuvieron duplicados en `LifeDashboard.jsx` y las dos copias se separaron.
+- **Logo**: la marca (núcleo + 3 satélites en órbita) vive en dos sitios que hay que cambiar a la vez — el componente `Logo` de [src/lib/ui.jsx](src/lib/ui.jsx), que usa el degradado de Tailwind para seguir el acento elegido, y [public/icon.svg](public/icon.svg), con el degradado fijo, del que salen los PNG (`npx -y sharp-cli -i public/icon.svg -o <dir> --format png resize N N`) y la pantalla de carga de `index.html`. Al tocar iconos, sube `VERSION` en [public/sw.js](public/sw.js).
+- **Pantalla de carga**: está escrita a mano en [index.html](index.html) (estilos propios, sin Tailwind: se ve antes de que llegue el bundle). Va fuera de `#root` porque el guardián de errores mira si `#root` tiene hijos, y la retira [src/main.jsx](src/main.jsx) tras el primer pintado.
+- Componentes `Card`, `SectionTitle`, `Skeleton`, `SkeletonSeccion` y `Logo`, todos en [src/lib/ui.jsx](src/lib/ui.jsx). **No** volver a definirlos en otro archivo: estuvieron duplicados en `LifeDashboard.jsx` y las dos copias se separaron.
 - Tema claro/oscuro mediante variables CSS en [src/index.css](src/index.css) (`--c-slate-*`, etc.). **No** usar colores Tailwind directos ni hex fijos que se salten esas variables; la paleta ya está mapeada en [tailwind.config.js](tailwind.config.js). Única excepción: colores de serie con significado propio en una gráfica (verde = ganado, rojo = perdido).
 - **Dos capas de color, no las mezcles**:
   - *Acento global* (`indigo-*` → `--c-indigo-*`, redefinidas por `html[data-accent]`, ver `ACENTOS` en [src/lib/useTheme.js](src/lib/useTheme.js)): botones, enlaces y foco. Lo elige el usuario en Ajustes.

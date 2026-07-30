@@ -35,7 +35,7 @@ import {
   Car,
 } from "lucide-react";
 import { usePersisted } from "./lib/store";
-import { Card, SectionTitle, Skeleton, SkeletonSeccion, todayISO, fmtEuro } from "./lib/ui";
+import { Card, SectionTitle, Skeleton, SkeletonSeccion, Logo, todayISO, fmtEuro } from "./lib/ui";
 import {
   horasPorDiaDeLaSemana,
   horasPorSemana,
@@ -2522,9 +2522,7 @@ export default function LifeDashboard({ userEmail = null, onSignOut = null }) {
       >
         <div className="mx-auto flex h-16 max-w-7xl items-center gap-2 px-4 sm:px-6">
           <button onClick={() => navigate("inicio")} className="flex shrink-0 items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-fuchsia-500 font-bold text-white shadow-lg shadow-indigo-500/25">
-              Q
-            </div>
+            <Logo size={36} className="shadow-lg shadow-indigo-500/25" />
             <div className="hidden text-left sm:block">
               <p className="font-bold leading-tight text-slate-100">Life Hub</p>
               <p className="text-[10px] leading-tight text-slate-500">Panel personal</p>

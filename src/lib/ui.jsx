@@ -53,6 +53,34 @@ export function SectionTitle({ icon: Icon, title, subtitle }) {
 }
 
 /*
+  Logo de la app: un núcleo con tres satélites sobre su órbita.
+
+  El degradado va en clases de Tailwind (no dentro del SVG) a propósito: así
+  sigue el color de acento que el usuario elige en Ajustes, porque
+  `from-indigo-500` apunta a las variables --c-indigo-*. La misma marca, con
+  el degradado fijo, está en public/icon.svg para el icono de la PWA y la
+  pantalla de carga, donde todavía no hay CSS de la app cargado.
+*/
+export function Logo({ size = 36, className = "" }) {
+  return (
+    <div
+      className={`flex shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-fuchsia-500 ${className}`}
+      style={{ width: size, height: size }}
+    >
+      <svg viewBox="0 0 512 512" width={size * 0.78} height={size * 0.78} aria-hidden="true" focusable="false">
+        <circle cx="256" cy="256" r="148" fill="none" stroke="#fff" strokeWidth="26" opacity="0.38" />
+        <g fill="#fff">
+          <circle cx="256" cy="256" r="62" />
+          <circle cx="256" cy="108" r="44" />
+          <circle cx="384" cy="330" r="36" />
+          <circle cx="128" cy="330" r="36" />
+        </g>
+      </svg>
+    </div>
+  );
+}
+
+/*
   Bloque de carga con barrido. `lineas` pinta varias barras de alto de texto;
   sin él, un solo bloque de la altura que se le pase por className.
 */

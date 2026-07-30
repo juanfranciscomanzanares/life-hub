@@ -5,15 +5,22 @@
       <stop offset="1" stop-color="#d946ef" />
     </linearGradient>
   </defs>
-  <!-- Fondo a sangre completa (ideal para icono maskable y apple-touch) -->
+
+  <!-- Fondo a sangre: obligatorio para que el icono maskable no salga recortado -->
   <rect width="512" height="512" fill="url(#bg)" />
-  <!-- Barras tipo dashboard -->
-  <g opacity="0.28" fill="#ffffff">
-    <rect x="330" y="300" width="34" height="120" rx="10" />
-    <rect x="378" y="250" width="34" height="170" rx="10" />
-    <rect x="426" y="200" width="34" height="220" rx="10" />
+
+  <!--
+    Marca: un núcleo con tres satélites sobre su órbita (las áreas de la vida
+    girando alrededor del panel).
+
+    Todo queda dentro de un radio de 188 desde el centro, por debajo de los 205
+    que Android reserva como zona segura al recortar el icono en círculo.
+  -->
+  <circle cx="256" cy="256" r="148" fill="none" stroke="#ffffff" stroke-width="16" opacity="0.38" />
+  <g fill="#ffffff">
+    <circle cx="256" cy="256" r="62" />
+    <circle cx="256" cy="108" r="44" />
+    <circle cx="384" cy="330" r="36" />
+    <circle cx="128" cy="330" r="36" />
   </g>
-  <!-- Inicial -->
-  <text x="200" y="270" font-family="Arial, Helvetica, sans-serif" font-size="300" font-weight="bold"
-    fill="#ffffff" text-anchor="middle" dominant-baseline="central">Q</text>
 </svg>

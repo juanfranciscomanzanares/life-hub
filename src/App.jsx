@@ -3,6 +3,7 @@ import { supabase, cloudEnabled } from "./lib/supabase";
 import LifeDashboard from "./LifeDashboard.jsx";
 import AppLock from "./AppLock.jsx";
 import { reiniciarApp } from "./ErrorBoundary.jsx";
+import { Logo } from "./lib/ui";
 
 /*
   App = puerta de acceso + dashboard.
@@ -213,9 +214,7 @@ export default function App() {
       <div className="flex min-h-screen items-center justify-center p-6 text-slate-200">
         <div className="lh-card w-full max-w-sm p-8">
           <div className="mb-6 flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-fuchsia-500 font-bold text-white">
-              Q
-            </div>
+            <Logo size={44} />
             <div>
               <p className="text-lg font-bold text-slate-100">Life Hub</p>
               <p className="text-xs text-slate-500">Tu panel personal</p>
