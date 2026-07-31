@@ -4,6 +4,7 @@ import { usePersisted } from "../lib/store";
 import { removeWithUndo } from "../lib/toast";
 import { Card, SectionTitle, fmtEuro, todayISO } from "../lib/ui";
 
+import { nuevoId } from "../lib/id";
 const INVEST_TYPES = ["Fondo indexado", "ETF", "Acciones", "Cripto", "Plan de pensiones", "Cuenta remunerada", "Otro"];
 /*
   Vacío a propósito. Estas tres carteras y tres aportaciones eran de ejemplo, y
@@ -105,7 +106,7 @@ export default function Inversiones() {
   const addHolding = () => {
     if (!form.nombre.trim()) return;
     const amount = Number(form.aportado) || 0;
-    const h = { id: Date.now(), nombre: form.nombre, tipo: form.tipo, aportado: amount, valorActual: amount };
+    const h = { id: nuevoId(), nombre: form.nombre, tipo: form.tipo, aportado: amount, valorActual: amount };
     if (form.tipo === "Cripto") {
       if (form.coingeckoId) h.coingeckoId = form.coingeckoId.trim().toLowerCase();
       if (form.cantidad) h.cantidad = Number(form.cantidad);
@@ -116,7 +117,7 @@ export default function Inversiones() {
     }
     setHoldings([...holdings, h]);
     if (amount > 0)
-      setContribs([{ id: Date.now() + 1, fecha: todayISO(), monto: amount, destino: form.nombre }, ...contribs]);
+      setContribs([{ id: nuevoId(), fecha: todayISO(), monto: amount, destino: form.nombre }, ...contribs]);
     setForm({ nombre: "", tipo: INVEST_TYPES[0], aportado: "", coingeckoId: "", cantidad: "", ticker: "" });
   };
 
@@ -124,7 +125,7 @@ export default function Inversiones() {
     const amount = Number(aporte[h.id]) || 0;
     if (amount <= 0) return;
     setHoldings(holdings.map((x) => (x.id === h.id ? { ...x, aportado: x.aportado + amount, valorActual: x.valorActual + amount } : x)));
-    setContribs([{ id: Date.now(), fecha: todayISO(), monto: amount, destino: h.nombre }, ...contribs]);
+    setContribs([{ id: nuevoId(), fecha: todayISO(), monto: amount, destino: h.nombre }, ...contribs]);
     setAporte({ ...aporte, [h.id]: "" });
   };
 

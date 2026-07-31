@@ -155,7 +155,10 @@ describe("guardarEnNubeConRetraso (escrituras agrupadas)", () => {
     await vi.advanceTimersByTimeAsync(RETARDO_GUARDADO + 10);
 
     expect(upserts).toHaveLength(1);
-    expect(upserts[0].value).toBe("hola"); // gana el último valor
+    // Lo que viaja es el sobre (valor + marcas por elemento), no el valor
+    // pelado: sin las marcas el otro dispositivo no podría fusionar.
+    expect(upserts[0].value.datos).toBe("hola"); // gana el último valor
+    expect(upserts[0].value._lh).toBe(2);
     expect(upserts[0].user_id).toBe("u1");
   });
 
@@ -189,7 +192,7 @@ describe("guardarEnNubeConRetraso (escrituras agrupadas)", () => {
     await vi.advanceTimersByTimeAsync(RETARDO_GUARDADO + 10);
 
     expect(upserts).toHaveLength(1);
-    expect(upserts[0].value).toEqual(["a", "b"]);
+    expect(upserts[0].value.datos).toEqual(["a", "b"]);
   });
 
   it("no mezcla claves distintas", async () => {
@@ -213,7 +216,7 @@ describe("guardarEnNubeConRetraso (escrituras agrupadas)", () => {
     await vi.advanceTimersByTimeAsync(0);
 
     expect(upserts).toHaveLength(1);
-    expect(upserts[0].value).toEqual(["pendiente"]);
+    expect(upserts[0].value.datos).toEqual(["pendiente"]);
 
     // Y el temporizador cancelado no vuelve a subirlo.
     await vi.advanceTimersByTimeAsync(RETARDO_GUARDADO + 10);

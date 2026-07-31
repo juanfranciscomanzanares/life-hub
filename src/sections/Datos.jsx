@@ -9,6 +9,7 @@ import { encryptJSON, decryptJSON } from "../lib/crypto";
 import { restoreSnapshot, ALL_KEYS } from "../lib/useAutoBackup";
 import { contarEjemplos, limpiarEjemplos } from "../lib/limpiarEjemplo";
 
+import { nuevoId } from "../lib/id";
 const DATASETS = [
   { key: "lh_gym", file: "gimnasio.csv", label: "Gimnasio" },
   { key: "lh_work_log", file: "trabajo_agrosana.csv", label: "Trabajo (Agrosana)" },
@@ -108,7 +109,7 @@ export default function Datos() {
 
   const addReminder = () => {
     if (!form.cuando || !form.titulo.trim()) return;
-    setReminders([...reminders, { id: Date.now(), cuando: form.cuando, titulo: form.titulo, avisado: false, repetir: form.repetir }]);
+    setReminders([...reminders, { id: nuevoId(), cuando: form.cuando, titulo: form.titulo, avisado: false, repetir: form.repetir }]);
     setForm({ cuando: "", titulo: "", repetir: form.repetir });
   };
 

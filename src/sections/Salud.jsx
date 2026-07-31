@@ -4,6 +4,7 @@ import { usePersisted } from "../lib/store";
 import { removeWithUndo } from "../lib/toast";
 import { Card, SectionTitle, todayISO } from "../lib/ui";
 
+import { nuevoId } from "../lib/id";
 // Vacío a propósito: estos cuatro días eran de ejemplo y se guardaban como
 // reales. Además falseaban el patrón de sueño frente a gimnasio de Analítica.
 const INITIAL_HEALTH = [];
@@ -31,7 +32,7 @@ export default function Salud() {
     if (!form.peso && !form.sueno && !form.pasos && !form.fc && !form.agua) return;
     setLog([
       {
-        id: Date.now(),
+        id: nuevoId(),
         fecha: form.fecha || todayISO(),
         peso: Number(form.peso) || 0,
         sueno: Number(form.sueno) || 0,
