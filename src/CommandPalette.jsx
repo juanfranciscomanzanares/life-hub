@@ -1,5 +1,6 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { Search, CornerDownLeft } from "lucide-react";
+import { useDialogo } from "./lib/useDialogo";
 
 function read(key, fb) {
   try {
@@ -38,13 +39,10 @@ export default function CommandPalette({ open, setOpen, sections, onNavigate }) 
     }
   }, [open]);
 
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    if (open) window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, setOpen]);
+  // Escape y el foco atrapado los lleva useDialogo, que además devuelve el
+  // foco al botón de buscar cuando se cierra la paleta.
+  const cerrar = useCallback(() => setOpen(false), [setOpen]);
+  const refDialogo = useDialogo(open, cerrar);
 
   const ql = q.trim().toLowerCase();
   const secciones = sections.filter((s) => s.label.toLowerCase().includes(ql)).slice(0, 6);
@@ -63,8 +61,15 @@ export default function CommandPalette({ open, setOpen, sections, onNavigate }) 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 p-4 pt-24" onClick={() => setOpen(false)}>
-      <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 p-4 pt-24" onClick={cerrar}>
+      <div
+        ref={refDialogo}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Buscar en Life Hub"
+        className="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
         <form onSubmit={onSubmit} className="flex items-center gap-2 border-b border-slate-800 px-4">
           <Search size={18} className="text-slate-500" />
           <input

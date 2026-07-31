@@ -47,7 +47,7 @@ export default function BarraInferior({ active, onNavigate, onAbrirMenu, menuAbi
                     activo ? "bg-seccion-500/20" : ""
                   }`}
                 >
-                  <Icono size={19} />
+                  <Icono size={19} aria-hidden="true" />
                 </span>
                 {label}
               </button>
@@ -58,6 +58,7 @@ export default function BarraInferior({ active, onNavigate, onAbrirMenu, menuAbi
           <button
             onClick={onAbrirMenu}
             aria-expanded={menuAbierto}
+            aria-controls="menu-movil"
             className={`flex w-full flex-col items-center gap-0.5 py-2 text-[10px] font-medium transition ${
               menuAbierto ? "text-indigo-400" : "text-slate-500"
             }`}
@@ -67,7 +68,7 @@ export default function BarraInferior({ active, onNavigate, onAbrirMenu, menuAbi
                 menuAbierto ? "bg-indigo-500/20" : ""
               }`}
             >
-              <Menu size={19} />
+              <Menu size={19} aria-hidden="true" />
             </span>
             Más
           </button>
