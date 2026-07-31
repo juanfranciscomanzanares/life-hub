@@ -10,11 +10,14 @@
   Todo son funciones puras: la sección solo pinta.
 */
 
+import { redondear } from "./numeros";
+
 // 52/12, no 4: usar 4 semanas por mes se deja fuera un mes entero al año, y en
 // gastos de transporte diarios eso es mucho dinero.
 export const SEMANAS_MES = 52 / 12;
 
-export const redondear = (n) => Math.round((Number(n) || 0) * 100) / 100;
+// Se reexporta porque la sección ya lo importaba de aquí.
+export { redondear };
 
 const suma = (filas = []) => filas.reduce((a, f) => a + (Number(f?.monto) || 0), 0);
 

@@ -393,7 +393,10 @@ html[data-theme="light"][data-accent="violeta"] {
   --c-seccion-400: 251 113 133;
   --c-seccion-500: 244 63 94;
 }
+/* Plan financiero va con las de dinero: se quedó fuera al añadirla y salía con
+   el indigo por defecto, como si fuera de otra área. */
 [data-seccion="finanzas"],
+[data-seccion="plan"],
 [data-seccion="inversiones"] {
   --c-seccion-300: 110 231 183;
   --c-seccion-400: 52 211 153;
@@ -457,6 +460,7 @@ html[data-theme="light"] [data-seccion="tenis-notas"] {
   --c-seccion-400: 225 29 72;
 }
 html[data-theme="light"] [data-seccion="finanzas"],
+html[data-theme="light"] [data-seccion="plan"],
 html[data-theme="light"] [data-seccion="inversiones"] {
   --c-seccion-300: 4 120 87;
   --c-seccion-400: 5 150 105;

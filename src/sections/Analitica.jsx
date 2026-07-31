@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { BarChart3, ChevronLeft, ChevronRight, Flag, Lightbulb } from "lucide-react";
 import { usePersisted } from "../lib/store";
-import { Card, SectionTitle, fmtEuro, todayISO } from "../lib/ui";
+import { Card, SectionTitle, todayISO } from "../lib/ui";
 import { Cifra } from "../lib/animar";
 import {
   PERIODOS,

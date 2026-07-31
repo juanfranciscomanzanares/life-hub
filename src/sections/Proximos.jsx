@@ -39,7 +39,6 @@ export default function Proximos() {
 
   // Exporta a .ics para el calendario del iPhone
   const exportarICS = () => {
-    const pad = (n) => String(n).padStart(2, "0");
     const dt = (fecha, hora) => {
       const d = fecha.replace(/-/g, "");
       return hora ? `${d}T${hora.replace(":", "")}00` : d;

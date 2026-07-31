@@ -7,9 +7,12 @@
   apuntarla. Lo que se agrupa ahora es el tiempo.
 */
 
+import { redondear } from "./numeros";
+
 const DIAS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
-export const redondear = (n) => Math.round((Number(n) || 0) * 100) / 100;
+// Se reexporta porque varios módulos ya lo importaban de aquí.
+export { redondear };
 
 const horasDe = (e) => Number(e?.horas) || 0;
 
