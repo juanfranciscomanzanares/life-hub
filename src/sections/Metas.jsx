@@ -4,7 +4,9 @@ import { usePersisted } from "../lib/store";
 import { removeWithUndo } from "../lib/toast";
 import { Card, SectionTitle, fmtEuro, monthKey, monthLabel } from "../lib/ui";
 import { confeti } from "../lib/confetti";
+import { totalHoras } from "../lib/estudio";
 
+import { nuevoId } from "../lib/id";
 // Vacío a propósito: estas metas eran de ejemplo y se guardaban como reales,
 // contando además en las "metas conseguidas" de Analítica.
 const INITIAL_GOALS = [];
@@ -18,14 +20,16 @@ export default function Metas() {
   const [gym] = usePersisted("lh_gym", []);
   const [work] = usePersisted("lh_work_log", []);
   const [contribs] = usePersisted("lh_contribs", []);
-  const [study] = usePersisted("lh_study_hours", {});
+  // Del registro fechado, no del contador antiguo: ese sumaba también
+  // asignaturas de cursos pasados (ver src/lib/estudio.js).
+  const [studyLog] = usePersisted("lh_study_log", []);
   const [investments] = usePersisted("lh_investments", []);
 
   const thisMonth = new Date().toISOString().slice(0, 7);
   const gymThisMonth = gym.filter((g) => monthKey(g.fecha) === thisMonth).length;
   const workHoursMonth = work.filter((w) => monthKey(w.fecha) === thisMonth).reduce((a, b) => a + Number(b.horas || 0), 0);
   const investedMonth = contribs.filter((c) => monthKey(c.fecha) === thisMonth).reduce((a, b) => a + Number(b.monto || 0), 0);
-  const studyTotal = Object.values(study).reduce((a, b) => a + Number(b || 0), 0);
+  const studyTotal = totalHoras(studyLog);
 
   const totalActual = investments.reduce((a, b) => a + Number(b.valorActual || 0), 0);
   const totalAportado = investments.reduce((a, b) => a + Number(b.aportado || 0), 0);
@@ -40,7 +44,7 @@ export default function Metas() {
 
   const addGoal = () => {
     if (!form.titulo.trim() || !form.objetivo) return;
-    setGoals([...goals, { id: Date.now(), titulo: form.titulo, objetivo: Number(form.objetivo), actual: 0, unidad: form.unidad }]);
+    setGoals([...goals, { id: nuevoId(), titulo: form.titulo, objetivo: Number(form.objetivo), actual: 0, unidad: form.unidad }]);
     setForm({ titulo: "", objetivo: "", unidad: "€" });
   };
 

@@ -224,26 +224,59 @@ export function Linea({ datos, valor, etiqueta, color = "rgb(var(--c-indigo-400)
 /*
   Barras horizontales. Con etiquetas de texto (nombres, "Set 3", letras) se leen
   mucho mejor que en vertical, donde el texto se gira o se corta.
+
+  `anchoEtiqueta` sale fuera porque no todas las etiquetas miden lo mismo: "Set 3"
+  o una letra caben de sobra en w-16, pero un nombre de asignatura como
+  "Ciberseguridad" se sale y pisa la barra.
 */
-export function BarrasH({ datos, valor, etiqueta, detalle, color = "bg-indigo-500", sufijo = "%" }) {
+export function BarrasH({
+  datos,
+  valor,
+  etiqueta,
+  detalle,
+  color = "bg-indigo-500",
+  sufijo = "%",
+  anchoEtiqueta = "w-16",
+  formato = null,
+}) {
   const max = Math.max(...datos.map(valor), 1);
+  /*
+    `valor` tiene que seguir devolviendo un número, que es de donde sale el
+    ancho de la barra. `formato` solo cambia cómo se ESCRIBE: sin esto, media
+    hora salía como "3.5 h", con el punto decimal del inglés, en una app que
+    está entera en español.
+  */
+  const escribir = (v) =>
+    formato ? formato(v) : `${v}${sufijo}`;
   return (
     <div className="space-y-2">
       {datos.map((d, i) => {
         const v = valor(d);
+        const vacia = !(v > 0);
         return (
           <div key={i} className="flex items-center gap-3">
-            <span className="w-16 shrink-0 text-right text-xs text-slate-400">{etiqueta(d)}</span>
-            <div className="h-6 flex-1 overflow-hidden rounded-md bg-slate-800">
-              <div
-                className={`flex h-full items-center justify-end rounded-md ${color} px-2 transition-all`}
-                style={{ width: `${Math.max((v / max) * 100, v > 0 ? 8 : 0)}%` }}
-              >
-                <span className="text-[11px] font-semibold text-white">
-                  {v}
-                  {sufijo}
+            <span className={`${anchoEtiqueta} shrink-0 truncate text-right text-xs text-slate-400`} title={String(etiqueta(d))}>
+              {etiqueta(d)}
+            </span>
+            <div className="relative h-6 flex-1 overflow-hidden rounded-md bg-slate-800">
+              {/*
+                A cero no se pinta barra, y la cifra va fuera y apagada. Antes se
+                dibujaba igualmente un rectángulo de ancho 0 que, por el relleno
+                y el texto de dentro, se veía como un muñón de color: parecía que
+                esa asignatura tenía algo cuando marcaba justo lo contrario.
+              */}
+              {vacia ? (
+                <span className="absolute inset-y-0 left-2 flex items-center text-[11px] font-medium text-slate-500">
+                  {escribir(v)}
                 </span>
-              </div>
+              ) : (
+                <div
+                  className={`flex h-full items-center justify-end rounded-md ${color} px-2 transition-all`}
+                  style={{ width: `${Math.max((v / max) * 100, 8)}%` }}
+                >
+                  <span className="text-[11px] font-semibold text-white">{escribir(v)}</span>
+                </div>
+              )}
             </div>
             {detalle && <span className="w-14 shrink-0 text-xs text-slate-500">{detalle(d)}</span>}
           </div>

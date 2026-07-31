@@ -5,6 +5,7 @@ import { Card, SectionTitle, todayISO } from "../lib/ui";
 import { SUBJECTS } from "../lib/uni";
 import { confeti } from "../lib/confetti";
 
+import { nuevoId } from "../lib/id";
 /*
   Pomodoro que apunta las horas de estudio solas.
 
@@ -20,7 +21,6 @@ export default function Foco() {
   const [asignatura, setAsignatura] = useState(SUBJECTS[0]);
   const timer = useRef(null);
 
-  const [study, setStudy] = usePersisted("lh_study_hours", {});
   const [studyLog, setStudyLog] = usePersisted("lh_study_log", []);
 
   useEffect(() => {
@@ -45,14 +45,17 @@ export default function Foco() {
   }, [left]);
 
   /*
-    Se escribe en los dos sitios: el contador de siempre por asignatura
-    (`lh_study_hours`) y el registro fechado (`lh_study_log`), que es el único
-    que Analítica puede repartir por semanas o meses.
+    Solo en `lh_study_log`, que es la única fuente de horas.
+
+    Antes se escribía además en `lh_study_hours`, un contador por asignatura sin
+    fecha. Tener lo mismo en dos sitios acabó como acaban estas cosas: Universidad
+    sumaba el contador entero —incluidas asignaturas de cursos anteriores— y
+    enseñaba "29h totales" con todas las asignaturas visibles a 0. Ver
+    src/lib/estudio.js.
   */
   const registrar = (min) => {
     const horas = Math.round((min / 60) * 100) / 100;
-    setStudy({ ...study, [asignatura]: (Number(study[asignatura]) || 0) + horas });
-    setStudyLog([...studyLog, { id: Date.now(), fecha: todayISO(), subject: asignatura, horas }]);
+    setStudyLog([...studyLog, { id: nuevoId(), fecha: todayISO(), subject: asignatura, horas }]);
   };
 
   /*

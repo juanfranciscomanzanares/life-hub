@@ -5,6 +5,7 @@ import { removeWithUndo } from "../lib/toast";
 import { Card, SectionTitle, MONTHS, todayISO } from "../lib/ui";
 import { CURSO, eventosDelCalendario, queHayEl, esLectivo } from "../lib/uni";
 
+import { nuevoId } from "../lib/id";
 // Fondo del día según el calendario académico. Suave a propósito: es contexto,
 // no un evento, y no debe competir con lo que haya escrito en la casilla.
 const FONDO_ACADEMICO = {
@@ -27,6 +28,10 @@ const TYPE_STYLE = {
   Gym: "bg-emerald-500/20 text-emerald-300",
   Tenis: "bg-amber-500/20 text-amber-300",
   Universidad: "bg-sky-500/20 text-sky-300",
+  // Color propio, distinto del de las clases: una clase es una franja fija de
+  // la semana y una tarea es algo que vence ese día. Mezclarlas de color hacía
+  // que el plazo pasara desapercibido entre el horario.
+  Tarea: "bg-violet-500/20 text-violet-300",
   Trabajo: "bg-indigo-500/20 text-indigo-300",
   Finanzas: "bg-rose-500/20 text-rose-300",
   "Inversión": "bg-teal-500/20 text-teal-300",
@@ -100,21 +105,37 @@ export default function Calendario() {
   const [work] = usePersisted("lh_work_log", []);
   const [finance] = usePersisted("lh_finance", []);
   const [contribs] = usePersisted("lh_contribs", []);
+  const [uniTasks] = usePersisted("lh_uni_tasks", []);
 
   // Eventos con fecha concreta
   const byDate = useMemo(() => {
     const map = {};
     const push = (fecha, tipo, label) => {
       if (!fecha) return;
-      (map[fecha] = map[fecha] || []).push({ tipo, label });
+      // Las tareas del Aula Virtual guardan la entrega con hora ("...T23:59"),
+      // así que se recorta al día o no casaría con ninguna casilla.
+      (map[String(fecha).slice(0, 10)] = map[String(fecha).slice(0, 10)] || []).push({ tipo, label });
     };
     gym.forEach((g) => push(g.fecha, "Gym", g.ejercicio));
     work.forEach((w) => push(w.fecha, "Trabajo", `${w.actividad} (${w.horas}h)`));
     finance.forEach((f) => push(f.fecha, "Finanzas", `${f.concepto} ${f.monto > 0 ? "+" : ""}${f.monto}€`));
     contribs.forEach((c) => push(c.fecha, "Inversión", `${c.destino} +${c.monto}€`));
     events.forEach((e) => push(e.fecha, "Evento", e.titulo));
+
+    /*
+      Las tareas de Universidad que tienen fecha. Es el motivo de poder ponerles
+      fecha y hora: que se vean aquí y no haya que acordarse de mirar la lista.
+
+      Las ya hechas no se pintan: el calendario es para lo que queda por hacer, y
+      un mes lleno de tareas tachadas tapa lo que sí importa.
+    */
+    uniTasks.forEach((t) => {
+      if (t.done || !t.entrega) return;
+      push(t.entrega, "Tarea", t.hora ? `${t.hora} ${t.text}` : t.text);
+    });
+
     return map;
-  }, [gym, work, finance, contribs, events]);
+  }, [gym, work, finance, contribs, events, uniTasks]);
 
   // Rutina indexada por día de la semana (0 = lunes)
   const routineByDay = useMemo(() => {
@@ -159,12 +180,12 @@ export default function Calendario() {
 
   const addEvent = () => {
     if (!form.fecha || !form.titulo.trim()) return;
-    setEvents([...events, { id: Date.now(), fecha: form.fecha, titulo: form.titulo }]);
+    setEvents([...events, { id: nuevoId(), fecha: form.fecha, titulo: form.titulo }]);
     setForm({ fecha: "", titulo: "" });
   };
   const addRoutine = () => {
     if (!rForm.titulo.trim()) return;
-    setRoutine([...routine, { id: Date.now(), dia: Number(rForm.dia), hora: rForm.hora, titulo: rForm.titulo, tipo: rForm.tipo }]);
+    setRoutine([...routine, { id: nuevoId(), dia: Number(rForm.dia), hora: rForm.hora, titulo: rForm.titulo, tipo: rForm.tipo }]);
     setRForm({ dia: 0, hora: "18:00", titulo: "", tipo: "Gym" });
   };
 
@@ -178,7 +199,7 @@ export default function Calendario() {
   const cargarUM = () => {
     const rKey = (x) => `${x.dia}-${x.hora}-${x.titulo}`;
     const exist = new Set(routine.map(rKey));
-    const nuevas = UM_ROUTINE.filter((x) => !exist.has(rKey(x))).map((x, i) => ({ id: Date.now() + i, ...x }));
+    const nuevas = UM_ROUTINE.filter((x) => !exist.has(rKey(x))).map((x) => ({ id: nuevoId(), ...x }));
     if (nuevas.length) setRoutine([...routine, ...nuevas]);
 
     const eKey = (x) => `${x.fecha}-${x.titulo}`;
@@ -188,7 +209,7 @@ export default function Calendario() {
     const vistos = new Set();
     const nuevosEv = porMeter
       .filter((x) => !vistos.has(eKey(x)) && vistos.add(eKey(x)))
-      .map((x, i) => ({ id: Date.now() + 1000 + i, ...x }));
+      .map((x) => ({ id: nuevoId(), ...x }));
     if (nuevosEv.length) setEvents([...events, ...nuevosEv]);
 
     alert(

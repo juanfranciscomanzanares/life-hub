@@ -128,7 +128,15 @@ export function urgenciasDeHoy({ tareasUni = [], tareasAula = [], eventos = [], 
 
   tareasUni.forEach((t) => {
     if (t.done || dia(t.entrega) !== hoy) return;
-    lista.push({ id: `tarea-${t.id}`, tipo: "entrega", titulo: t.text, detalle: t.subject, fecha: hoy });
+    lista.push({
+      id: `tarea-${t.id}`,
+      tipo: "entrega",
+      titulo: t.text,
+      // Con hora, delante: es lo primero que quieres saber de algo que es hoy.
+      detalle: t.hora ? `${t.hora} · ${t.subject}` : t.subject,
+      fecha: hoy,
+      hora: t.hora || null,
+    });
   });
 
   tareasAula.forEach((t) => {
@@ -149,7 +157,16 @@ export function urgenciasDeHoy({ tareasUni = [], tareasAula = [], eventos = [], 
     });
   });
 
-  // Los exámenes primero: es lo que no se puede mover de sitio.
+  /*
+    Los exámenes primero: es lo que no se puede mover de sitio. Dentro del mismo
+    tipo manda la hora, y lo que no tiene hora va al final: "a las 10:00" es más
+    urgente que "hoy, en algún momento".
+  */
   const orden = { examen: 0, entrega: 1, evento: 2 };
-  return lista.sort((a, b) => orden[a.tipo] - orden[b.tipo] || a.titulo.localeCompare(b.titulo));
+  return lista.sort(
+    (a, b) =>
+      orden[a.tipo] - orden[b.tipo] ||
+      String(a.hora || "99:99").localeCompare(String(b.hora || "99:99")) ||
+      a.titulo.localeCompare(b.titulo)
+  );
 }
