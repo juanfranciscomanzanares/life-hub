@@ -20,6 +20,13 @@ jobs:
 
       - run: npm ci
 
+      # Antes que los tests: `no-undef` caza los imports que se quedan atrás al
+      # mover código entre archivos. Eso NO rompe el build (Vite empaqueta tan
+      # tranquilo una variable que no existe) y solo revienta al abrir esa
+      # pantalla en el navegador. Pasó justo eso al partir LifeDashboard.jsx.
+      - name: Lint
+        run: npm run lint
+
       - name: Tests
         run: npm test
 
