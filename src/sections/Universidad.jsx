@@ -7,9 +7,16 @@ import { SUBJECTS } from "../lib/uni";
 import {
   horasPorAsignatura,
   totalHoras,
-  quitarHoras,
   reparto,
-  filaDeEstudio,
+  resumen,
+  nuevaSesion,
+  normalizarSesion,
+  sesionValida,
+  horasEntre,
+  porDiaDeLaSemana,
+  porMeses,
+  lunesDe,
+  sumarDias,
 } from "../lib/estudio";
 import { sincronizarAulaVirtual } from "../lib/aulaVirtual";
 import {
@@ -33,9 +40,6 @@ import {
   INITIAL_UNI_TASKS,
 } from "../lib/datosUni";
 
-/* Atajos de la caja de "¿cuántas horas le has echado?" al terminar una tarea. */
-const HORAS_RAPIDAS = [0.5, 1, 2, 3];
-
 const fmtHoras = (h) =>
   `${Number(h || 0).toLocaleString("es-ES", { maximumFractionDigits: 1 })} h`;
 
@@ -44,7 +48,7 @@ function Universidad() {
   const [tasks, setTasks] = usePersisted("lh_uni_tasks", INITIAL_UNI_TASKS);
   const [filter, setFilter] = useState("Todas");
   /*
-    Las horas salen SOLO de `lh_study_log`. El contador antiguo
+    Las sesiones de estudio: `lh_study_log`. El contador antiguo
     (`lh_study_hours`) ya no se lee ni se escribe: tenía las horas sin fecha y
     era el que provocaba el "29h totales" con todas las asignaturas a 0, porque
     sumaba también asignaturas de cursos anteriores que la lista no pintaba.
@@ -58,9 +62,19 @@ function Universidad() {
   const [newSubject, setNewSubject] = useState(SUBJECTS[0]);
   const [newFecha, setNewFecha] = useState("");
   const [newHora, setNewHora] = useState("");
-  // Tarea que acabas de dar por terminada y está esperando a que digas horas.
-  const [preguntandoHoras, setPreguntandoHoras] = useState(null);
-  const [horasSueltas, setHorasSueltas] = useState("");
+
+  // Formulario de sesión de estudio: el rato que te reservas tú.
+  const [sesion, setSesion] = useState({
+    asignatura: SUBJECTS[0],
+    fecha: todayISO(),
+    desde: "",
+    hasta: "",
+    nota: "",
+  });
+  // Qué se compara en el gráfico: los días de una semana o los últimos meses.
+  const [periodo, setPeriodo] = useState("semana");
+  // Cuántas semanas hacia atrás desde la actual (0 = esta).
+  const [semanasAtras, setSemanasAtras] = useState(0);
 
   const [aulaCrudo, setAulaCrudo] = usePersisted("lh_aula_tareas", []);
   const [aulaUltimaSync, setAulaUltimaSync] = usePersisted("lh_aula_ultima_sync", null);
@@ -148,25 +162,48 @@ function Universidad() {
   const totalStudy = useMemo(() => totalHoras(studyLog, enCurso), [studyLog, enCurso]);
   const repartoHoras = useMemo(() => reparto(studyLog, enCurso), [studyLog, enCurso]);
 
-  const apuntarHoras = (asignatura, horas, tarea = null) => {
-    const h = Number(horas) || 0;
-    if (h <= 0) return;
-    setStudyLog([
-      ...studyLog,
-      filaDeEstudio({ id: nuevoId(), fecha: todayISO(), asignatura, horas: h, tarea }),
-    ]);
-  };
+  /* --- Sesiones de estudio --- */
+
+  // Lunes de la semana que se está mirando. Con 0 es la de hoy.
+  const lunesVisible = useMemo(
+    () => sumarDias(lunesDe(todayISO()), -semanasAtras * 7),
+    [semanasAtras]
+  );
 
   /*
-    Sumar o quitar una hora suelta desde la lista.
-
-    Quitar borra desde la última apuntada en vez de meter una fila de -1 h: una
-    fila negativa descuadraría cualquier suma por periodo en Analítica (ver
-    `quitarHoras` en src/lib/estudio.js).
+    Las barras del gráfico. En "semana" son los siete días de la semana que
+    estés mirando; en "mes", los últimos seis meses. Es lo que permite comparar
+    una semana con otra y el mes con los anteriores sin cambiar de pantalla.
   */
-  const cambiarEstudio = (asignatura, delta) => {
-    if (delta > 0) return apuntarHoras(asignatura, delta);
-    setStudyLog(quitarHoras(studyLog, asignatura, -delta));
+  const barras = useMemo(() => {
+    if (periodo === "mes") return porMeses(studyLog, todayISO(), 6);
+    return porDiaDeLaSemana(studyLog, sumarDias(lunesVisible, 3));
+  }, [studyLog, periodo, lunesVisible]);
+
+  const resumenPeriodo = useMemo(() => resumen(barras), [barras]);
+
+  const sesionesRecientes = useMemo(
+    () =>
+      [...studyLog]
+        .map(normalizarSesion)
+        .sort((a, b) =>
+          `${b.fecha}${b.desde || ""}`.localeCompare(`${a.fecha}${a.desde || ""}`)
+        )
+        .slice(0, 8),
+    [studyLog]
+  );
+
+  // Se calcula mientras escribes para que veas cuánto dura antes de guardarla.
+  const duracionSesion = horasEntre(sesion.desde, sesion.hasta);
+
+  const añadirSesion = () => {
+    const nueva = nuevaSesion({ id: nuevoId(), ...sesion });
+    if (!sesionValida(nueva)) return;
+    setStudyLog([...studyLog, nueva]);
+    // Se conservan asignatura y fecha: lo normal es apuntar varios ratos
+    // seguidos del mismo día.
+    setSesion({ ...sesion, desde: "", hasta: "", nota: "" });
+    toast(`Sesión de ${fmtHoras(nueva.horas)} apuntada`);
   };
 
   const alternarConvalidada = (asignatura) =>
@@ -194,26 +231,16 @@ function Universidad() {
   };
 
   /*
-    Marcar o desmarcar una tarea.
+    Marcar o desmarcar una tarea. Nada más.
 
-    Al darla por terminada se abre debajo la caja de "¿cuántas horas?". No es un
-    diálogo ni un paso obligatorio: la tarea ya queda hecha, y si no dices nada
-    simplemente no se apuntan horas. Antes esto era un contador de +1 h suelto
-    en otra tarjeta, sin relación con lo que estabas haciendo.
+    Aquí llegó a preguntarse "¿cuántas horas le has echado?", y era un error de
+    concepto: mezclaba la tarea (un plazo que te ponen, casi siempre del Aula
+    Virtual) con el rato que le dedicas. El tiempo se apunta como SESIÓN, que
+    tiene día y horas de principio y fin, y una sesión puede no corresponder a
+    ninguna tarea —repasar para un examen, por ejemplo—.
   */
-  const alternarTarea = (tarea) => {
-    const hecha = !tarea.done;
-    setTasks(tasks.map((x) => (x.id === tarea.id ? { ...x, done: hecha } : x)));
-    setHorasSueltas("");
-    setPreguntandoHoras(hecha ? tarea.id : null);
-  };
-
-  const registrarDeTarea = (tarea, horas) => {
-    apuntarHoras(tarea.subject, horas, tarea.id);
-    setPreguntandoHoras(null);
-    setHorasSueltas("");
-    toast(`${fmtHoras(horas)} de ${tarea.subject}`);
-  };
+  const alternarTarea = (tarea) =>
+    setTasks(tasks.map((x) => (x.id === tarea.id ? { ...x, done: !x.done } : x)));
 
   const subjectColor = (s) =>
     ({
@@ -602,9 +629,6 @@ function Universidad() {
               <li className="py-4 text-center text-sm text-slate-500">Sin tareas para este filtro.</li>
             )}
             {filtered.map((t) => {
-              const horasDeEsta = studyLog
-                .filter((e) => e.tarea === t.id)
-                .reduce((a, e) => a + (Number(e.horas) || 0), 0);
               return (
                 <li key={t.id} className="rounded-xl border border-slate-800 bg-slate-800/40 px-3 py-2.5">
                   <div className="flex items-center gap-3">
@@ -629,11 +653,6 @@ function Universidad() {
                           {t.hora && ` · ${t.hora}`}
                         </span>
                       )}
-                      {horasDeEsta > 0 && (
-                        <span className="ml-2 whitespace-nowrap text-xs text-amber-400">
-                          {fmtHoras(horasDeEsta)}
-                        </span>
-                      )}
                     </span>
                     <span className={`shrink-0 rounded-md px-2 py-0.5 text-xs font-medium ${subjectColor(t.subject)}`}>
                       {t.subject}
@@ -647,70 +666,229 @@ function Universidad() {
                     </button>
                   </div>
 
-                  {/*
-                    Se abre sola al dar la tarea por terminada. La tarea YA está
-                    hecha: esto es un extra, no un paso obligatorio, y por eso se
-                    puede cerrar sin apuntar nada.
-                  */}
-                  {preguntandoHoras === t.id && (
-                    <div className="mt-2.5 flex flex-wrap items-center gap-2 border-t border-slate-700/60 pt-2.5">
-                      <span className="text-xs text-slate-400">¿Cuántas horas le has echado?</span>
-                      {HORAS_RAPIDAS.map((h) => (
-                        <button
-                          key={h}
-                          onClick={() => registrarDeTarea(t, h)}
-                          className="rounded-lg bg-slate-700 px-2.5 py-1 text-xs font-semibold text-slate-100 transition hover:bg-indigo-500"
-                        >
-                          {fmtHoras(h)}
-                        </button>
-                      ))}
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.5"
-                        inputMode="decimal"
-                        placeholder="otras"
-                        value={horasSueltas}
-                        onChange={(e) => setHorasSueltas(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && registrarDeTarea(t, horasSueltas)}
-                        aria-label="Otras horas"
-                        className="w-20 rounded-lg border border-slate-700 bg-slate-800 px-2 py-1 text-xs text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
-                      />
-                      <button
-                        onClick={() => setPreguntandoHoras(null)}
-                        className="ml-auto text-xs text-slate-500 transition hover:text-slate-300"
-                      >
-                        No apuntar
-                      </button>
-                    </div>
-                  )}
                 </li>
               );
             })}
           </ul>
         </Card>
 
-        {/* Horas de estudio */}
+        {/* Sesiones de estudio: los ratos que te reservas tú */}
         <Card>
           <div className="mb-1 flex items-center justify-between">
             <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
-              <Clock size={18} className="text-amber-400" /> Horas de estudio
+              <Clock size={18} className="text-amber-400" /> Sesiones de estudio
             </h2>
             <span className="rounded-full bg-amber-500/15 px-3 py-1 text-sm font-semibold text-amber-300">
               {fmtHoras(totalStudy)} en total
             </span>
           </div>
           <p className="mb-4 text-xs text-slate-500">
-            Se apuntan solas al dar una tarea por terminada. El total es la suma de lo de abajo, ni
-            una hora más.
+            Un rato que te reservas: día, de qué hora a qué hora y de qué asignatura. Sale en el
+            calendario y en Inicio, y las horas se suman solas.
           </p>
 
-          {/* Gráfico: de un vistazo, a qué le estás echando el rato y a qué no. */}
+          {/* Apuntar una sesión */}
+          <div className="mb-5 space-y-2 rounded-xl border border-slate-800 bg-slate-800/30 p-3">
+            <div className="flex flex-wrap gap-2">
+              <select
+                value={sesion.asignatura}
+                onChange={(e) => setSesion({ ...sesion, asignatura: e.target.value })}
+                aria-label="Asignatura de la sesión"
+                className="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-800 px-2 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none"
+              >
+                {/*
+                  Solo las que se cursan: una convalidada no se estudia, así que
+                  ofrecerla aquí solo invita a apuntar horas que no existen.
+                */}
+                {enCurso.map((s) => (
+                  <option key={s}>{s}</option>
+                ))}
+              </select>
+              <input
+                type="date"
+                value={sesion.fecha}
+                onChange={(e) => setSesion({ ...sesion, fecha: e.target.value })}
+                aria-label="Día de la sesión"
+                className="min-w-0 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none"
+              />
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="time"
+                value={sesion.desde}
+                onChange={(e) => setSesion({ ...sesion, desde: e.target.value })}
+                aria-label="Hora de inicio"
+                className="w-28 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none"
+              />
+              <span className="text-xs text-slate-500">a</span>
+              <input
+                type="time"
+                value={sesion.hasta}
+                onChange={(e) => setSesion({ ...sesion, hasta: e.target.value })}
+                aria-label="Hora de fin"
+                className="w-28 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none"
+              />
+              {/*
+                La duración se ve ANTES de guardar. Así un "de 18:00 a 6:00" se
+                nota al momento: sale 0 h en vez de apuntar doce en silencio.
+              */}
+              <span
+                className={`text-xs font-semibold tabular-nums ${
+                  duracionSesion > 0 ? "text-amber-400" : "text-slate-600"
+                }`}
+              >
+                {duracionSesion > 0 ? fmtHoras(duracionSesion) : "—"}
+              </span>
+              <button
+                onClick={añadirSesion}
+                disabled={duracionSesion <= 0}
+                className="ml-auto rounded-lg bg-indigo-500 px-3 py-2 text-white transition hover:bg-indigo-400 disabled:opacity-40"
+                aria-label="Añadir sesión de estudio"
+                title={duracionSesion > 0 ? "" : "Pon una hora de inicio y otra de fin"}
+              >
+                <Plus size={16} aria-hidden="true" />
+              </button>
+            </div>
+            <input
+              placeholder="Qué vas a hacer (opcional)"
+              value={sesion.nota}
+              onChange={(e) => setSesion({ ...sesion, nota: e.target.value })}
+              onKeyDown={(e) => e.key === "Enter" && añadirSesion()}
+              aria-label="Qué vas a hacer (opcional)"
+              className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+            />
+          </div>
+
+          {/* Cuánto has estudiado, por día o por mes */}
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+              <BarChart3 size={13} aria-hidden="true" /> Cuánto has estudiado
+            </h3>
+            <div className="flex items-center gap-1">
+              {[
+                { id: "semana", texto: "Semana" },
+                { id: "mes", texto: "Meses" },
+              ].map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => setPeriodo(p.id)}
+                  aria-pressed={periodo === p.id}
+                  className={`rounded-lg px-2.5 py-1 text-xs font-medium transition ${
+                    periodo === p.id ? "bg-indigo-500 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700"
+                  }`}
+                >
+                  {p.texto}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Solo la vista semanal se puede recorrer: los meses ya salen los
+              últimos seis de una vez. */}
+          {periodo === "semana" && (
+            <div className="mb-2 flex items-center justify-between gap-2 text-xs text-slate-400">
+              <button
+                onClick={() => setSemanasAtras(semanasAtras + 1)}
+                aria-label="Semana anterior"
+                className="rounded-lg bg-slate-800 px-2 py-1 transition hover:bg-slate-700"
+              >
+                ‹
+              </button>
+              <span className="tabular-nums">
+                {semanasAtras === 0
+                  ? "Esta semana"
+                  : `Semana del ${new Date(lunesVisible + "T00:00:00").toLocaleDateString("es-ES", {
+                      day: "numeric",
+                      month: "short",
+                    })}`}
+              </span>
+              <button
+                onClick={() => setSemanasAtras(Math.max(0, semanasAtras - 1))}
+                disabled={semanasAtras === 0}
+                aria-label="Semana siguiente"
+                className="rounded-lg bg-slate-800 px-2 py-1 transition hover:bg-slate-700 disabled:opacity-30"
+              >
+                ›
+              </button>
+            </div>
+          )}
+
+          <BarrasH
+            datos={barras}
+            valor={(d) => d.horas}
+            etiqueta={(d) => d.etiqueta}
+            color="bg-indigo-500"
+            formato={fmtHoras}
+          />
+
+          <div className="mt-3 flex flex-wrap gap-4 border-t border-slate-800 pt-3 text-xs text-slate-400">
+            <span>
+              Total <strong className="text-slate-100">{fmtHoras(resumenPeriodo.total)}</strong>
+            </span>
+            <span>
+              Media {periodo === "semana" ? "por día" : "por mes"}{" "}
+              <strong className="text-slate-100">{fmtHoras(resumenPeriodo.media)}</strong>
+            </span>
+            {resumenPeriodo.mejor && (
+              <span>
+                Mejor{" "}
+                <strong className="text-slate-100">
+                  {resumenPeriodo.mejor.etiqueta} ({fmtHoras(resumenPeriodo.mejor.horas)})
+                </strong>
+              </span>
+            )}
+          </div>
+
+          {/* Últimas sesiones */}
+          {sesionesRecientes.length > 0 && (
+            <div className="mt-5">
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Últimas sesiones
+              </h3>
+              <ul className="space-y-1.5">
+                {sesionesRecientes.map((s) => (
+                  <li
+                    key={s.id}
+                    className="flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-800/40 px-3 py-2 text-xs"
+                  >
+                    <span className="w-14 shrink-0 tabular-nums text-slate-400">
+                      {new Date(s.fecha + "T00:00:00").toLocaleDateString("es-ES", {
+                        day: "numeric",
+                        month: "short",
+                      })}
+                    </span>
+                    <span className="w-24 shrink-0 tabular-nums text-slate-500">
+                      {s.desde && s.hasta ? `${s.desde}–${s.hasta}` : fmtHoras(s.horas)}
+                    </span>
+                    <span className={`shrink-0 rounded px-1.5 py-0.5 font-medium ${subjectColor(s.subject)}`}>
+                      {s.subject}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-slate-400">{s.nota || ""}</span>
+                    <span className="shrink-0 font-semibold tabular-nums text-amber-400">
+                      {fmtHoras(s.horas)}
+                    </span>
+                    <button
+                      onClick={() => removeWithUndo(studyLog, setStudyLog, s.id, "Sesión")}
+                      aria-label={`Borrar la sesión de ${s.subject}`}
+                      className="shrink-0 text-slate-600 transition hover:text-rose-400"
+                    >
+                      <Trash2 size={14} aria-hidden="true" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </Card>
+
+        {/* Por asignatura y convalidaciones */}
+        <Card className="lg:col-span-2">
+          <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-slate-100">
+            <BarChart3 size={18} className="text-amber-400" /> Por asignatura
+          </h2>
+
           {totalStudy > 0 && (
             <div className="mb-5">
-              <h3 className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                <BarChart3 size={13} aria-hidden="true" /> Reparto por asignatura
-              </h3>
               {/*
                 El nombre entero, no la primera palabra: "Fund." e "Infraest."
                 no dicen gran cosa, y truncar con puntos suspensivos al menos
@@ -728,13 +906,13 @@ function Universidad() {
             </div>
           )}
 
-          <div className="space-y-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             {SUBJECTS.map((s) => {
               const convalidada = !!convalidadas[s];
               return (
                 <div
                   key={s}
-                  className={`flex items-center justify-between gap-2 rounded-xl border border-slate-800 px-4 py-2.5 ${
+                  className={`flex items-center justify-between gap-2 rounded-xl border border-slate-800 px-3 py-2 ${
                     convalidada ? "bg-slate-800/20" : "bg-slate-800/40"
                   }`}
                 >
@@ -744,9 +922,9 @@ function Universidad() {
 
                   {convalidada ? (
                     /*
-                      Una asignatura convalidada no se cursa: no tiene horas que
-                      apuntar y queda fuera del total y del gráfico. Solo importa
-                      el estado, que es lo único que hay que llevar de ella.
+                      Una convalidada no se cursa: no lleva horas, no sale en los
+                      gráficos y no se ofrece al apuntar sesiones. Lo único que
+                      hay que saber de ella es si ya te la han dado.
                     */
                     <div className="flex shrink-0 items-center gap-2">
                       <span className="flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs font-medium text-emerald-300">
@@ -761,23 +939,9 @@ function Universidad() {
                     </div>
                   ) : (
                     <div className="flex shrink-0 items-center gap-2">
-                      <button
-                        onClick={() => cambiarEstudio(s, -1)}
-                        aria-label={`Quitar una hora de ${s}`}
-                        className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-700 text-slate-200 transition hover:bg-slate-600"
-                      >
-                        −
-                      </button>
-                      <span className="w-14 text-center text-sm font-semibold tabular-nums text-slate-100">
+                      <span className="text-sm font-semibold tabular-nums text-slate-100">
                         {fmtHoras(porAsignatura[s] || 0)}
                       </span>
-                      <button
-                        onClick={() => cambiarEstudio(s, 1)}
-                        aria-label={`Añadir una hora de ${s}`}
-                        className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-500 text-white transition hover:bg-indigo-400"
-                      >
-                        +
-                      </button>
                       <button
                         onClick={() => alternarConvalidada(s)}
                         title={`Marcar ${s} como convalidada`}

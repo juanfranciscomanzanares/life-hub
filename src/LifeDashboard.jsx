@@ -92,6 +92,8 @@ const Datos = lazy(() => import("./sections/Datos.jsx"));
 const URGENCIA = {
   examen: { texto: "Examen", clase: "bg-amber-500/15 text-amber-300" },
   entrega: { texto: "Entrega", clase: "bg-indigo-500/15 text-indigo-300" },
+  // Un rato de estudio que te has reservado tú, no algo que venza hoy.
+  estudio: { texto: "Estudio", clase: "bg-orange-500/15 text-orange-300" },
   evento: { texto: "Hoy", clase: "bg-slate-700/60 text-slate-300" },
 };
 
@@ -112,13 +114,22 @@ function Inicio() {
   const [uniTasks] = usePersisted("lh_uni_tasks", []);
   const [aulaCrudo] = usePersisted("lh_aula_tareas", []);
   const [eventos] = usePersisted("lh_events", []);
+  // Las sesiones de estudio que te has puesto para hoy salen aquí igual que
+  // todo lo demás: si no, habría que entrar en Universidad para recordarlas.
+  const [sesionesEstudio] = usePersisted("lh_study_log", []);
 
   const urgencias = useMemo(() => {
     const tareasAula = normalizarTareas(
       Array.isArray(aulaCrudo) ? { tareas: aulaCrudo, sitios: [] } : aulaCrudo
     );
-    return urgenciasDeHoy({ tareasUni: uniTasks, tareasAula, eventos, hoy: todayISO() });
-  }, [uniTasks, aulaCrudo, eventos]);
+    return urgenciasDeHoy({
+      tareasUni: uniTasks,
+      tareasAula,
+      eventos,
+      sesiones: sesionesEstudio,
+      hoy: todayISO(),
+    });
+  }, [uniTasks, aulaCrudo, eventos, sesionesEstudio]);
 
   const pendientesUni = uniTasks.filter((t) => !t.done).length;
 

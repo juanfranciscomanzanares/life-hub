@@ -122,7 +122,13 @@ export function eventosDelCalendario() {
   Las tareas del Aula Virtual que ya has pasado a las tuyas no se cuentan dos
   veces; se reconocen por `aulaId`.
 */
-export function urgenciasDeHoy({ tareasUni = [], tareasAula = [], eventos = [], hoy }) {
+export function urgenciasDeHoy({
+  tareasUni = [],
+  tareasAula = [],
+  eventos = [],
+  sesiones = [],
+  hoy,
+}) {
   const lista = [];
   const yaPuestas = new Set(tareasUni.map((t) => t.aulaId).filter(Boolean));
 
@@ -145,6 +151,24 @@ export function urgenciasDeHoy({ tareasUni = [], tareasAula = [], eventos = [], 
     lista.push({ id: `aula-${t.id}`, tipo: "entrega", titulo: t.titulo, detalle: t.asignatura, fecha: hoy });
   });
 
+  /*
+    Las sesiones de estudio que te has puesto para hoy. No son un plazo que
+    venza: son un rato que has reservado, y por eso salen con su tramo horario
+    y no con una fecha de entrega.
+  */
+  sesiones.forEach((s) => {
+    if (dia(s.fecha) !== hoy || !s.subject) return;
+    const tramo = s.desde && s.hasta ? `${s.desde}–${s.hasta}` : s.desde || "";
+    lista.push({
+      id: `estudio-${s.id}`,
+      tipo: "estudio",
+      titulo: s.nota ? `${s.subject}: ${s.nota}` : `Estudiar ${s.subject}`,
+      detalle: tramo || "Estudio",
+      fecha: hoy,
+      hora: s.desde || null,
+    });
+  });
+
   eventos.forEach((e) => {
     if (dia(e.fecha) !== hoy) return;
     const esExamen = /^ex[áa]men/i.test(String(e.titulo).trim());
@@ -162,7 +186,7 @@ export function urgenciasDeHoy({ tareasUni = [], tareasAula = [], eventos = [], 
     tipo manda la hora, y lo que no tiene hora va al final: "a las 10:00" es más
     urgente que "hoy, en algún momento".
   */
-  const orden = { examen: 0, entrega: 1, evento: 2 };
+  const orden = { examen: 0, entrega: 1, estudio: 2, evento: 3 };
   return lista.sort(
     (a, b) =>
       orden[a.tipo] - orden[b.tipo] ||

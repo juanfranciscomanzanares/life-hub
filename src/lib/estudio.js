@@ -1,40 +1,107 @@
 /*
-  Horas de estudio.
+  Sesiones de estudio.
 
-  EL FALLO QUE ARREGLA
-  Había DOS almacenes para lo mismo: `lh_study_hours`, un contador por
-  asignatura sin fecha, y `lh_study_log`, un registro con fecha. Las secciones
-  escribían en los dos y leían de uno u otro según les venía.
+  QUÉ ES UNA SESIÓN Y QUÉ NO
+  Una sesión es un rato que TÚ te planificas: "el jueves de 16:00 a 18:00 voy a
+  sacar el tema 3 de Deep Learning". La pones tú, tiene día y horas de principio
+  y fin, y sale en el calendario y en Inicio como cualquier otra cosa que tengas
+  ese día.
 
-  El resultado se veía en pantalla: la cabecera decía "29h totales" mientras
-  todas las asignaturas de la lista salían a 0. La cabecera sumaba TODAS las
-  claves del contador —incluidas las de asignaturas de cursos anteriores, que
-  ya no están en SUBJECTS y por tanto no se pintan— y la lista solo enseñaba
-  las de este curso. Una cifra que no cuadraba con ninguna de las de debajo.
+  No hay que confundirla con las TAREAS, que son otra cosa: las entregas del
+  Aula Virtual, que vienen impuestas y con su fecha límite. Una tarea es un
+  plazo que te ponen; una sesión es un rato que te reservas. En una sesión
+  puedes trabajar en una tarea, y por eso se puede enlazar con ella, pero son
+  cosas distintas y se apuntan distinto.
 
-  Ahora la única fuente es `lh_study_log`, que además es el que sí tiene fecha
-  (y por tanto el único que Analítica puede repartir por semanas o meses). El
-  total y las asignaturas salen del MISMO sitio, así que no pueden discrepar.
+  DE DÓNDE SALEN LAS HORAS
+  De la propia sesión: de 16:00 a 18:00 son 2 h y no hay que teclear ningún
+  número. Antes esto era un contador de "+1 h" por asignatura, que obligaba a
+  llevar la cuenta a mano y no decía ni cuándo ni cuánto rato seguido.
 
-  El contador antiguo se deja donde está, sin tocarlo: no se lee ni se escribe,
-  pero tampoco se borra por si algún dispositivo aún no ha sincronizado.
+  El registro sigue siendo `lh_study_log` y las filas de antes valen tal cual:
+  las que no traen `desde`/`hasta` usan su campo `horas` (es el caso de las
+  sesiones del modo foco, que miden un temporizador y no un tramo del reloj).
 
-  Una fila del registro:
-    { id, fecha: "2026-09-14", subject: "Deep Learning", horas: 1.5 }
+    { id, fecha: "2026-09-14", subject, desde: "16:00", hasta: "18:00",
+      horas: 2, nota: "Tema 3", tarea: "id-de-tarea" }
 */
 
-// Dos decimales: una sesión de foco de 25 min son 0,42 h y hay que conservarlo.
-const redondear = (n) => Math.round((Number(n) || 0) * 100) / 100;
+import { redondear } from "./numeros";
+import { porDiaDeLaSemana, porSemanas, porMeses, lunesDe, sumarDias } from "./fechas";
 
-const horasDe = (fila) => Math.max(0, Number(fila?.horas) || 0);
+export { porDiaDeLaSemana, porSemanas, porMeses, lunesDe, sumarDias };
+
+/* Minutos desde medianoche, o null si la hora no vale. */
+function minutos(hhmm) {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(hhmm || "").trim());
+  if (!m) return null;
+  const h = Number(m[1]);
+  const min = Number(m[2]);
+  if (h > 23 || min > 59) return null;
+  return h * 60 + min;
+}
 
 /*
-  Total por asignatura, a partir del registro.
+  Cuánto dura un tramo del reloj, en horas decimales.
 
-  Devuelve solo las asignaturas que tienen horas: quien pinte la lista decide
-  qué asignaturas enseñar (normalmente SUBJECTS), y así una asignatura de un
-  curso anterior no se cuela en la interfaz por tener horas antiguas.
+  Devuelve 0 si la hora de fin no es posterior a la de inicio. No se admite que
+  una sesión cruce la medianoche: se prestaría a que un error de tecleo
+  ("de 18:00 a 6:00") apuntara doce horas de estudio sin que nadie lo note. Si
+  de verdad estudias de madrugada, son dos sesiones.
 */
+export function horasEntre(desde, hasta) {
+  const a = minutos(desde);
+  const b = minutos(hasta);
+  if (a === null || b === null || b <= a) return 0;
+  return redondear((b - a) / 60);
+}
+
+const horasDe = (fila) => {
+  if (fila?.desde && fila?.hasta) return horasEntre(fila.desde, fila.hasta);
+  return Math.max(0, Number(fila?.horas) || 0);
+};
+
+/*
+  Deja la fila con `horas` al día.
+
+  Se guarda aunque se pueda calcular, porque es el campo que leen los agregados
+  compartidos de fechas.js y las secciones antiguas; recalcularlo en cada suma
+  costaría más y obligaría a que todo el mundo conociera el formato de la hora.
+*/
+export function normalizarSesion(fila = {}) {
+  return { ...fila, horas: horasDe(fila) };
+}
+
+export function nuevaSesion({ id, fecha, asignatura, desde, hasta, nota = "", tarea = null }) {
+  return {
+    id,
+    fecha,
+    subject: asignatura,
+    desde: desde || null,
+    hasta: hasta || null,
+    horas: desde && hasta ? horasEntre(desde, hasta) : 0,
+    ...(nota ? { nota } : {}),
+    ...(tarea ? { tarea } : {}),
+  };
+}
+
+/*
+  Una sesión sirve si tiene asignatura, día y dura algo. Sin esto, dar a
+  "añadir" con el formulario a medias metería una sesión de 0 h que ensucia el
+  gráfico y no se puede distinguir de un día sin estudiar.
+*/
+export const sesionValida = (s) =>
+  Boolean(s?.subject && s?.fecha && horasDe(s) > 0);
+
+/* Las de un día, ordenadas por hora de inicio; las que no la tienen, al final. */
+export const sesionesDe = (registro = [], fecha) =>
+  registro
+    .filter((s) => s?.fecha === fecha)
+    .map(normalizarSesion)
+    .sort((a, b) => String(a.desde || "99:99").localeCompare(String(b.desde || "99:99")));
+
+/* --- Agregados --- */
+
 export function horasPorAsignatura(registro = []) {
   const acumulado = {};
   for (const fila of registro) {
@@ -46,16 +113,16 @@ export function horasPorAsignatura(registro = []) {
 }
 
 export const horasDeAsignatura = (registro = [], asignatura) =>
-  redondear(
-    registro.reduce((a, f) => (f?.subject === asignatura ? a + horasDe(f) : a), 0)
-  );
+  redondear(registro.reduce((a, f) => (f?.subject === asignatura ? a + horasDe(f) : a), 0));
 
 /*
   Total.
 
-  Recibe la LISTA de asignaturas a contar. Es el punto entero del arreglo: si
-  suma más asignaturas de las que se ven, vuelve a salir el 29 fantasma. Sin
-  lista, cuenta todo el registro (Analítica, que sí quiere el histórico).
+  Recibe la LISTA de asignaturas a contar, y ese es justo el arreglo del "29h
+  totales": si suma más asignaturas de las que se ven en pantalla —las de
+  cursos anteriores, por ejemplo— la cabecera deja de cuadrar con las filas de
+  debajo. Sin lista, cuenta todo el registro (Analítica, que sí quiere el
+  histórico).
 */
 export function totalHoras(registro = [], asignaturas = null) {
   const filtrado = asignaturas
@@ -65,71 +132,33 @@ export function totalHoras(registro = [], asignaturas = null) {
 }
 
 /*
-  Una hora suelta, para el botón de "+1 h".
-
-  La fila lleva `tarea` cuando las horas vienen de dar una tarea por terminada:
-  así se puede saber de dónde salió cada rato sin cambiar el formato.
-*/
-export const filaDeEstudio = ({ id, fecha, asignatura, horas, tarea = null }) => ({
-  id,
-  fecha,
-  subject: asignatura,
-  horas: redondear(horas),
-  ...(tarea ? { tarea } : {}),
-});
-
-/*
-  Quita horas de una asignatura.
-
-  Borra desde la última apuntada hacia atrás en vez de meter una fila negativa:
-  una fila de -1 h descuadraría cualquier suma por periodo en Analítica, y
-  además "he estudiado menos de cero horas el martes" no significa nada.
-
-  Devuelve el registro nuevo. Si se piden más horas de las que hay, se quita lo
-  que haya y ya: no se deja el total en negativo.
-*/
-export function quitarHoras(registro = [], asignatura, horas = 1) {
-  let porQuitar = Math.max(0, Number(horas) || 0);
-  if (porQuitar === 0) return registro;
-
-  const salida = [];
-  // De la más reciente a la más antigua; luego se devuelve el orden original.
-  const indices = registro.map((_, i) => i).reverse();
-  const quitados = new Set();
-  const recortes = new Map();
-
-  for (const i of indices) {
-    if (porQuitar <= 0) break;
-    const fila = registro[i];
-    if (fila?.subject !== asignatura) continue;
-
-    const suyas = horasDe(fila);
-    if (suyas <= porQuitar) {
-      quitados.add(i);
-      porQuitar = redondear(porQuitar - suyas);
-    } else {
-      // La fila cubre de sobra lo que se quita: se recorta en vez de borrarla.
-      recortes.set(i, redondear(suyas - porQuitar));
-      porQuitar = 0;
-    }
-  }
-
-  registro.forEach((fila, i) => {
-    if (quitados.has(i)) return;
-    salida.push(recortes.has(i) ? { ...fila, horas: recortes.get(i) } : fila);
-  });
-
-  return salida;
-}
-
-/*
-  Lo que necesita el gráfico: una fila por asignatura, ordenada de más a menos
-  horas. Se incluyen las que están a cero para que se vea el hueco —"no he
-  tocado Ciberseguridad" es justo la información útil—, pero van al final.
+  Lo que necesita el gráfico por asignatura: una fila por asignatura, de más a
+  menos horas. Se incluyen las que están a cero para que se vea el hueco —"no he
+  tocado Ciberseguridad" es la información útil—, pero van al final.
 */
 export function reparto(registro = [], asignaturas = []) {
   const porAsignatura = horasPorAsignatura(registro);
   return asignaturas
     .map((asignatura) => ({ asignatura, horas: porAsignatura[asignatura] || 0 }))
     .sort((a, b) => b.horas - a.horas || a.asignatura.localeCompare(b.asignatura));
+}
+
+/*
+  Resumen de un conjunto de barras (los siete días, o las últimas semanas).
+
+  `media` reparte entre TODOS los tramos, también los que están a cero: la
+  media de estudio de la semana incluye los días que no tocaste nada, que es
+  precisamente lo que interesa saber.
+*/
+export function resumen(tramos = []) {
+  const total = redondear(tramos.reduce((a, t) => a + (Number(t?.horas) || 0), 0));
+  const mejor = tramos.reduce(
+    (mejor, t) => ((Number(t?.horas) || 0) > (Number(mejor?.horas) || 0) ? t : mejor),
+    null
+  );
+  return {
+    total,
+    media: tramos.length ? redondear(total / tramos.length) : 0,
+    mejor: mejor && mejor.horas > 0 ? mejor : null,
+  };
 }

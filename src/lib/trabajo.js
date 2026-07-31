@@ -8,80 +8,25 @@
 */
 
 import { redondear } from "./numeros";
+import { lunesDe, porDiaDeLaSemana, porSemanas } from "./fechas";
 
-const DIAS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
-
-// Se reexporta porque varios módulos ya lo importaban de aquí.
-export { redondear };
+// Se reexportan porque varios módulos ya los importaban de aquí.
+export { redondear, lunesDe };
 
 const horasDe = (e) => Number(e?.horas) || 0;
 
-function iso(d) {
-  return [
-    d.getFullYear(),
-    String(d.getMonth() + 1).padStart(2, "0"),
-    String(d.getDate()).padStart(2, "0"),
-  ].join("-");
-}
-
 /*
-  Fecha local, no UTC: `new Date("2026-07-29")` se interpreta como medianoche
-  UTC y en España (UTC+2) eso es el día 28 por la noche, así que la semana
-  salía corrida un día.
+  Los agregados por día y por semana los pone ahora src/lib/fechas.js, que es
+  quien sabe de calendario. Aquí solo se conservan los nombres, porque son los
+  que importan las secciones de trabajo.
+
+  No es un adorno: las sesiones de estudio necesitaban exactamente lo mismo, y
+  copiarlo habría duplicado también la trampa de la fecha local (una fecha ISO
+  a secas se lee en UTC y en España corre la semana un día).
 */
-function desdeISO(fechaISO) {
-  const d = new Date(`${fechaISO}T00:00:00`);
-  return Number.isNaN(d.getTime()) ? null : d;
-}
+export const horasPorDiaDeLaSemana = (log = [], hoy) => porDiaDeLaSemana(log, hoy);
 
-// Lunes de la semana a la que pertenece una fecha (aaaa-mm-dd).
-export function lunesDe(fechaISO) {
-  const d = desdeISO(fechaISO);
-  if (!d) return null;
-  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
-  return iso(d);
-}
-
-// Horas de cada día (lunes a domingo) de la semana en la que cae `hoy`.
-export function horasPorDiaDeLaSemana(log = [], hoy) {
-  const lunes = lunesDe(hoy);
-  if (!lunes) return [];
-  const base = desdeISO(lunes);
-  return DIAS.map((etiqueta, i) => {
-    const d = new Date(base);
-    d.setDate(base.getDate() + i);
-    const fecha = iso(d);
-    const horas = log.reduce((a, e) => (e?.fecha === fecha ? a + horasDe(e) : a), 0);
-    return { fecha, etiqueta, horas: redondear(horas), esHoy: fecha === hoy };
-  });
-}
-
-// Horas de las últimas `semanas` semanas, de la más antigua a la más reciente.
-export function horasPorSemana(log = [], hoy, semanas = 8) {
-  const lunesActual = lunesDe(hoy);
-  if (!lunesActual) return [];
-  const base = desdeISO(lunesActual);
-  const filas = [];
-  for (let i = semanas - 1; i >= 0; i--) {
-    const ini = new Date(base);
-    ini.setDate(base.getDate() - i * 7);
-    const fin = new Date(ini);
-    fin.setDate(ini.getDate() + 6);
-    const desde = iso(ini);
-    const hasta = iso(fin);
-    const horas = log.reduce(
-      (a, e) => (e?.fecha >= desde && e?.fecha <= hasta ? a + horasDe(e) : a),
-      0
-    );
-    filas.push({
-      desde,
-      hasta,
-      etiqueta: `${ini.getDate()}/${ini.getMonth() + 1}`,
-      horas: redondear(horas),
-    });
-  }
-  return filas;
-}
+export const horasPorSemana = (log = [], hoy, semanas = 8) => porSemanas(log, hoy, semanas);
 
 export const totalHoras = (log = []) => redondear(log.reduce((a, e) => a + horasDe(e), 0));
 

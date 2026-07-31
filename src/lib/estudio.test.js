@@ -1,181 +1,207 @@
 import { describe, it, expect } from "vitest";
 import {
+  horasEntre,
+  nuevaSesion,
+  normalizarSesion,
+  sesionValida,
+  sesionesDe,
   horasPorAsignatura,
   horasDeAsignatura,
   totalHoras,
-  quitarHoras,
   reparto,
-  filaDeEstudio,
+  resumen,
+  porDiaDeLaSemana,
 } from "./estudio";
 
-const registro = [
-  { id: "1", fecha: "2026-09-10", subject: "Deep Learning", horas: 2 },
-  { id: "2", fecha: "2026-09-11", subject: "Ciberseguridad", horas: 1 },
-  { id: "3", fecha: "2026-09-12", subject: "Deep Learning", horas: 1.5 },
+const sesiones = [
+  { id: "1", fecha: "2026-09-14", subject: "Deep Learning", desde: "16:00", hasta: "18:00", horas: 2 },
+  { id: "2", fecha: "2026-09-15", subject: "Ciberseguridad", desde: "10:00", hasta: "11:00", horas: 1 },
+  { id: "3", fecha: "2026-09-16", subject: "Deep Learning", desde: "09:00", hasta: "10:30", horas: 1.5 },
 ];
 
 const DEL_CURSO = ["Deep Learning", "Ciberseguridad", "TFG"];
 
-describe("horasPorAsignatura", () => {
-  it("suma por asignatura", () => {
-    expect(horasPorAsignatura(registro)).toEqual({
-      "Deep Learning": 3.5,
-      Ciberseguridad: 1,
-    });
+describe("horasEntre", () => {
+  it("calcula el tramo del reloj", () => {
+    expect(horasEntre("16:00", "18:00")).toBe(2);
+    expect(horasEntre("09:00", "10:30")).toBe(1.5);
+    expect(horasEntre("08:15", "08:45")).toBe(0.5);
   });
 
-  it("no inventa asignaturas sin horas", () => {
-    expect(horasPorAsignatura(registro)["TFG"]).toBeUndefined();
+  it("una sesión de 25 minutos son 0,42 h", () => {
+    expect(horasEntre("10:00", "10:25")).toBe(0.42);
   });
 
-  it("aguanta filas rotas", () => {
-    const sucio = [...registro, { id: "x" }, null, { id: "y", subject: "Deep Learning" }];
-    expect(horasPorAsignatura(sucio)["Deep Learning"]).toBe(3.5);
+  it("si el fin no es posterior al inicio, son cero horas", () => {
+    expect(horasEntre("18:00", "16:00")).toBe(0);
+    expect(horasEntre("10:00", "10:00")).toBe(0);
   });
 
-  it("ignora las horas negativas", () => {
-    expect(horasPorAsignatura([{ subject: "TFG", horas: -5 }])).toEqual({ TFG: 0 });
+  it("NO deja cruzar la medianoche", () => {
+    /*
+      "de 18:00 a 6:00" es casi siempre un error de tecleo, y admitirlo
+      apuntaría doce horas de estudio sin que nadie se dé cuenta. Si de verdad
+      estudias de madrugada, son dos sesiones.
+    */
+    expect(horasEntre("18:00", "06:00")).toBe(0);
   });
 
-  it("con el registro vacío devuelve un objeto vacío", () => {
-    expect(horasPorAsignatura([])).toEqual({});
-    expect(horasPorAsignatura()).toEqual({});
+  it("no se traga horas imposibles", () => {
+    expect(horasEntre("25:00", "26:00")).toBe(0);
+    expect(horasEntre("10:70", "11:00")).toBe(0);
+    expect(horasEntre("", "")).toBe(0);
+    expect(horasEntre(null, undefined)).toBe(0);
   });
 });
 
-describe("totalHoras", () => {
-  it("suma todo el registro si no se acota", () => {
-    expect(totalHoras(registro)).toBe(4.5);
+describe("nuevaSesion", () => {
+  it("saca las horas del tramo, sin teclear números", () => {
+    const s = nuevaSesion({ id: "a", fecha: "2026-09-14", asignatura: "TFG", desde: "16:00", hasta: "18:30" });
+    expect(s).toMatchObject({ fecha: "2026-09-14", subject: "TFG", desde: "16:00", hasta: "18:30", horas: 2.5 });
   });
 
-  it("acotado a unas asignaturas, solo cuenta esas", () => {
-    expect(totalHoras(registro, ["Deep Learning"])).toBe(3.5);
+  it("guarda la nota y la tarea solo si vienen", () => {
+    const conNota = nuevaSesion({ id: "a", fecha: "x", asignatura: "TFG", desde: "10:00", hasta: "11:00", nota: "Tema 3" });
+    expect(conNota.nota).toBe("Tema 3");
+    const sinNota = nuevaSesion({ id: "b", fecha: "x", asignatura: "TFG", desde: "10:00", hasta: "11:00" });
+    expect(sinNota).not.toHaveProperty("nota");
+    expect(sinNota).not.toHaveProperty("tarea");
+  });
+});
+
+describe("normalizarSesion (compatibilidad)", () => {
+  it("las filas antiguas, sin tramo, conservan sus horas", () => {
+    // Las del modo foco miden un temporizador, no un tramo del reloj.
+    expect(normalizarSesion({ fecha: "x", subject: "TFG", horas: 0.42 }).horas).toBe(0.42);
+  });
+
+  it("cuando hay tramo, manda el tramo", () => {
+    // Si alguien edita las horas a mano y no cuadran con el reloj, gana el reloj.
+    const s = normalizarSesion({ desde: "10:00", hasta: "12:00", horas: 99 });
+    expect(s.horas).toBe(2);
+  });
+
+  it("las horas negativas se quedan en cero", () => {
+    expect(normalizarSesion({ horas: -5 }).horas).toBe(0);
+  });
+});
+
+describe("sesionValida", () => {
+  it("exige asignatura, día y que dure algo", () => {
+    expect(sesionValida({ subject: "TFG", fecha: "2026-09-14", desde: "10:00", hasta: "11:00" })).toBe(true);
+    expect(sesionValida({ subject: "TFG", fecha: "2026-09-14", desde: "10:00", hasta: "10:00" })).toBe(false);
+    expect(sesionValida({ fecha: "2026-09-14", desde: "10:00", hasta: "11:00" })).toBe(false);
+    expect(sesionValida({ subject: "TFG", desde: "10:00", hasta: "11:00" })).toBe(false);
+    expect(sesionValida(null)).toBe(false);
+  });
+});
+
+describe("sesionesDe", () => {
+  it("devuelve las de ese día ordenadas por hora de inicio", () => {
+    const registro = [
+      { id: "tarde", fecha: "2026-09-14", subject: "TFG", desde: "18:00", hasta: "19:00" },
+      { id: "pronto", fecha: "2026-09-14", subject: "TFG", desde: "09:00", hasta: "10:00" },
+      { id: "otroDia", fecha: "2026-09-15", subject: "TFG", desde: "08:00", hasta: "09:00" },
+    ];
+    expect(sesionesDe(registro, "2026-09-14").map((s) => s.id)).toEqual(["pronto", "tarde"]);
+  });
+
+  it("las que no tienen hora van al final", () => {
+    const registro = [
+      { id: "sinHora", fecha: "2026-09-14", subject: "TFG", horas: 1 },
+      { id: "conHora", fecha: "2026-09-14", subject: "TFG", desde: "18:00", hasta: "19:00" },
+    ];
+    expect(sesionesDe(registro, "2026-09-14").map((s) => s.id)).toEqual(["conHora", "sinHora"]);
+  });
+
+  it("un día sin nada devuelve lista vacía", () => {
+    expect(sesionesDe(sesiones, "2026-01-01")).toEqual([]);
+  });
+});
+
+describe("agregados por asignatura", () => {
+  it("suma por asignatura", () => {
+    expect(horasPorAsignatura(sesiones)).toEqual({ "Deep Learning": 3.5, Ciberseguridad: 1 });
+  });
+
+  it("horasDeAsignatura mira solo la pedida", () => {
+    expect(horasDeAsignatura(sesiones, "Deep Learning")).toBe(3.5);
+    expect(horasDeAsignatura(sesiones, "TFG")).toBe(0);
   });
 
   it("NO cuenta las asignaturas que no se ven: el fallo del '29h totales'", () => {
-    /*
-      El caso real: quedaban horas de asignaturas de cursos anteriores, que ya
-      no están en SUBJECTS. La cabecera las sumaba y la lista no las pintaba,
-      así que salía "29h totales" con todas las filas a 0.
-    */
     const conHerencia = [
-      ...registro,
+      ...sesiones,
       { id: "v1", fecha: "2025-03-01", subject: "Procesamiento de Imagen", horas: 20 },
       { id: "v2", fecha: "2025-03-02", subject: "Álgebra", horas: 9 },
     ];
-
-    expect(totalHoras(conHerencia)).toBe(33.5); // el histórico completo
-    // Pero lo que enseña Universidad solo cuenta lo de este curso:
-    expect(totalHoras(conHerencia, DEL_CURSO)).toBe(4.5);
+    expect(totalHoras(conHerencia)).toBe(33.5); // histórico completo
+    expect(totalHoras(conHerencia, DEL_CURSO)).toBe(4.5); // lo que enseña Universidad
 
     // Y cuadra con la suma de las filas visibles, que es lo que fallaba.
     const visibles = reparto(conHerencia, DEL_CURSO).reduce((a, f) => a + f.horas, 0);
     expect(totalHoras(conHerencia, DEL_CURSO)).toBe(visibles);
   });
 
-  it("con todo a cero, el total es cero", () => {
-    expect(totalHoras([], DEL_CURSO)).toBe(0);
-  });
-});
-
-describe("horasDeAsignatura", () => {
-  it("suma solo la asignatura pedida", () => {
-    expect(horasDeAsignatura(registro, "Deep Learning")).toBe(3.5);
-    expect(horasDeAsignatura(registro, "TFG")).toBe(0);
-  });
-});
-
-describe("quitarHoras", () => {
-  it("borra desde la última apuntada", () => {
-    const r = quitarHoras(registro, "Deep Learning", 1.5);
-    expect(r.map((f) => f.id)).toEqual(["1", "2"]);
-    expect(horasDeAsignatura(r, "Deep Learning")).toBe(2);
-  });
-
-  it("recorta la fila en vez de borrarla si sobra", () => {
-    // Nunca se mete una fila de horas negativas: descuadraría Analítica.
-    const r = quitarHoras(registro, "Deep Learning", 1);
-    expect(r).toHaveLength(3);
-    expect(horasDeAsignatura(r, "Deep Learning")).toBe(2.5);
-    expect(r.every((f) => f.horas >= 0)).toBe(true);
-  });
-
-  it("atraviesa varias filas si hace falta", () => {
-    const r = quitarHoras(registro, "Deep Learning", 3.5);
-    expect(horasDeAsignatura(r, "Deep Learning")).toBe(0);
-    expect(r.map((f) => f.id)).toEqual(["2"]);
-  });
-
-  it("si se piden más horas de las que hay, no baja de cero", () => {
-    const r = quitarHoras(registro, "Deep Learning", 99);
-    expect(horasDeAsignatura(r, "Deep Learning")).toBe(0);
-    expect(totalHoras(r)).toBe(1); // Ciberseguridad intacta
-  });
-
-  it("no toca las demás asignaturas", () => {
-    const r = quitarHoras(registro, "Deep Learning", 2);
-    expect(horasDeAsignatura(r, "Ciberseguridad")).toBe(1);
-  });
-
-  it("quitar cero no cambia nada", () => {
-    expect(quitarHoras(registro, "Deep Learning", 0)).toBe(registro);
-  });
-
-  it("de una asignatura sin horas no rompe", () => {
-    expect(quitarHoras(registro, "TFG", 1)).toHaveLength(3);
-  });
-});
-
-describe("reparto (lo que pinta el gráfico)", () => {
-  it("ordena de más a menos horas", () => {
-    expect(reparto(registro, DEL_CURSO).map((f) => f.asignatura)).toEqual([
-      "Deep Learning",
-      "Ciberseguridad",
-      "TFG",
+  it("reparto ordena de más a menos e incluye los ceros al final", () => {
+    expect(reparto(sesiones, DEL_CURSO)).toEqual([
+      { asignatura: "Deep Learning", horas: 3.5 },
+      { asignatura: "Ciberseguridad", horas: 1 },
+      { asignatura: "TFG", horas: 0 },
     ]);
   });
 
-  it("incluye las que están a cero: el hueco también informa", () => {
-    expect(reparto(registro, DEL_CURSO)).toContainEqual({ asignatura: "TFG", horas: 0 });
-  });
-
-  it("solo devuelve las asignaturas pedidas", () => {
-    const conVieja = [...registro, { subject: "Álgebra", horas: 9 }];
+  it("reparto solo devuelve las asignaturas pedidas", () => {
+    const conVieja = [...sesiones, { subject: "Álgebra", horas: 9 }];
     expect(reparto(conVieja, DEL_CURSO).map((f) => f.asignatura)).not.toContain("Álgebra");
   });
+});
 
-  it("con empate, ordena por nombre para que no baile entre repintados", () => {
-    const empate = [
-      { subject: "Ciberseguridad", horas: 2 },
-      { subject: "Deep Learning", horas: 2 },
-    ];
-    expect(reparto(empate, DEL_CURSO).map((f) => f.asignatura)).toEqual([
-      "Ciberseguridad",
-      "Deep Learning",
-      "TFG",
-    ]);
+describe("gráfico semanal", () => {
+  it("reparte las sesiones por día de la semana", () => {
+    // 2026-09-14 es lunes.
+    const semana = porDiaDeLaSemana(sesiones, "2026-09-16");
+    expect(semana.map((d) => d.horas)).toEqual([2, 1, 1.5, 0, 0, 0, 0]);
+    expect(semana.map((d) => d.etiqueta)).toEqual(["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]);
+  });
+
+  it("las filas antiguas sin tramo también entran", () => {
+    const conAntigua = [...sesiones, { fecha: "2026-09-17", subject: "TFG", horas: 3 }];
+    expect(porDiaDeLaSemana(conAntigua, "2026-09-16")[3].horas).toBe(3);
   });
 });
 
-describe("filaDeEstudio", () => {
-  it("arma la fila con el formato del registro", () => {
-    expect(
-      filaDeEstudio({ id: "a", fecha: "2026-09-14", asignatura: "TFG", horas: 1.5 })
-    ).toEqual({ id: "a", fecha: "2026-09-14", subject: "TFG", horas: 1.5 });
+describe("resumen", () => {
+  const semana = [
+    { etiqueta: "Lun", horas: 2 },
+    { etiqueta: "Mar", horas: 1 },
+    { etiqueta: "Mié", horas: 4 },
+    { etiqueta: "Jue", horas: 0 },
+    { etiqueta: "Vie", horas: 0 },
+    { etiqueta: "Sáb", horas: 0 },
+    { etiqueta: "Dom", horas: 0 },
+  ];
+
+  it("suma el total", () => {
+    expect(resumen(semana).total).toBe(7);
   });
 
-  it("guarda de qué tarea salieron las horas, si vienen de una", () => {
-    const f = filaDeEstudio({
-      id: "a",
-      fecha: "2026-09-14",
-      asignatura: "TFG",
-      horas: 2,
-      tarea: "t1",
-    });
-    expect(f.tarea).toBe("t1");
+  it("la media reparte entre TODOS los tramos, también los de cero", () => {
+    // Es lo que interesa: la media de la semana incluye los días en blanco.
+    expect(resumen(semana).media).toBe(1);
   });
 
-  it("redondea a dos decimales (25 min de foco son 0,42 h)", () => {
-    expect(filaDeEstudio({ id: "a", fecha: "x", asignatura: "TFG", horas: 25 / 60 }).horas).toBe(0.42);
+  it("señala el mejor tramo", () => {
+    expect(resumen(semana).mejor.etiqueta).toBe("Mié");
+  });
+
+  it("sin nada estudiado, no hay mejor día", () => {
+    const vacia = semana.map((d) => ({ ...d, horas: 0 }));
+    expect(resumen(vacia).mejor).toBe(null);
+    expect(resumen(vacia).total).toBe(0);
+  });
+
+  it("sin tramos no divide por cero", () => {
+    expect(resumen([])).toEqual({ total: 0, media: 0, mejor: null });
   });
 });

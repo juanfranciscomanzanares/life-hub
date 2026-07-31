@@ -32,6 +32,9 @@ const TYPE_STYLE = {
   // la semana y una tarea es algo que vence ese día. Mezclarlas de color hacía
   // que el plazo pasara desapercibido entre el horario.
   Tarea: "bg-violet-500/20 text-violet-300",
+  // Y las sesiones de estudio son una tercera cosa: un rato que TÚ te reservas,
+  // ni una clase impuesta ni un plazo que vence.
+  Estudio: "bg-orange-500/20 text-orange-300",
   Trabajo: "bg-indigo-500/20 text-indigo-300",
   Finanzas: "bg-rose-500/20 text-rose-300",
   "Inversión": "bg-teal-500/20 text-teal-300",
@@ -106,6 +109,7 @@ export default function Calendario() {
   const [finance] = usePersisted("lh_finance", []);
   const [contribs] = usePersisted("lh_contribs", []);
   const [uniTasks] = usePersisted("lh_uni_tasks", []);
+  const [estudio] = usePersisted("lh_study_log", []);
 
   // Eventos con fecha concreta
   const byDate = useMemo(() => {
@@ -134,8 +138,19 @@ export default function Calendario() {
       push(t.entrega, "Tarea", t.hora ? `${t.hora} ${t.text}` : t.text);
     });
 
+    /*
+      Las sesiones de estudio, que son ratos que uno se reserva: "el jueves de
+      16:00 a 18:00, Deep Learning". Salen aquí porque es donde se mira lo que
+      hay ese día; si solo estuvieran en Universidad no servirían para
+      planificar.
+    */
+    estudio.forEach((s) => {
+      if (!s?.fecha || !s?.subject) return;
+      push(s.fecha, "Estudio", s.desde ? `${s.desde} ${s.subject}` : s.subject);
+    });
+
     return map;
-  }, [gym, work, finance, contribs, events, uniTasks]);
+  }, [gym, work, finance, contribs, events, uniTasks, estudio]);
 
   // Rutina indexada por día de la semana (0 = lunes)
   const routineByDay = useMemo(() => {
