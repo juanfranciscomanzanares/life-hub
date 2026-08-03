@@ -87,6 +87,35 @@
   --c-teal-300: 94 234 212;
   --c-teal-500: 20 184 166;
 
+  /*
+    --- Colores de SERIE, para las gráficas ---
+
+    Estos ocho no son decoración: identifican una entidad (una asignatura) y
+    tienen que distinguirse entre sí cuando van pegados en una barra apilada.
+
+    No valía la paleta que usaban las etiquetas de asignatura. Al pasarla por el
+    validador salieron dos problemas de verdad: violeta y fucsia daban ΔE 1,3 en
+    protanopia (indistinguibles para quien no separa rojo y verde) y ΔE 14,1
+    incluso con visión normal, por debajo del mínimo de 15. Dos asignaturas
+    pegadas en la misma barra eran la misma mancha.
+
+    Este orden sí pasa las cinco comprobaciones en los dos temas: banda de
+    luminosidad, croma, separación con daltonismo (peor par ΔE 8,4 oscuro / 9,1
+    claro), suelo de visión normal (19,3 / 19,6) y contraste con el fondo.
+
+    El orden es FIJO: la asignatura 3 siempre lleva el color 3, filtres lo que
+    filtres. Si el color siguiera al puesto en el ranking, quitar una asignatura
+    repintaría las demás y el gráfico mentiría de una semana a otra.
+  */
+  --c-serie-1: 57 135 229;
+  --c-serie-2: 217 89 38;
+  --c-serie-3: 25 158 112;
+  --c-serie-4: 201 133 0;
+  --c-serie-5: 213 81 129;
+  --c-serie-6: 0 131 0;
+  --c-serie-7: 144 133 233;
+  --c-serie-8: 230 103 103;
+
   --lh-fondo: 2 6 23;
 }
 
@@ -146,6 +175,20 @@ html[data-theme="light"] {
   /* teal */
   --c-teal-300: 15 118 110;
   --c-teal-500: 20 184 166;
+
+  /*
+    Los mismos ocho tonos, pisados para el fondo claro. No es un volteo
+    automático del tema oscuro: cada paso se eligió y se validó contra ESTA
+    superficie, que es lo que hace que sigan distinguiéndose.
+  */
+  --c-serie-1: 42 120 214;
+  --c-serie-2: 235 104 52;
+  --c-serie-3: 27 175 122;
+  --c-serie-4: 237 161 0;
+  --c-serie-5: 232 123 164;
+  --c-serie-6: 0 131 0;
+  --c-serie-7: 74 58 167;
+  --c-serie-8: 227 73 72;
 
   --lh-fondo: 248 250 252;
   color-scheme: light;

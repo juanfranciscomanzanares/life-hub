@@ -439,3 +439,121 @@ export function Medidor({ titulo, valor, sub, color = "bg-indigo-500" }) {
     </div>
   );
 }
+
+/*
+  Barras VERTICALES apiladas por serie.
+
+  Para "cuánto he estudiado cada día, y de qué". Una barra por tramo (un día de
+  la semana, un mes) y dentro un trozo por asignatura, cada una con su color
+  fijo. De un vistazo se ve el volumen del día Y su reparto, que con barras
+  horizontales de una sola tinta hacían falta dos gráficos.
+
+  Verticales porque el eje del tiempo se lee de izquierda a derecha; y en SVG,
+  no con divs de altura en porcentaje, por lo mismo que `BarrasApiladas`: un
+  porcentaje dentro de un contenedor sin altura definida no resuelve y las
+  barras salen a cero.
+
+  `colorDe(clave)` devuelve un color CSS por serie. El color va con la ENTIDAD y
+  no con su puesto en el ranking: si siguiera al orden, filtrar una asignatura
+  repintaría las demás y el gráfico diría una cosa distinta cada semana.
+*/
+export function BarrasVerticales({
+  datos = [],
+  colorDe,
+  formato = (v) => String(v),
+  etiquetaTramo = (d) => d.etiqueta,
+  // Los agregados de fechas.js llaman `horas` al total del tramo; se acepta
+  // `total` también para no obligar a renombrarlo antes de pintar.
+  valor = (d) => d.total ?? d.horas ?? 0,
+  alturaBarra = 150,
+}) {
+  const [activo, setActivo] = useState(null);
+
+  const max = Math.max(...datos.map(valor), 1);
+  const hayAlgo = datos.some((d) => valor(d) > 0);
+
+  return (
+    <div>
+      <div className="flex items-end gap-1 sm:gap-2" style={{ height: alturaBarra }}>
+        {datos.map((d, i) => {
+          const total = valor(d);
+          const esActivo = activo === i;
+          return (
+            <div
+              key={d.clave ?? d.etiqueta ?? i}
+              className="flex h-full min-w-0 flex-1 flex-col justify-end"
+              onMouseEnter={() => setActivo(i)}
+              onMouseLeave={() => setActivo(null)}
+              onFocus={() => setActivo(i)}
+              onBlur={() => setActivo(null)}
+              tabIndex={0}
+              /*
+                Cada barra es enfocable y se anuncia entera: sin esto, la única
+                forma de saber el reparto de un día sería pasar el ratón por
+                encima, que con teclado o lector de pantalla no existe.
+              */
+              aria-label={`${etiquetaTramo(d)}: ${formato(total)}${
+                d.partes?.length
+                  ? ". " + d.partes.map((p) => `${p.clave}, ${formato(p.valor)}`).join("; ")
+                  : ""
+              }`}
+            >
+              {/* La cifra solo en la barra que se está mirando y en las que
+                  tienen algo: un número sobre cada columna es ruido. */}
+              <span
+                className={`mb-1 text-center text-[10px] font-semibold tabular-nums transition ${
+                  esActivo && total > 0 ? "text-slate-100" : "text-transparent"
+                }`}
+              >
+                {formato(total)}
+              </span>
+
+              {/*
+                Con un tope de ancho. A pantalla completa, siete columnas se
+                repartían 1.000 px y cada barra salía de 143: dejaban de leerse
+                como barras y parecían bloques de color. Centradas y con tope se
+                mantienen esbeltas en el escritorio y siguen llenando el hueco
+                en el móvil, que es donde el espacio falta.
+              */}
+              <div
+                className="mx-auto flex w-full max-w-14 flex-col justify-end overflow-hidden rounded-t"
+                style={{ height: `${(total / max) * 100}%` }}
+              >
+                {(d.partes || []).map((p) => (
+                  <div
+                    key={p.clave}
+                    title={`${etiquetaTramo(d)} · ${p.clave}: ${formato(p.valor)}`}
+                    style={{
+                      height: `${total ? (p.valor / total) * 100 : 0}%`,
+                      background: colorDe(p.clave),
+                      // Separación de 2px entre trozos: pegados, dos colores
+                      // parecidos se leen como una sola mancha.
+                      boxShadow: "0 -2px 0 0 rgb(var(--lh-fondo))",
+                    }}
+                  />
+                ))}
+              </div>
+
+              {/*
+                Alto de línea fijo: sin él, las etiquetas con tilde ("Mié",
+                "Sáb") crecen la caja de texto y se quedan unos píxeles más
+                abajo que las demás, con lo que la fila de días no cuadra.
+              */}
+              <span
+                className={`mt-1.5 block h-4 truncate text-center text-[10px] leading-4 transition ${
+                  d.esHoy || esActivo ? "font-semibold text-slate-200" : "text-slate-500"
+                }`}
+              >
+                {etiquetaTramo(d)}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      {!hayAlgo && (
+        <p className="mt-2 text-center text-xs text-slate-500">Nada apuntado en este periodo.</p>
+      )}
+    </div>
+  );
+}

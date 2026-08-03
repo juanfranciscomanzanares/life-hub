@@ -1,14 +1,15 @@
 import { useState, useMemo } from "react";
-import { GraduationCap, Table2, Plus, Trash2, Clock, CheckCircle2, Circle, CalendarCheck, Link2, BarChart3, Award } from "lucide-react";
+import { GraduationCap, Table2, Plus, Trash2, Clock, CalendarCheck, Link2, BarChart3, Award } from "lucide-react";
 import { usePersisted } from "../lib/store";
 import { Card, SectionTitle, todayISO } from "../lib/ui";
-import { BarrasH } from "../lib/graficos";
+import { BarrasH, BarrasVerticales } from "../lib/graficos";
 import { SUBJECTS } from "../lib/uni";
 import {
   horasPorAsignatura,
   totalHoras,
   reparto,
   resumen,
+  partirPorAsignatura,
   nuevaSesion,
   normalizarSesion,
   sesionValida,
@@ -19,14 +20,7 @@ import {
   sumarDias,
 } from "../lib/estudio";
 import { sincronizarAulaVirtual } from "../lib/aulaVirtual";
-import {
-  normalizarTareas,
-  agruparPorAsignatura,
-  esPendiente,
-  aTareaDeApp,
-  yaAnadida,
-  tareasQueFaltan,
-} from "../lib/aula";
+import { normalizarTareas, agruparPorAsignatura, esPendiente } from "../lib/aula";
 import { removeWithUndo, toast } from "../lib/toast";
 import { nuevoId } from "../lib/id";
 import {
@@ -37,7 +31,6 @@ import {
   PRACTICAS_C2,
   EXAM_DATES,
   ESTADO_AULA,
-  INITIAL_UNI_TASKS,
 } from "../lib/datosUni";
 
 const fmtHoras = (h) =>
@@ -45,8 +38,6 @@ const fmtHoras = (h) =>
 
 function Universidad() {
   const [cuatrimestre, setCuatrimestre] = useState("C1");
-  const [tasks, setTasks] = usePersisted("lh_uni_tasks", INITIAL_UNI_TASKS);
-  const [filter, setFilter] = useState("Todas");
   /*
     Las sesiones de estudio: `lh_study_log`. El contador antiguo
     (`lh_study_hours`) ya no se lee ni se escribe: tenía las horas sin fecha y
@@ -58,10 +49,6 @@ function Universidad() {
   // Qué asignaturas te han convalidado. Prácticas Externas es el caso: no se
   // cursa, así que no tiene horas que apuntar ni sentido salir en el gráfico.
   const [convalidadas, setConvalidadas] = usePersisted("lh_uni_convalidadas", {});
-  const [newTask, setNewTask] = useState("");
-  const [newSubject, setNewSubject] = useState(SUBJECTS[0]);
-  const [newFecha, setNewFecha] = useState("");
-  const [newHora, setNewHora] = useState("");
 
   // Formulario de sesión de estudio: el rato que te reservas tú.
   const [sesion, setSesion] = useState({
@@ -117,34 +104,6 @@ function Universidad() {
   // tarea venció entre la última sincronización y ahora.
   const aulaGrupos = useMemo(() => agruparPorAsignatura(aulaTareas.filter(esPendiente)), [aulaTareas]);
 
-  const anadirDelAula = (tarea) => {
-    if (yaAnadida(tasks, tarea.id)) return;
-    setTasks([...tasks, aTareaDeApp(tarea, SUBJECTS)]);
-  };
-
-  const anadirGrupo = (tareas) => {
-    const faltan = tareasQueFaltan(tareas, tasks);
-    if (faltan.length === 0) return;
-    setTasks([...tasks, ...faltan.map((t) => aTareaDeApp(t, SUBJECTS))]);
-    toast(`${faltan.length} ${faltan.length === 1 ? "tarea añadida" : "tareas añadidas"}`);
-  };
-
-  const filtered = useMemo(
-    () => (filter === "Todas" ? tasks : tasks.filter((t) => t.subject === filter)),
-    [tasks, filter]
-  );
-
-  /*
-    Las tuyas de este curso, más las que hayan entrado del Aula Virtual con una
-    asignatura que no está en SUBJECTS (las de cursos anteriores). Sin esto, una
-    tarea traída de "Procesamiento de Imagen [24/25]" no tendría ningún filtro
-    donde salir salvo "Todas".
-  */
-  const asignaturasConTareas = useMemo(
-    () => [...new Set([...SUBJECTS, ...tasks.map((t) => t.subject).filter(Boolean)])],
-    [tasks]
-  );
-
   /*
     Las asignaturas que de verdad se cursan. Una convalidada no se estudia, así
     que ni cuenta horas ni sale en el gráfico: dejarla ahí a 0 para siempre solo
@@ -176,11 +135,28 @@ function Universidad() {
     una semana con otra y el mes con los anteriores sin cambiar de pantalla.
   */
   const barras = useMemo(() => {
-    if (periodo === "mes") return porMeses(studyLog, todayISO(), 6);
-    return porDiaDeLaSemana(studyLog, sumarDias(lunesVisible, 3));
-  }, [studyLog, periodo, lunesVisible]);
+    if (periodo === "mes") {
+      const meses = porMeses(studyLog, todayISO(), 6);
+      return partirPorAsignatura(meses, studyLog, enCurso, (f, t) =>
+        String(f?.fecha || "").slice(0, 7) === t.clave
+      );
+    }
+    const dias = porDiaDeLaSemana(studyLog, sumarDias(lunesVisible, 3));
+    return partirPorAsignatura(dias, studyLog, enCurso, (f, t) => f?.fecha === t.fecha);
+  }, [studyLog, periodo, lunesVisible, enCurso]);
 
   const resumenPeriodo = useMemo(() => resumen(barras), [barras]);
+
+  /*
+    Qué asignaturas salen en la leyenda: solo las que aportan algo en el periodo
+    que se está mirando. Listarlas todas llenaría la leyenda de nombres cuyo
+    color no aparece en ninguna barra.
+  */
+  const seriesVisibles = useMemo(() => {
+    const vistas = new Set();
+    barras.forEach((b) => (b.partes || []).forEach((p) => vistas.add(p.clave)));
+    return enCurso.filter((s) => vistas.has(s));
+  }, [barras, enCurso]);
 
   const sesionesRecientes = useMemo(
     () =>
@@ -209,50 +185,40 @@ function Universidad() {
   const alternarConvalidada = (asignatura) =>
     setConvalidadas({ ...convalidadas, [asignatura]: !convalidadas[asignatura] });
 
-  const addTask = () => {
-    if (!newTask.trim()) return;
-    setTasks([
-      ...tasks,
-      {
-        id: nuevoId(),
-        text: newTask,
-        subject: newSubject,
-        done: false,
-        // `entrega` es el mismo campo que ya traían las tareas del Aula
-        // Virtual, así que el calendario y las urgencias de Inicio las
-        // reconocen sin tocar nada más.
-        entrega: newFecha || null,
-        hora: newHora || null,
-      },
-    ]);
-    setNewTask("");
-    setNewFecha("");
-    setNewHora("");
+
+  /*
+    El color de cada asignatura.
+
+    El hueco es FIJO y sale del orden de SUBJECTS, no del puesto que ocupe en
+    ningún ranking. Si el color siguiera al ranking, quitar una asignatura o
+    tener una semana distinta repintaría las demás y el mismo color querría
+    decir dos cosas de un día para otro.
+
+    Los tonos son los ocho `--c-serie-*` de index.css, que están validados para
+    distinguirse entre sí también con daltonismo. La paleta anterior (indigo,
+    esmeralda, ámbar... de Tailwind) no pasaba: violeta y fucsia daban ΔE 1,3 en
+    protanopia, o sea la misma mancha para quien no separa rojo y verde, y eso
+    en una barra apilada es justo donde más importa.
+  */
+  const huecoDeColor = (s) => {
+    const i = SUBJECTS.indexOf(s);
+    return i >= 0 ? (i % 8) + 1 : null;
+  };
+
+  const colorDeAsignatura = (s) => {
+    const hueco = huecoDeColor(s);
+    return hueco ? `rgb(var(--c-serie-${hueco}))` : "rgb(var(--c-slate-600))";
   };
 
   /*
-    Marcar o desmarcar una tarea. Nada más.
-
-    Aquí llegó a preguntarse "¿cuántas horas le has echado?", y era un error de
-    concepto: mezclaba la tarea (un plazo que te ponen, casi siempre del Aula
-    Virtual) con el rato que le dedicas. El tiempo se apunta como SESIÓN, que
-    tiene día y horas de principio y fin, y una sesión puede no corresponder a
-    ninguna tarea —repasar para un examen, por ejemplo—.
+    La etiqueta de asignatura, con el mismo tono que su trozo del gráfico: si no
+    coincidieran, el color dejaría de identificar a la asignatura y habría que
+    ir a la leyenda para todo.
   */
-  const alternarTarea = (tarea) =>
-    setTasks(tasks.map((x) => (x.id === tarea.id ? { ...x, done: !x.done } : x)));
-
-  const subjectColor = (s) =>
-    ({
-      "Fund. Computadores": "bg-indigo-500/15 text-indigo-300",
-      "Infraest. Comp. Altas Prest.": "bg-emerald-500/15 text-emerald-300",
-      "Deep Learning": "bg-amber-500/15 text-amber-300",
-      "Gestión de Proyectos": "bg-rose-500/15 text-rose-300",
-      "Ciberseguridad": "bg-sky-500/15 text-sky-300",
-      "Empresa y Emprendimiento": "bg-fuchsia-500/15 text-fuchsia-300",
-      "TFG": "bg-violet-500/15 text-violet-300",
-      "Prácticas Externas": "bg-teal-500/15 text-teal-300",
-    }[s] || "bg-slate-700 text-slate-300");
+  const subjectStyle = (s) => ({
+    backgroundColor: `color-mix(in srgb, ${colorDeAsignatura(s)} 18%, transparent)`,
+    color: colorDeAsignatura(s),
+  });
 
   const DIAS = [
     { key: "lunes", label: "Lunes" },
@@ -285,7 +251,7 @@ function Universidad() {
                 {DIAS.map((d) => (
                   <td key={d.key} className="px-5 py-3">
                     {c.dia === d.key ? (
-                      <span className={`inline-block rounded-lg px-2.5 py-1 text-xs font-medium ${subjectColor(c.subject)}`}>
+                      <span className={`inline-block rounded-lg px-2.5 py-1 text-xs font-medium`} style={subjectStyle(c.subject)}>
                         {c.subject} <span className="opacity-70">· {c.curso}</span>
                       </span>
                     ) : (
@@ -301,7 +267,7 @@ function Universidad() {
           <div className="border-t border-slate-800 px-5 py-3 text-xs text-slate-500">
             {sinHorario.map((s, i) => (
               <div key={i} className="flex items-center gap-2 py-0.5">
-                <span className={`rounded-md px-2 py-0.5 font-medium ${subjectColor(s.subject)}`}>{s.subject}</span>
+                <span className={`rounded-md px-2 py-0.5 font-medium`} style={subjectStyle(s.subject)}>{s.subject}</span>
                 <span>· {s.nota} (sin franja fija en el horario de aula)</span>
               </div>
             ))}
@@ -323,7 +289,7 @@ function Universidad() {
       <ul className="space-y-2">
         {filas.map((p, i) => (
           <li key={i} className="rounded-xl border border-slate-800 bg-slate-800/40 px-4 py-2.5 text-sm">
-            <span className={`mr-2 rounded-md px-2 py-0.5 text-xs font-medium ${subjectColor(p.subject)}`}>
+            <span className={`mr-2 rounded-md px-2 py-0.5 text-xs font-medium`} style={subjectStyle(p.subject)}>
               {p.subject}
             </span>
             <div className="mt-1.5 text-xs text-slate-400">
@@ -397,7 +363,7 @@ function Universidad() {
               key={i}
               className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-800 bg-slate-800/40 px-4 py-2.5"
             >
-              <span className={`rounded-md px-2 py-0.5 text-xs font-medium ${subjectColor(e.subject)}`}>
+              <span className={`rounded-md px-2 py-0.5 text-xs font-medium`} style={subjectStyle(e.subject)}>
                 {e.subject}
               </span>
               <span className="text-sm text-slate-300">
@@ -484,7 +450,6 @@ function Universidad() {
         <div className="space-y-2">
           {!sincronizando && aulaGrupos.map((grupo) => {
             const abierta = asignaturaAbierta === grupo.asignatura;
-            const faltan = tareasQueFaltan(grupo.tareas, tasks).length;
             return (
               <div key={grupo.asignatura} className="rounded-xl border border-slate-800 bg-slate-800/40">
                 <div className="flex flex-wrap items-center gap-2 px-4 py-2.5">
@@ -507,39 +472,36 @@ function Universidad() {
                       {grupo.pendientes > 0 && ` · ${grupo.pendientes} pendiente${grupo.pendientes === 1 ? "" : "s"}`}
                     </span>
                   </button>
-                  {faltan > 0 && (
-                    <button
-                      onClick={() => anadirGrupo(grupo.tareas)}
-                      className="shrink-0 rounded-lg border border-indigo-800 bg-indigo-500/10 px-2.5 py-1 text-xs font-medium text-indigo-300 transition hover:bg-indigo-500/20"
-                    >
-                      + Añadir {faltan}
-                    </button>
-                  )}
                 </div>
 
                 {abierta && (
                   <ul className="space-y-1.5 border-t border-slate-800 px-4 py-3">
-                    {grupo.tareas.map((t) => {
-                      const puesta = yaAnadida(tasks, t.id);
-                      return (
-                        <li key={t.id} className="flex flex-wrap items-center gap-2 text-sm">
-                          <span className={`shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium ${ESTADO_AULA[t.estado].clase}`}>
-                            {ESTADO_AULA[t.estado].texto}
-                          </span>
-                          <span className="min-w-0 flex-1 truncate text-slate-200">{t.titulo}</span>
-                          <span className="shrink-0 text-xs text-slate-500">
-                            {t.entrega ? new Date(t.entrega).toLocaleDateString("es-ES") : "sin plazo"}
-                          </span>
-                          <button
-                            onClick={() => anadirDelAula(t)}
-                            disabled={puesta}
-                            className="shrink-0 rounded-lg border border-slate-700 px-2 py-0.5 text-xs text-slate-300 transition hover:border-indigo-500 hover:text-indigo-300 disabled:border-transparent disabled:text-emerald-400"
-                          >
-                            {puesta ? "✓ puesta" : "+ poner"}
-                          </button>
-                        </li>
-                      );
-                    })}
+                    {grupo.tareas.map((t) => (
+                      <li key={t.id} className="flex flex-wrap items-center gap-2 text-sm">
+                        <span className={`shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium ${ESTADO_AULA[t.estado].clase}`}>
+                          {ESTADO_AULA[t.estado].texto}
+                        </span>
+                        <span className="min-w-0 flex-1 truncate text-slate-200">{t.titulo}</span>
+                        <span className="shrink-0 text-xs text-slate-500">
+                          {t.entrega ? new Date(t.entrega).toLocaleDateString("es-ES") : "sin plazo"}
+                        </span>
+                        {/*
+                          Ya no hay botón de "+ poner". Estas tareas SON las
+                          tuyas: salen solas en el calendario y en Inicio, y su
+                          estado lo manda la UMU. Copiarlas a una lista aparte
+                          era trabajo doble y se desajustaba en cuanto cambiaba
+                          una fecha allí.
+                        */}
+                        <a
+                          href={t.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="shrink-0 rounded-lg border border-slate-700 px-2 py-0.5 text-xs text-slate-300 transition hover:border-indigo-500 hover:text-indigo-300"
+                        >
+                          Abrir
+                        </a>
+                      </li>
+                    ))}
                   </ul>
                 )}
               </div>
@@ -548,130 +510,13 @@ function Universidad() {
         </div>
       </Card>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* To-Do filtrable */}
-        <Card>
-          <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-slate-100">
-            <CheckCircle2 size={18} className="text-emerald-400" /> Tareas por asignatura
-          </h2>
-
-          <div className="mb-4 flex flex-wrap gap-2">
-            {["Todas", ...asignaturasConTareas].map((s) => (
-              <button
-                key={s}
-                onClick={() => setFilter(s)}
-                className={`rounded-full px-3 py-1 text-xs font-medium transition ${
-                  filter === s
-                    ? "bg-indigo-500 text-white"
-                    : "bg-slate-800 text-slate-400 hover:bg-slate-700"
-                }`}
-              >
-                {s}
-              </button>
-            ))}
-          </div>
-
-          <div className="mb-4 space-y-2">
-            <div className="flex gap-2">
-              <input
-                placeholder="Nueva tarea..."
-                value={newTask}
-                onChange={(e) => setNewTask(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && addTask()}
-                aria-label="Nueva tarea"
-                className="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
-              />
-              <select
-                value={newSubject}
-                onChange={(e) => setNewSubject(e.target.value)}
-                aria-label="Asignatura"
-                className="min-w-0 rounded-lg border border-slate-700 bg-slate-800 px-2 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none"
-              >
-                {SUBJECTS.map((s) => (
-                  <option key={s}>{s}</option>
-                ))}
-              </select>
-            </div>
-            {/*
-              Cuándo hay que hacerla. Con fecha, la tarea sale en el calendario
-              y en "lo de hoy" de Inicio; sin fecha se comporta como siempre, así
-              que apuntar algo rápido sigue siendo escribir y pulsar Enter.
-            */}
-            <div className="flex flex-wrap gap-2">
-              <input
-                type="date"
-                value={newFecha}
-                onChange={(e) => setNewFecha(e.target.value)}
-                aria-label="Fecha en la que hay que hacerla (opcional)"
-                className="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none"
-              />
-              <input
-                type="time"
-                value={newHora}
-                onChange={(e) => setNewHora(e.target.value)}
-                aria-label="Hora (opcional)"
-                disabled={!newFecha}
-                title={newFecha ? "" : "Elige antes una fecha"}
-                className="w-28 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none disabled:opacity-40"
-              />
-              <button
-                onClick={addTask}
-                aria-label="Añadir tarea"
-                className="rounded-lg bg-indigo-500 px-3 py-2 text-white transition hover:bg-indigo-400"
-              >
-                <Plus size={16} aria-hidden="true" />
-              </button>
-            </div>
-          </div>
-
-          <ul className="space-y-2">
-            {filtered.length === 0 && (
-              <li className="py-4 text-center text-sm text-slate-500">Sin tareas para este filtro.</li>
-            )}
-            {filtered.map((t) => {
-              return (
-                <li key={t.id} className="rounded-xl border border-slate-800 bg-slate-800/40 px-3 py-2.5">
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={() => alternarTarea(t)}
-                      aria-label={t.done ? `Marcar ${t.text} como pendiente` : `Marcar ${t.text} como hecha`}
-                    >
-                      {t.done ? (
-                        <CheckCircle2 size={18} className="text-emerald-400" />
-                      ) : (
-                        <Circle size={18} className="text-slate-500" />
-                      )}
-                    </button>
-                    <span className={`min-w-0 flex-1 text-sm ${t.done ? "text-slate-500 line-through" : "text-slate-200"}`}>
-                      {t.text}
-                      {t.entrega && (
-                        <span className="ml-2 whitespace-nowrap text-xs text-slate-500">
-                          {new Date(t.entrega + "T00:00:00").toLocaleDateString("es-ES", {
-                            day: "numeric",
-                            month: "short",
-                          })}
-                          {t.hora && ` · ${t.hora}`}
-                        </span>
-                      )}
-                    </span>
-                    <span className={`shrink-0 rounded-md px-2 py-0.5 text-xs font-medium ${subjectColor(t.subject)}`}>
-                      {t.subject}
-                    </span>
-                    <button
-                      onClick={() => removeWithUndo(tasks, setTasks, t.id, "Tarea")}
-                      aria-label={`Borrar ${t.text}`}
-                      className="text-slate-500 transition hover:text-rose-400"
-                    >
-                      <Trash2 size={15} aria-hidden="true" />
-                    </button>
-                  </div>
-
-                </li>
-              );
-            })}
-          </ul>
-        </Card>
-
+      {/*
+        A lo ancho, no en dos columnas. La rejilla de dos venía de cuando aquí
+        convivían la lista de tareas y las horas; al quitarse la lista, las
+        sesiones se quedaban en media pantalla y el gráfico semanal apretaba
+        siete barras en la mitad del espacio que tiene disponible.
+      */}
+      <div className="space-y-6">
         {/* Sesiones de estudio: los ratos que te reservas tú */}
         <Card>
           <div className="mb-1 flex items-center justify-between">
@@ -813,13 +658,27 @@ function Universidad() {
             </div>
           )}
 
-          <BarrasH
-            datos={barras}
-            valor={(d) => d.horas}
-            etiqueta={(d) => d.etiqueta}
-            color="bg-indigo-500"
-            formato={fmtHoras}
-          />
+          <BarrasVerticales datos={barras} colorDe={colorDeAsignatura} formato={fmtHoras} />
+
+          {/*
+            Leyenda. Con más de una serie es obligatoria: sin ella la identidad
+            de cada trozo dependería solo del color, y quien no distinga dos
+            tonos se queda sin poder leer el gráfico.
+          */}
+          {seriesVisibles.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1.5">
+              {seriesVisibles.map((s) => (
+                <span key={s} className="flex items-center gap-1.5 text-[11px] text-slate-400">
+                  <span
+                    aria-hidden="true"
+                    className="h-2.5 w-2.5 shrink-0 rounded-sm"
+                    style={{ background: colorDeAsignatura(s) }}
+                  />
+                  {s}
+                </span>
+              ))}
+            </div>
+          )}
 
           <div className="mt-3 flex flex-wrap gap-4 border-t border-slate-800 pt-3 text-xs text-slate-400">
             <span>
@@ -860,7 +719,7 @@ function Universidad() {
                     <span className="w-24 shrink-0 tabular-nums text-slate-500">
                       {s.desde && s.hasta ? `${s.desde}–${s.hasta}` : fmtHoras(s.horas)}
                     </span>
-                    <span className={`shrink-0 rounded px-1.5 py-0.5 font-medium ${subjectColor(s.subject)}`}>
+                    <span className={`shrink-0 rounded px-1.5 py-0.5 font-medium`} style={subjectStyle(s.subject)}>
                       {s.subject}
                     </span>
                     <span className="min-w-0 flex-1 truncate text-slate-400">{s.nota || ""}</span>
@@ -882,7 +741,7 @@ function Universidad() {
         </Card>
 
         {/* Por asignatura y convalidaciones */}
-        <Card className="lg:col-span-2">
+        <Card>
           <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-slate-100">
             <BarChart3 size={18} className="text-amber-400" /> Por asignatura
           </h2>
@@ -916,7 +775,7 @@ function Universidad() {
                     convalidada ? "bg-slate-800/20" : "bg-slate-800/40"
                   }`}
                 >
-                  <span className={`min-w-0 truncate rounded-md px-2 py-0.5 text-xs font-medium ${subjectColor(s)}`}>
+                  <span className={`min-w-0 truncate rounded-md px-2 py-0.5 text-xs font-medium`} style={subjectStyle(s)}>
                     {s}
                   </span>
 

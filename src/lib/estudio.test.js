@@ -11,6 +11,7 @@ import {
   reparto,
   resumen,
   porDiaDeLaSemana,
+  partirPorAsignatura,
 } from "./estudio";
 
 const sesiones = [
@@ -168,6 +169,63 @@ describe("gráfico semanal", () => {
   it("las filas antiguas sin tramo también entran", () => {
     const conAntigua = [...sesiones, { fecha: "2026-09-17", subject: "TFG", horas: 3 }];
     expect(porDiaDeLaSemana(conAntigua, "2026-09-16")[3].horas).toBe(3);
+  });
+});
+
+describe("partirPorAsignatura (barras apiladas)", () => {
+  const mismoDia = (f, t) => f.fecha === t.fecha;
+
+  it("parte cada día en las asignaturas que lo componen", () => {
+    const tramos = porDiaDeLaSemana(sesiones, "2026-09-16");
+    const partido = partirPorAsignatura(tramos, sesiones, DEL_CURSO, mismoDia);
+
+    expect(partido[0].partes).toEqual([{ clave: "Deep Learning", valor: 2 }]);
+    expect(partido[1].partes).toEqual([{ clave: "Ciberseguridad", valor: 1 }]);
+  });
+
+  it("las partes suman el total del tramo", () => {
+    const variasEnUnDia = [
+      { fecha: "2026-09-14", subject: "Deep Learning", desde: "10:00", hasta: "12:00" },
+      { fecha: "2026-09-14", subject: "Ciberseguridad", desde: "16:00", hasta: "17:30" },
+    ];
+    const tramos = porDiaDeLaSemana(variasEnUnDia, "2026-09-14");
+    const [lunes] = partirPorAsignatura(tramos, variasEnUnDia, DEL_CURSO, mismoDia);
+
+    expect(lunes.total ?? lunes.horas).toBe(3.5);
+    expect(lunes.partes.reduce((a, p) => a + p.valor, 0)).toBe(3.5);
+  });
+
+  it("respeta el ORDEN de las asignaturas, no el tamaño de cada trozo", () => {
+    /*
+      Si los trozos se ordenaran por tamaño, el color de una asignatura
+      cambiaría de sitio de un día para otro y el gráfico sería ilegible.
+    */
+    const dia = [
+      { fecha: "2026-09-14", subject: "Ciberseguridad", desde: "08:00", hasta: "13:00" }, // 5 h
+      { fecha: "2026-09-14", subject: "Deep Learning", desde: "16:00", hasta: "17:00" }, // 1 h
+    ];
+    const tramos = porDiaDeLaSemana(dia, "2026-09-14");
+    const [lunes] = partirPorAsignatura(tramos, dia, DEL_CURSO, mismoDia);
+
+    // DEL_CURSO empieza por Deep Learning aunque solo tenga 1 h.
+    expect(lunes.partes.map((p) => p.clave)).toEqual(["Deep Learning", "Ciberseguridad"]);
+  });
+
+  it("no mete asignaturas que no tocaste ese día", () => {
+    const tramos = porDiaDeLaSemana(sesiones, "2026-09-16");
+    const partido = partirPorAsignatura(tramos, sesiones, DEL_CURSO, mismoDia);
+    expect(partido[3].partes).toEqual([]); // jueves, sin nada
+    expect(partido[0].partes.map((p) => p.clave)).not.toContain("TFG");
+  });
+
+  it("una asignatura fuera de la lista no aparece", () => {
+    const conVieja = [
+      ...sesiones,
+      { fecha: "2026-09-14", subject: "Álgebra", desde: "08:00", hasta: "09:00" },
+    ];
+    const tramos = porDiaDeLaSemana(conVieja, "2026-09-16");
+    const partido = partirPorAsignatura(tramos, conVieja, DEL_CURSO, mismoDia);
+    expect(partido[0].partes.map((p) => p.clave)).not.toContain("Álgebra");
   });
 });
 

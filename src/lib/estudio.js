@@ -27,9 +27,15 @@
 */
 
 import { redondear } from "./numeros";
-import { porDiaDeLaSemana, porSemanas, porMeses, lunesDe, sumarDias } from "./fechas";
+import {
+  porDiaDeLaSemana as porDiaBase,
+  porSemanas as porSemanasBase,
+  porMeses as porMesesBase,
+  lunesDe,
+  sumarDias,
+} from "./fechas";
 
-export { porDiaDeLaSemana, porSemanas, porMeses, lunesDe, sumarDias };
+export { lunesDe, sumarDias };
 
 /* Minutos desde medianoche, o null si la hora no vale. */
 function minutos(hhmm) {
@@ -102,6 +108,26 @@ export const sesionesDe = (registro = [], fecha) =>
 
 /* --- Agregados --- */
 
+/*
+  Los agregados por fecha van sobre el registro NORMALIZADO.
+
+  Los de fechas.js suman el campo `horas` tal cual, que es lo correcto para el
+  trabajo. Aquí no basta: una sesión lleva además su tramo del reloj, y quedamos
+  en que cuando hay tramo manda el tramo. Sin normalizar antes, una fila cuyo
+  `horas` no cuadre con sus horas de principio y fin sumaría una cosa en el
+  gráfico y otra en el total de la asignatura.
+*/
+const normalizados = (registro = []) => registro.map(normalizarSesion);
+
+export const porDiaDeLaSemana = (registro = [], fecha) =>
+  porDiaBase(normalizados(registro), fecha);
+
+export const porSemanas = (registro = [], fecha, semanas = 8) =>
+  porSemanasBase(normalizados(registro), fecha, semanas);
+
+export const porMeses = (registro = [], fecha, meses = 6) =>
+  porMesesBase(normalizados(registro), fecha, meses);
+
 export function horasPorAsignatura(registro = []) {
   const acumulado = {};
   for (const fila of registro) {
@@ -141,6 +167,32 @@ export function reparto(registro = [], asignaturas = []) {
   return asignaturas
     .map((asignatura) => ({ asignatura, horas: porAsignatura[asignatura] || 0 }))
     .sort((a, b) => b.horas - a.horas || a.asignatura.localeCompare(b.asignatura));
+}
+
+/*
+  Parte cada tramo por asignatura, para las barras apiladas.
+
+  Recibe los tramos ya calculados (los siete días, o los últimos meses) y les
+  añade `partes`: qué asignaturas componen ese total y cuánto pone cada una. El
+  reparto respeta el ORDEN de `asignaturas`, que es el mismo que da el color, y
+  no el tamaño de cada trozo: si los trozos se ordenaran por tamaño, el color de
+  una asignatura cambiaría de sitio de un día para otro y el gráfico sería
+  ilegible.
+
+  `dentroDe(fila, tramo)` dice si una sesión cae en ese tramo; lo pone quien
+  llama porque un tramo puede ser un día o un mes.
+*/
+export function partirPorAsignatura(tramos = [], registro = [], asignaturas = [], dentroDe) {
+  return tramos.map((tramo) => {
+    const delTramo = registro.filter((f) => dentroDe(f, tramo));
+    const partes = asignaturas
+      .map((asignatura) => ({
+        clave: asignatura,
+        valor: horasDeAsignatura(delTramo, asignatura),
+      }))
+      .filter((p) => p.valor > 0);
+    return { ...tramo, partes };
+  });
 }
 
 /*
