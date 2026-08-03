@@ -3,7 +3,8 @@ import { CalendarDays, ChevronLeft, ChevronRight, Plus, Trash2, Repeat } from "l
 import { usePersisted } from "../lib/store";
 import { removeWithUndo } from "../lib/toast";
 import { Card, SectionTitle, MONTHS, todayISO } from "../lib/ui";
-import { CURSO, eventosDelCalendario, queHayEl, esLectivo } from "../lib/uni";
+import { CURSO, SUBJECTS, eventosDelCalendario, queHayEl, esLectivo } from "../lib/uni";
+import { normalizarTareas, tareasParaLaApp } from "../lib/aula";
 
 import { nuevoId } from "../lib/id";
 // Fondo del día según el calendario académico. Suave a propósito: es contexto,
@@ -108,8 +109,23 @@ export default function Calendario() {
   const [work] = usePersisted("lh_work_log", []);
   const [finance] = usePersisted("lh_finance", []);
   const [contribs] = usePersisted("lh_contribs", []);
-  const [uniTasks] = usePersisted("lh_uni_tasks", []);
+  /*
+    Las entregas salen del Aula Virtual, no de una lista propia. Se quitó la de
+    Universidad: las tareas de la carrera son las de la UMU, ya vienen con su
+    plazo y se actualizan solas al sincronizar, así que llevar una copia a mano
+    era trabajo doble y se desajustaba en cuanto allí cambiaba una fecha.
+  */
+  const [aulaCrudo] = usePersisted("lh_aula_tareas", []);
   const [estudio] = usePersisted("lh_study_log", []);
+
+  const uniTasks = useMemo(
+    () =>
+      tareasParaLaApp(
+        normalizarTareas(Array.isArray(aulaCrudo) ? { tareas: aulaCrudo, sitios: [] } : aulaCrudo),
+        SUBJECTS
+      ),
+    [aulaCrudo]
+  );
 
   // Eventos con fecha concreta
   const byDate = useMemo(() => {

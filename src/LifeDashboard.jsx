@@ -38,7 +38,7 @@ import { horasPorSemana, fmtHoras } from "./lib/trabajo";
 import { Cifra } from "./lib/animar";
 import { urgenciasDeHoy } from "./lib/uni";
 import { normalizarHabito, mejorRacha } from "./lib/habitos";
-import { normalizarTareas } from "./lib/aula";
+import { normalizarTareas, esPendiente } from "./lib/aula";
 import HoyWidget from "./sections/HoyWidget.jsx";
 import { useRoutineNotifier } from "./lib/useRoutineNotifier";
 import { useTheme, useAccent } from "./lib/useTheme";
@@ -111,27 +111,33 @@ function Inicio() {
     mano, que nadie ponía nunca: tareas de la UMU que vencen hoy o que ya
     vencieron, y lo que tengas hoy en el calendario (exámenes, citas...).
   */
-  const [uniTasks] = usePersisted("lh_uni_tasks", []);
   const [aulaCrudo] = usePersisted("lh_aula_tareas", []);
   const [eventos] = usePersisted("lh_events", []);
   // Las sesiones de estudio que te has puesto para hoy salen aquí igual que
   // todo lo demás: si no, habría que entrar en Universidad para recordarlas.
   const [sesionesEstudio] = usePersisted("lh_study_log", []);
 
-  const urgencias = useMemo(() => {
-    const tareasAula = normalizarTareas(
-      Array.isArray(aulaCrudo) ? { tareas: aulaCrudo, sitios: [] } : aulaCrudo
-    );
-    return urgenciasDeHoy({
-      tareasUni: uniTasks,
-      tareasAula,
-      eventos,
-      sesiones: sesionesEstudio,
-      hoy: todayISO(),
-    });
-  }, [uniTasks, aulaCrudo, eventos, sesionesEstudio]);
+  /*
+    Ya no hay lista de tareas propia: las de la carrera son las del Aula
+    Virtual, que vienen con su plazo y se actualizan solas al sincronizar.
+  */
+  const tareasAula = useMemo(
+    () => normalizarTareas(Array.isArray(aulaCrudo) ? { tareas: aulaCrudo, sitios: [] } : aulaCrudo),
+    [aulaCrudo]
+  );
 
-  const pendientesUni = uniTasks.filter((t) => !t.done).length;
+  const urgencias = useMemo(
+    () =>
+      urgenciasDeHoy({
+        tareasAula,
+        eventos,
+        sesiones: sesionesEstudio,
+        hoy: todayISO(),
+      }),
+    [tareasAula, eventos, sesionesEstudio]
+  );
+
+  const pendientesUni = tareasAula.filter(esPendiente).length;
 
   // Las que entran por el botón + flotante y por la paleta de comandos.
   const [rapidas, setRapidas] = usePersisted("lh_tasks", []);

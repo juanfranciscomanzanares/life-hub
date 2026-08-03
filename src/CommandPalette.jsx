@@ -19,7 +19,19 @@ function buildIndex() {
   read("lh_gym", []).forEach((g) => add(g.ejercicio, "gimnasio", "Gym"));
   read("lh_work_log", []).forEach((w) => add(w.actividad, "trabajo", "Trabajo"));
   read("lh_runbooks", []).forEach((r) => add(r.titulo, "trabajo", "Procedimiento"));
-  read("lh_uni_tasks", []).forEach((t) => add(t.text, "universidad", "Uni"));
+  /*
+    Las tareas de la carrera son las del Aula Virtual. Se lee el crudo tal cual
+    en vez de normalizarlo: aquí solo hace falta el título para buscar, y
+    normalizar traería toda la lógica de estados a un índice que se reconstruye
+    cada vez que se abre la paleta.
+  */
+  const aula = read("lh_aula_tareas", []);
+  (Array.isArray(aula) ? aula : aula?.tareas || []).forEach((t) =>
+    add(t.titulo, "universidad", "Uni")
+  );
+  read("lh_study_log", []).forEach((s) =>
+    add(s.nota || s.subject, "universidad", "Estudio")
+  );
   read("lh_finance", []).forEach((f) => add(f.concepto, "finanzas", "Finanzas"));
   read("lh_investments", []).forEach((i) => add(i.nombre, "inversiones", "Inversión"));
   read("lh_notes", []).forEach((n) => add(n.title, "cerebro", "Nota"));
