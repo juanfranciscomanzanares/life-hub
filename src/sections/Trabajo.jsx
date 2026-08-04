@@ -5,6 +5,7 @@ import { Card, SectionTitle, todayISO } from "../lib/ui";
 import { removeWithUndo } from "../lib/toast";
 import { claveMes, etiquetaMes, ultimosMeses } from "../lib/meses";
 import { nuevoId } from "../lib/id";
+import { useFestivos, festivoDe } from "../lib/festivos";
 import {
   horasPorDiaDeLaSemana,
   redondear,
@@ -37,6 +38,25 @@ function Trabajo() {
   // La última modalidad usada se recuerda: se encadenan días del mismo tipo.
   const [modalidad, setModalidad] = usePersisted("lh_trabajo_modalidad", "oficina");
   const [form, setForm] = useState({ fecha: "", actividad: "", horas: "", km: "" });
+
+  /*
+    Festivos oficiales de España y de la Región de Murcia (Nager.Date).
+
+    Aquí no se usan para bloquear nada: se puede trabajar un festivo y hay que
+    poder apuntarlo. Sirven para que se VEA, que es distinto — al repasar el mes
+    conviene saber que aquellas seis horas cayeron en el Día de la Región y no
+    en un martes cualquiera.
+
+    Los años salen del propio registro, no del año actual: si en enero repasas
+    diciembre, los festivos tienen que estar ahí.
+  */
+  const aniosDelLog = useMemo(() => {
+    const anios = new Set(log.map((e) => Number((e?.fecha || "").slice(0, 4))).filter(Boolean));
+    anios.add(new Date().getFullYear());
+    return [...anios].sort();
+  }, [log]);
+  const { festivos } = useFestivos(aniosDelLog);
+  const festivoDelAlta = festivoDe(festivos, form.fecha || todayISO());
   const [rbForm, setRbForm] = useState({ titulo: "", pasos: "", herramientas: "" });
   const [showRb, setShowRb] = useState(false);
   const [crono, setCrono] = useState(null);
@@ -354,6 +374,13 @@ function Trabajo() {
           />
         </div>
 
+        {/* Un aviso, no un impedimento: se puede trabajar en festivo y apuntarlo. */}
+        {festivoDelAlta && (
+          <p className="mt-2 text-xs text-amber-300">
+            Ojo: el {form.fecha || todayISO()} es festivo ({festivoDelAlta.titulo}).
+          </p>
+        )}
+
         {/* Modalidad: se recuerda entre registros, así que lo normal es no tocarla */}
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <div role="group" aria-label="Modalidad de la jornada" className="flex overflow-hidden rounded-lg border border-slate-700">
@@ -434,7 +461,20 @@ function Trabajo() {
             )}
             {log.map((e) => (
               <tr key={e.id} className="border-b border-slate-800/60 transition hover:bg-slate-800/40">
-                <td className="px-5 py-3 text-slate-400">{e.fecha}</td>
+                <td className="whitespace-nowrap px-5 py-3 text-slate-400">
+                  {e.fecha}
+                  {/* El nombre del festivo va en `title` y no en la celda: en la
+                      tabla solo cabe la marca, y "Día de la Región de Murcia"
+                      la desbordaría en el móvil. */}
+                  {festivoDe(festivos, e.fecha) && (
+                    <span
+                      title={festivoDe(festivos, e.fecha).titulo}
+                      className="ml-2 rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-300"
+                    >
+                      festivo
+                    </span>
+                  )}
+                </td>
                 <td className="px-5 py-3 font-medium text-slate-100">{e.actividad}</td>
                 {/* Editable: los registros antiguos no tienen modalidad y así se
                     pueden clasificar a posteriori sin borrarlos y volver a crearlos. */}

@@ -43,6 +43,37 @@ Los conflictos se resuelven **elemento a elemento**, no por bloques (ver [src/li
 - `lh_uni_convalidadas` marca las asignaturas convalidadas (el caso es Prácticas Externas). Una convalidada no cuenta horas ni sale en el gráfico: dejarla a 0 para siempre solo estropea la comparación.
 - Los registros de trabajo (`lh_work_log`) llevan `modalidad` (`"oficina"` / `"teletrabajo"`, ausente en los antiguos) y, opcionalmente, `km`. Los kilómetros se cuentan **por día presencial**, no por registro: ver `diasEnOficina` en [src/lib/trabajo.js](src/lib/trabajo.js). La distancia habitual vive aparte, en `lh_trabajo_km_trayecto`.
 
+### APIs externas sin credenciales
+
+El banco, el Aula Virtual y la bolsa van por Edge Function porque llevan
+secretos. **Estas dos no**, y por eso llaman directamente desde el navegador:
+meter un salto por Supabase solo añadiría latencia y otra pieza que romper.
+
+- **Tiempo** ([src/lib/tiempo.js](src/lib/tiempo.js)): [Open-Meteo](https://open-meteo.com),
+  sin clave, 10.000 peticiones al día en el plan no comercial. Se usa en Inicio
+  y en el Calendario. `timezone=auto` no es opcional: sin él las horas vienen en
+  UTC y "el sábado a las 10" serían las 8.
+- **Festivos** ([src/lib/festivos.js](src/lib/festivos.js)): [Nager.Date](https://date.nager.at),
+  sin clave ni límite. Se filtran por `ES-MC` (Región de Murcia) mirando el campo
+  `counties`; sin ese filtro el calendario diría que el Día de Andalucía es fiesta
+  aquí. **No sustituye a `FESTIVOS_UMU`**: ese es el calendario de la Facultad
+  (lleva la Romería y San Alberto Magno, que ninguna API conoce) y manda cuando
+  los dos tienen algo que decir del mismo día. Nager cubre el hueco de fuera del
+  curso, donde `queHayEl` no sabe nada.
+
+**Las dos cachés (`lh_cache_tiempo`, `lh_cache_festivos`) van a `localStorage` a
+pelo, NO por `usePersisted`.** Es deliberado: todo lo que pasa por el store se
+sincroniza con Supabase, y esto es dato derivado que se regenera solo. Subirlo
+gastaría escrituras para nada y, peor, dos dispositivos en sitios distintos se
+pisarían la previsión el uno al otro. Tampoco entran en las copias de seguridad,
+que llevan una lista explícita de claves.
+
+La lógica pura (montar la URL, leer la respuesta, decidir si la caché sirve) está
+separada del hook y tiene sus tests. El icono del tiempo vive en
+[src/lib/tiempoUi.jsx](src/lib/tiempoUi.jsx) porque lo usan dos pantallas:
+`tiempo.js` devuelve un **nombre** de icono, no un componente, para seguir
+probándose en `node` sin arrastrar JSX.
+
 ## Convenciones de UI
 
 - **Logo**: la marca (núcleo + 3 satélites en órbita) vive en dos sitios que hay que cambiar a la vez — el componente `Logo` de [src/lib/ui.jsx](src/lib/ui.jsx), que usa el degradado de Tailwind para seguir el acento elegido, y [public/icon.svg](public/icon.svg), con el degradado fijo, del que salen los PNG (`npx -y sharp-cli -i public/icon.svg -o <dir> --format png resize N N`) y la pantalla de carga de `index.html`. Al tocar iconos, sube `VERSION` en [public/sw.js](public/sw.js).

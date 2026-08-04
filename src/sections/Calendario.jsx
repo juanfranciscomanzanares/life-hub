@@ -5,6 +5,9 @@ import { removeWithUndo } from "../lib/toast";
 import { Card, SectionTitle, MONTHS, todayISO } from "../lib/ui";
 import { CURSO, SUBJECTS, eventosDelCalendario, queHayEl, esLectivo } from "../lib/uni";
 import { normalizarTareas, tareasParaLaApp } from "../lib/aula";
+import { LUGAR_POR_DEFECTO, useTiempo, diaDe } from "../lib/tiempo";
+import { useFestivos, festivoDe, aniosNecesarios } from "../lib/festivos";
+import { IconoTiempo, fmtTemp } from "../lib/tiempoUi";
 
 import { nuevoId } from "../lib/id";
 // Fondo del día según el calendario académico. Suave a propósito: es contexto,
@@ -117,6 +120,30 @@ export default function Calendario() {
   */
   const [aulaCrudo] = usePersisted("lh_aula_tareas", []);
   const [estudio] = usePersisted("lh_study_log", []);
+  const [lugar] = usePersisted("lh_tiempo_lugar", LUGAR_POR_DEFECTO);
+
+  const { prevision } = useTiempo(lugar);
+
+  /*
+    Festivos oficiales del país y de la comunidad. Se piden también los del año
+    anterior y el siguiente porque la rejilla de enero arranca en diciembre y la
+    de diciembre termina en enero (ver `aniosNecesarios`).
+  */
+  const { festivos } = useFestivos(aniosNecesarios(year));
+
+  /*
+    Qué hay ese día, juntando las dos fuentes. Manda el calendario ACADÉMICO:
+    es más específico y sabe de días que ninguna API conoce (la Romería, San
+    Alberto Magno). Los festivos oficiales rellenan el hueco de fuera del curso
+    2026/2027, donde `queHayEl` no tiene nada que decir y el 15 de agosto salía
+    como un miércoles cualquiera.
+  */
+  const contextoDe = (fechaISO) => {
+    const academico = queHayEl(fechaISO);
+    if (academico) return academico;
+    const oficial = festivoDe(festivos, fechaISO);
+    return oficial ? { tipo: "festivo", titulo: oficial.titulo } : null;
+  };
 
   const uniTasks = useMemo(
     () =>
@@ -259,7 +286,16 @@ export default function Calendario() {
     const isoD = todayISO(d);
     const rout = rutinaDe(isoD, i).map((r) => ({ hora: r.hora, tipo: r.tipo, label: r.titulo }));
     const ev = (byDate[isoD] || []).map((e) => ({ hora: "", tipo: e.tipo, label: e.label }));
-    return { fecha: isoD, dia: d.getDate(), nombre: WEEKDAYS_FULL[i], esHoy: isoD === todayISO(now), items: [...rout, ...ev].sort((a, b) => (a.hora || "99").localeCompare(b.hora || "99")) };
+    return {
+      fecha: isoD,
+      dia: d.getDate(),
+      nombre: WEEKDAYS_FULL[i],
+      esHoy: isoD === todayISO(now),
+      // Open-Meteo da 7 días desde hoy, así que los días ya pasados de esta
+      // semana vienen vacíos. Es correcto: no hay previsión del martes pasado.
+      tiempo: diaDe(prevision, isoD),
+      items: [...rout, ...ev].sort((a, b) => (a.hora || "99").localeCompare(b.hora || "99")),
+    };
   });
 
   const inputCls =
@@ -338,7 +374,25 @@ export default function Calendario() {
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
           {semana.map((d) => (
             <div key={d.fecha} className={`rounded-xl border p-2 ${d.esHoy ? "border-indigo-500 bg-indigo-500/10" : "border-slate-800 bg-slate-800/30"}`}>
-              <p className="mb-2 text-xs font-semibold text-slate-400">{d.nombre} {d.dia}</p>
+              <p className="mb-2 flex items-center justify-between gap-1 text-xs font-semibold text-slate-400">
+                <span className="truncate">{d.nombre} {d.dia}</span>
+                {/* La previsión, donde de verdad sirve: mirando la semana para
+                    decidir si el sábado se puede jugar al tenis. */}
+                {d.tiempo && (
+                  <span
+                    className="flex shrink-0 items-center gap-1 font-normal"
+                    title={`${d.tiempo.texto} · máx. ${fmtTemp(d.tiempo.tmax)}, mín. ${fmtTemp(d.tiempo.tmin)}${
+                      d.tiempo.lluvia !== null ? ` · ${d.tiempo.lluvia}% de lluvia` : ""
+                    }`}
+                  >
+                    <IconoTiempo icono={d.tiempo.icono} size={13} />
+                    <span className="tabular-nums text-slate-400">{fmtTemp(d.tiempo.tmax)}</span>
+                    {d.tiempo.lluvia >= 30 && (
+                      <span className="tabular-nums text-sky-300">{d.tiempo.lluvia}%</span>
+                    )}
+                  </span>
+                )}
+              </p>
               <div className="space-y-1">
                 {d.items.length === 0 && <p className="text-[10px] text-slate-600">—</p>}
                 {d.items.map((it, j) => (
@@ -372,7 +426,7 @@ export default function Calendario() {
               evento más: si no, "1er cuatrimestre" ocuparía una línea en cada
               una de las 65 casillas y taparía lo que de verdad pasa ese día.
             */
-            const academico = queHayEl(iso(d));
+            const academico = contextoDe(iso(d));
             return (
               <div
                 key={d}
