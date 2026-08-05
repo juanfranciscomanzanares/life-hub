@@ -13,18 +13,33 @@
   usan también Inicio, el modo foco y el calendario.
 */
 
-/* Teoría (grupo completo, sin ambigüedad de subgrupo). Cada fila es una franja
-   horaria; solo se rellena la columna del día en que cae esa clase. */
+/*
+  El horario, teoría y prácticas juntas. Cada fila es una clase con su día y su
+  franja; la tabla las agrupa por hora.
+
+  Las prácticas van por subgrupo y llevan el tuyo (`subgrupo`), confirmado en el
+  Aula Virtual. Antes estaban aparte, en una lista con los dos horarios posibles
+  de cada asignatura, porque aún no se sabía cuál tocaba: con el subgrupo ya
+  asignado, el otro horario solo estorba. El número tras el punto es el
+  subgrupo, o sea 1.2 = grupo 1, subgrupo 2.
+*/
 export const SCHEDULE_C1 = [
   { hora: "10:00 - 11:00", dia: "jueves", subject: "Fund. Computadores", curso: "1º", aula: "A.04 Bis" },
   { hora: "15:00 - 17:00", dia: "lunes", subject: "Empresa y Emprendimiento", curso: "4º", aula: "A05" },
   { hora: "15:00 - 17:00", dia: "miercoles", subject: "Ciberseguridad", curso: "4º", aula: "A05" },
   { hora: "17:00 - 19:00", dia: "martes", subject: "Gestión de Proyectos", curso: "4º", aula: "A05" },
   { hora: "18:30 - 20:30", dia: "lunes", subject: "Infraest. Comp. Altas Prest.", curso: "3º", aula: "A.04 Bis" },
+
+  { hora: "12:20 - 14:20", dia: "miercoles", subject: "Fund. Computadores", curso: "1º", aula: "Lab 2.1", practicas: true, subgrupo: "1.2" },
+  { hora: "16:30 - 18:30", dia: "jueves", subject: "Infraest. Comp. Altas Prest.", curso: "3º", aula: "Lab 2.8", practicas: true, subgrupo: "1.2" },
+  { hora: "17:00 - 18:00", dia: "lunes", subject: "Empresa y Emprendimiento", curso: "4º", practicas: true, subgrupo: "1.1" },
+  { hora: "17:00 - 18:00", dia: "miercoles", subject: "Ciberseguridad", curso: "4º", practicas: true, subgrupo: "1.1" },
+  { hora: "19:00 - 20:00", dia: "martes", subject: "Gestión de Proyectos", curso: "4º", practicas: true, subgrupo: "1.1" },
 ];
 
 export const SCHEDULE_C2 = [
   { hora: "16:30 - 18:30", dia: "lunes", subject: "Deep Learning", curso: "3º", aula: "A.04 Bis" },
+  { hora: "18:30 - 19:30", dia: "miercoles", subject: "Deep Learning", curso: "3º", aula: "Lab 2.6", practicas: true, subgrupo: "1.2" },
 ];
 
 /* Sin horario de aula: prácticas en empresa / tutorías con el tutor. */
@@ -33,21 +48,25 @@ export const SIN_HORARIO_FIJO = {
   C2: [{ subject: "TFG", curso: "4º", nota: "Tutorías con tu tutor/a" }],
 };
 
-/* Prácticas de laboratorio: van por subgrupo (1 o 2), que aún no sabes cuál te
-   toca — se confirma en el Aula Virtual o el Campus antes de empezar el curso.
-   Sacado de las filas de horario entre teorías, cruzando los dos horarios
-   propuestos por asignatura. */
-export const PRACTICAS_C1 = [
-  { subject: "Fund. Computadores", sub1: "Martes 12:00 - 13:00 (Lab 1.7)", sub2: "Miércoles 12:20 - 14:20 (Lab 2.1)" },
-  { subject: "Infraest. Comp. Altas Prest.", sub1: "Martes 18:30 - 20:30 (Lab 1.0)", sub2: "Jueves 16:30 - 18:30 (Lab 2.8)" },
-  { subject: "Empresa y Emprendimiento", sub1: "Lunes 17:00 - 18:00", sub2: "Martes 19:00 - 20:00" },
-  { subject: "Ciberseguridad", sub1: "Miércoles 17:00 - 18:00", sub2: "Lunes 17:00 - 18:00" },
-  { subject: "Gestión de Proyectos", sub1: "Martes 19:00 - 20:00", sub2: "Miércoles 17:00 - 18:00" },
-];
+const DIA_INDICE = { lunes: 0, martes: 1, miercoles: 2, jueves: 3, viernes: 4 };
 
-export const PRACTICAS_C2 = [
-  { subject: "Deep Learning", sub1: "Lunes 18:30 - 19:30 (Lab 1.0)", sub2: "Miércoles 18:30 - 19:30 (Lab 2.6)" },
-];
+/*
+  El horario visto como rutina semanal, que es como lo quiere el Calendario
+  (día 0=lunes y hora de inicio suelta).
+
+  Se deriva del horario en vez de copiarse: la copia a mano que había en
+  Calendario.jsx ya se había desajustado —las prácticas de Gestión de Proyectos
+  salían un miércoles a las 19:00, que no es ninguno de los dos subgrupos— y
+  nada avisaba, porque eran dos listas sin relación.
+*/
+export function clasesSemanales() {
+  return [...SCHEDULE_C1, ...SCHEDULE_C2].map((c) => ({
+    dia: DIA_INDICE[c.dia],
+    hora: c.hora.slice(0, 5),
+    titulo: `${c.subject} (${c.practicas ? `prácticas ${c.subgrupo}` : "teoría"})`,
+    tipo: "Universidad",
+  }));
+}
 
 /* Convocatoria I (calendario de exámenes GCID 2026/27) */
 export const EXAM_DATES = [

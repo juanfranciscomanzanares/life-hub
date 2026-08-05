@@ -4,6 +4,7 @@ import { usePersisted } from "../lib/store";
 import { removeWithUndo } from "../lib/toast";
 import { Card, SectionTitle, MONTHS, todayISO } from "../lib/ui";
 import { CURSO, SUBJECTS, eventosDelCalendario, queHayEl, esLectivo } from "../lib/uni";
+import { clasesSemanales } from "../lib/datosUni";
 import { normalizarTareas, tareasParaLaApp } from "../lib/aula";
 import { LUGAR_POR_DEFECTO, useTiempo, diaDe } from "../lib/tiempo";
 import { useFestivos, festivoDe, aniosNecesarios } from "../lib/festivos";
@@ -57,31 +58,13 @@ const ROUTINE_TYPES = ["Gym", "Tenis", "Universidad", "Trabajo", "Otro"];
 const INITIAL_ROUTINE = [];
 
 
-// --- Horario y exámenes UM · GCID 26/27 (1er cuatrimestre) ---
-// Mejor lectura de los PDF oficiales; revisa y ajusta si algo no cuadra.
-// dia: 0=Lunes ... 4=Viernes
-const UM_ROUTINE = [
-  // Fundamentos de Computadores (1º)
-  { dia: 1, hora: "10:00", titulo: "Fund. Computadores (teoría)", tipo: "Universidad" },
-  { dia: 2, hora: "12:00", titulo: "Fund. Computadores (prácticas)", tipo: "Universidad" },
-  // Deep Learning (3º)
-  { dia: 0, hora: "16:30", titulo: "Deep Learning (teoría)", tipo: "Universidad" },
-  { dia: 2, hora: "18:30", titulo: "Deep Learning (lab)", tipo: "Universidad" },
-  // Infraestructura Comp. Altas Prestaciones (3º)
-  { dia: 0, hora: "18:30", titulo: "Infra. Altas Prestaciones (teoría)", tipo: "Universidad" },
-  { dia: 1, hora: "18:30", titulo: "Infra. Altas Prestaciones (lab)", tipo: "Universidad" },
-  // Empresa y Emprendimiento (4º)
-  { dia: 0, hora: "15:00", titulo: "Empresa y Emprendimiento (teoría)", tipo: "Universidad" },
-  { dia: 0, hora: "17:00", titulo: "Empresa y Emprendimiento (prácticas)", tipo: "Universidad" },
-  // Ciberseguridad (4º)
-  { dia: 2, hora: "15:00", titulo: "Ciberseguridad (teoría)", tipo: "Universidad" },
-  { dia: 2, hora: "17:00", titulo: "Ciberseguridad (prácticas)", tipo: "Universidad" },
-  // Gestión de Proyectos en Ing. de Datos (4º)
-  { dia: 1, hora: "17:00", titulo: "Gestión de Proyectos (teoría)", tipo: "Universidad" },
-  { dia: 2, hora: "19:00", titulo: "Gestión de Proyectos (prácticas)", tipo: "Universidad" },
-];
 /*
   Fechas de examen por asignatura.
+
+  El horario semanal ya no está aquí: sale de `clasesSemanales()`, que lo deriva
+  del mismo horario que pinta Universidad. La copia que había en este archivo se
+  desajustó del original (las prácticas de Gestión de Proyectos salían un
+  miércoles a las 19:00, que no existe en ninguno de los dos subgrupos).
 
   OJO: tres de estas seis caen FUERA de las convocatorias oficiales del
   calendario académico (Convocatoria I: 14–16 de diciembre y 8–16 de enero):
@@ -255,10 +238,27 @@ export default function Calendario() {
     porque se compara por fecha + título.
   */
   const cargarUM = () => {
+    const clases = clasesSemanales();
     const rKey = (x) => `${x.dia}-${x.hora}-${x.titulo}`;
-    const exist = new Set(routine.map(rKey));
-    const nuevas = UM_ROUTINE.filter((x) => !exist.has(rKey(x))).map((x) => ({ id: nuevoId(), ...x }));
-    if (nuevas.length) setRoutine([...routine, ...nuevas]);
+
+    /*
+      Fuera las clases del curso que se hayan movido de sitio. Sin esto, cambiar
+      una hora o un subgrupo dejaba la vieja en la rutina y la misma clase salía
+      dos veces, en dos días distintos.
+
+      Se reconocen por la forma del título —"... (teoría)", "(prácticas ...)",
+      "(lab)"— y no por su texto exacto, porque el nombre de la asignatura
+      también cambia (era "Infra. Altas Prestaciones" y ahora es el nombre
+      completo). Con lista de títulos exactos, las viejas se habrían quedado
+      todas. Lo que hayas añadido tú a mano no encaja en ese patrón y se queda.
+    */
+    const pareceClase = (r) => r.tipo === "Universidad" && /\((teoría|prácticas|lab)\b/i.test(r.titulo);
+    const vigentes = new Set(clases.map(rKey));
+    const limpia = routine.filter((r) => !pareceClase(r) || vigentes.has(rKey(r)));
+
+    const exist = new Set(limpia.map(rKey));
+    const nuevas = clases.filter((x) => !exist.has(rKey(x))).map((x) => ({ id: nuevoId(), ...x }));
+    if (nuevas.length || limpia.length !== routine.length) setRoutine([...limpia, ...nuevas]);
 
     const eKey = (x) => `${x.fecha}-${x.titulo}`;
     const evExist = new Set(events.map(eKey));
@@ -270,9 +270,12 @@ export default function Calendario() {
       .map((x) => ({ id: nuevoId(), ...x }));
     if (nuevosEv.length) setEvents([...events, ...nuevosEv]);
 
+    const quitadas = routine.length - limpia.length;
     alert(
       `Cargado: ${nuevas.length} clases y ${nuevosEv.length} fechas del curso ${CURSO} ` +
-        `(exámenes, cuatrimestres, convocatorias, festivos y vacaciones).\n\n` +
+        `(exámenes, cuatrimestres, convocatorias, festivos y vacaciones).` +
+        (quitadas ? `\nQuitadas ${quitadas} clases que ya no están en el horario.` : "") +
+        `\n\n` +
         `Aviso: tres de las fechas de examen (17 y 21 de diciembre, 7 de enero) caen fuera de las ` +
         `convocatorias oficiales. Contrástalas con la web de la Facultad.`
     );

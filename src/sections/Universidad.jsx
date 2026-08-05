@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { GraduationCap, Table2, Plus, Trash2, Clock, CalendarCheck, Link2, BarChart3, Award } from "lucide-react";
+import { GraduationCap, CalendarRange, Plus, Trash2, Clock, CalendarCheck, Link2, BarChart3, Award } from "lucide-react";
 import { usePersisted } from "../lib/store";
 import { Card, SectionTitle, todayISO } from "../lib/ui";
 import { BarrasH, BarrasVerticales } from "../lib/graficos";
@@ -21,20 +21,36 @@ import {
 } from "../lib/estudio";
 import { sincronizarAulaVirtual } from "../lib/aulaVirtual";
 import { normalizarTareas, agruparPorAsignatura, esPendiente } from "../lib/aula";
+import {
+  PASO,
+  aTexto,
+  tramo,
+  rangoHorario,
+  filasDe,
+  celdaDe,
+  clasesDe,
+  porDias,
+} from "../lib/horario";
 import { removeWithUndo, toast } from "../lib/toast";
 import { nuevoId } from "../lib/id";
 import {
   SCHEDULE_C1,
   SCHEDULE_C2,
   SIN_HORARIO_FIJO,
-  PRACTICAS_C1,
-  PRACTICAS_C2,
   EXAM_DATES,
   ESTADO_AULA,
 } from "../lib/datosUni";
 
 const fmtHoras = (h) =>
   `${Number(h || 0).toLocaleString("es-ES", { maximumFractionDigits: 1 })} h`;
+
+/*
+  Alto de una hora en la rejilla del horario. Con 60px una clase de una hora
+  admite las dos líneas que lleva (asignatura y tipo) sin recortar, y un
+  cuatrimestre entero (de 10:00 a 21:00) cabe sin obligar a arrastrar.
+*/
+const ALTO_HORA = 60;
+const ALTO_FILA = (ALTO_HORA * PASO) / 60;
 
 function Universidad() {
   const [cuatrimestre, setCuatrimestre] = useState("C1");
@@ -227,42 +243,160 @@ function Universidad() {
     { key: "jueves", label: "Jueves" },
   ];
 
-  const HorarioCuatrimestre = ({ titulo, clases, sinHorario }) => {
-    const filas = [...clases].sort((a, b) => a.hora.localeCompare(b.hora));
+  // Qué es cada clase, en una línea. Escrito también en la teoría: si solo se
+  // marcaran las prácticas, la teoría se reconocería por no poner nada.
+  const queEs = (c) =>
+    `${c.practicas ? `Prácticas · Subgrupo ${c.subgrupo}` : "Teoría"}${c.aula ? ` · ${c.aula}` : ""}`;
+
+  /*
+    Una clase en la rejilla. Ocupa de su fila de inicio a la de fin, así que su
+    ALTURA es su duración: se ve que Empresa dura el doble que sus prácticas sin
+    leer una sola hora, que es lo que la tabla de antes no contaba.
+
+    En los bloques cortos no se repite el tramo horario: el eje de la izquierda
+    ya lo sitúa y en una hora de alto no cabe sin apretujar el nombre.
+  */
+  const Clase = ({ c, inicio }) => {
+    const { desde, hasta } = celdaDe(c, inicio);
     return (
-      <Card className="overflow-x-auto p-0">
+      <div
+        role="listitem"
+        style={{
+          gridRow: `${desde} / ${hasta}`,
+          color: colorDeAsignatura(c.subject),
+          /*
+            Fondo opaco, no la mezcla con transparente de `subjectStyle`: las
+            líneas de hora se ven a través y parten en dos cualquier clase de
+            más de una hora. Se mezcla contra slate-900, que es la superficie de
+            la tarjeta y se invierte sola con el tema claro.
+          */
+          backgroundColor: `color-mix(in srgb, ${colorDeAsignatura(c.subject)} 18%, rgb(var(--c-slate-900)))`,
+        }}
+        /*
+          El margen no es decorativo: la teoría de Empresa acaba a las 17:00 y
+          sus prácticas empiezan a esa hora, y con el mismo color y sin aire en
+          medio se leerían como un solo bloque de 15:00 a 18:00.
+        */
+        className="m-px overflow-hidden rounded-lg px-2 py-1"
+      >
+        <p className="text-[11px] font-semibold leading-tight">{c.subject}</p>
+        {/* Las opacidades no bajan más: sobre el fondo pastel del tema claro,
+            un 60% ya se lee con esfuerzo. */}
+        <p className="text-[10px] leading-tight opacity-90">{queEs(c)}</p>
+        {tramo(c.hora).dura >= 90 && (
+          <p className="mt-0.5 text-[10px] leading-tight opacity-75">{c.hora}</p>
+        )}
+      </div>
+    );
+  };
+
+  /*
+    El horario como rejilla semanal, no como tabla.
+
+    La tabla ponía una fila por franja horaria y salían ocho filas con un hueco
+    cada una, sin relación entre lo que medía una fila y lo que duraba la clase:
+    "15:00 - 17:00" y "17:00 - 18:00" ocupaban lo mismo. Aquí el eje del tiempo
+    es continuo, cada clase mide lo que dura y los huecos entre clases son
+    huecos de verdad.
+
+    En el móvil no se pinta la rejilla sino una agenda por días: cuatro columnas
+    legibles no caben en 360px, y la alternativa (arrastrar de lado para ver el
+    jueves) es peor que una lista.
+  */
+  const HorarioCuatrimestre = ({ titulo, clases, sinHorario }) => {
+    const { inicio, horas, filas } = rangoHorario(clases);
+    const agenda = porDias(clases, DIAS);
+
+    // Las mismas columnas para la cabecera y el cuerpo; si se separan, los días
+    // dejan de caer encima de su columna.
+    const columnas = { gridTemplateColumns: `2.75rem repeat(${DIAS.length}, minmax(0, 1fr))` };
+    const rejilla = { gridTemplateRows: `repeat(${filas}, ${ALTO_FILA}px)` };
+    // Una línea por hora, de fondo: marca el compás sin meter un div por hora.
+    const lineasDeHora = {
+      backgroundImage: "linear-gradient(to bottom, rgb(var(--c-slate-800) / 0.8) 1px, transparent 1px)",
+      backgroundSize: `100% ${ALTO_HORA}px`,
+    };
+
+    return (
+      <Card className="p-0">
         <div className="flex items-center gap-2 px-5 pt-4 text-slate-100">
-          <Table2 size={18} className="text-indigo-400" />
+          <CalendarRange size={18} className="text-indigo-400" aria-hidden="true" />
           <h2 className="text-lg font-semibold">{titulo}</h2>
         </div>
-        <table className="mt-3 w-full text-left text-sm">
-          <thead>
-            <tr className="border-b border-slate-800 text-slate-400">
-              <th className="px-5 py-3 font-medium">Hora</th>
+
+        {clases.length === 0 && (
+          <p className="px-5 pb-4 pt-3 text-sm text-slate-500">
+            Este cuatrimestre no tiene clases en el horario.
+          </p>
+        )}
+
+        {/* Rejilla semanal (a partir de sm) */}
+        <div className="hidden overflow-x-auto px-4 pb-4 pt-3 sm:block">
+          <div className="min-w-[34rem]">
+            <div className="grid border-b border-slate-800 pb-1.5" style={columnas}>
+              <div />
               {DIAS.map((d) => (
-                <th key={d.key} className="px-5 py-3 font-medium">{d.label}</th>
+                <div key={d.key} className="px-1 text-xs font-medium text-slate-400">
+                  {d.label}
+                </div>
               ))}
-            </tr>
-          </thead>
-          <tbody>
-            {filas.map((c, i) => (
-              <tr key={i} className="border-b border-slate-800/60">
-                <td className="px-5 py-3 font-medium text-slate-400">{c.hora}</td>
-                {DIAS.map((d) => (
-                  <td key={d.key} className="px-5 py-3">
-                    {c.dia === d.key ? (
-                      <span className={`inline-block rounded-lg px-2.5 py-1 text-xs font-medium`} style={subjectStyle(c.subject)}>
-                        {c.subject} <span className="opacity-70">· {c.curso}</span>
-                      </span>
-                    ) : (
-                      <span className="text-slate-700">—</span>
-                    )}
-                  </td>
+            </div>
+
+            <div className="grid pt-1" style={columnas}>
+              <div className="grid" style={rejilla}>
+                {horas.map((h) => (
+                  <div
+                    key={h}
+                    style={{ gridRow: `${filasDe(h, inicio)} / span ${60 / PASO}` }}
+                    className="-translate-y-1.5 pr-2 text-right text-[10px] tabular-nums text-slate-400"
+                  >
+                    {aTexto(h)}
+                  </div>
                 ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+              </div>
+
+              {DIAS.map((d) => (
+                <div
+                  key={d.key}
+                  role="list"
+                  aria-label={d.label}
+                  className="grid border-l border-slate-800/60"
+                  style={{ ...rejilla, ...lineasDeHora }}
+                >
+                  {clasesDe(clases, d.key).map((c, i) => (
+                    <Clase key={i} c={c} inicio={inicio} />
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Agenda por días (móvil) */}
+        <div className="px-5 pb-4 pt-3 sm:hidden">
+          {agenda.map((d) => (
+            <div key={d.key} className="mb-3 last:mb-0">
+              <p className="mb-1.5 text-xs font-semibold text-slate-400">{d.label}</p>
+              <ul className="space-y-1.5">
+                {d.clases.map((c, i) => (
+                  <li key={i} className="flex items-start gap-2.5">
+                    <span className="w-[5.5rem] shrink-0 pt-0.5 text-[11px] tabular-nums text-slate-400">
+                      {c.hora}
+                    </span>
+                    <span
+                      className="min-w-0 flex-1 rounded-lg px-2 py-1"
+                      style={subjectStyle(c.subject)}
+                    >
+                      <span className="block text-[11px] font-semibold leading-tight">{c.subject}</span>
+                      <span className="block text-[10px] leading-tight opacity-80">{queEs(c)}</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+
         {sinHorario?.length > 0 && (
           <div className="border-t border-slate-800 px-5 py-3 text-xs text-slate-500">
             {sinHorario.map((s, i) => (
@@ -276,30 +410,6 @@ function Universidad() {
       </Card>
     );
   };
-
-  const PracticasCuatrimestre = ({ titulo, filas }) => (
-    <Card>
-      <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-slate-100">
-        <Table2 size={16} className="text-emerald-400" /> {titulo}
-      </h2>
-      <p className="mb-3 text-xs text-slate-500">
-        Van por subgrupo (1 o 2); confirma cuál te toca en el Aula Virtual o el Campus antes de que
-        empiece el curso.
-      </p>
-      <ul className="space-y-2">
-        {filas.map((p, i) => (
-          <li key={i} className="rounded-xl border border-slate-800 bg-slate-800/40 px-4 py-2.5 text-sm">
-            <span className={`mr-2 rounded-md px-2 py-0.5 text-xs font-medium`} style={subjectStyle(p.subject)}>
-              {p.subject}
-            </span>
-            <div className="mt-1.5 text-xs text-slate-400">
-              Subgrupo 1: {p.sub1} · Subgrupo 2: {p.sub2}
-            </div>
-          </li>
-        ))}
-      </ul>
-    </Card>
-  );
 
   return (
     <div>
@@ -326,7 +436,7 @@ function Universidad() {
         ))}
       </div>
 
-      {/* Horario (teoría) */}
+      {/* Horario: teoría y prácticas de tu subgrupo */}
       <div className="mb-6">
         {cuatrimestre === "C1" ? (
           <HorarioCuatrimestre
@@ -340,15 +450,6 @@ function Universidad() {
             clases={SCHEDULE_C2}
             sinHorario={SIN_HORARIO_FIJO.C2}
           />
-        )}
-      </div>
-
-      {/* Prácticas de laboratorio por subgrupo */}
-      <div className="mb-6">
-        {cuatrimestre === "C1" ? (
-          <PracticasCuatrimestre titulo="Prácticas · 1er Cuatrimestre" filas={PRACTICAS_C1} />
-        ) : (
-          <PracticasCuatrimestre titulo="Prácticas · 2º Cuatrimestre" filas={PRACTICAS_C2} />
         )}
       </div>
 
