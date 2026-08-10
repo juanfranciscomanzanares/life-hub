@@ -453,34 +453,63 @@ function Universidad() {
         )}
       </div>
 
-      {/* Exámenes */}
-      <Card className="mb-6">
-        <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-slate-100">
-          <CalendarCheck size={18} className="text-rose-400" /> Próximos exámenes (Convocatoria I)
-        </h2>
-        <ul className="space-y-2">
-          {EXAM_DATES.map((e, i) => (
-            <li
-              key={i}
-              className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-800 bg-slate-800/40 px-4 py-2.5"
-            >
-              <span className={`rounded-md px-2 py-0.5 text-xs font-medium`} style={subjectStyle(e.subject)}>
-                {e.subject}
-              </span>
-              <span className="text-sm text-slate-300">
-                {e.dia}, {e.fecha}
-              </span>
-              <span className="text-xs text-slate-500">{e.turno}</span>
-            </li>
-          ))}
-        </ul>
-        <p className="mt-3 text-xs text-slate-500">
-          TFG y Prácticas Externas no tienen examen en esta convocatoria.
-        </p>
-      </Card>
+      {/*
+        Lo que viene: exámenes y Aula Virtual, uno al lado del otro.
 
-      {/* Aula Virtual */}
-      <Card className="mb-6">
+        Antes iban en dos tarjetas a ancho completo, una debajo de la otra, y
+        entre las dos te obligaban a bajar media pantalla para ver lo que
+        vence. Son la misma pregunta —"qué se me viene encima"— así que van
+        juntas y a la vista de una vez.
+
+        El reparto no es mitad y mitad: el Aula Virtual se lleva dos tercios
+        porque son tareas con las que HACES algo (marcarlas, pasarlas a las
+        tuyas), y los exámenes son seis fechas que solo se consultan.
+      */}
+      <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-3 lg:gap-6">
+        <Card>
+          <h2 className="mb-1 flex items-center gap-2 text-lg font-semibold text-slate-100">
+            <CalendarCheck size={18} className="text-rose-400" aria-hidden="true" /> Próximos exámenes
+          </h2>
+          {/* "Convocatoria I" sale del título y baja aquí: en una columna
+              estrecha el paréntesis partía el encabezado en dos líneas. */}
+          <p className="mb-4 text-xs text-slate-500">Convocatoria I</p>
+          {/*
+            Dos líneas por examen, no una.
+
+            Iban en una sola fila con `flex-wrap justify-between`: asignatura,
+            fecha y turno repartidos a lo ancho. Al pasar esta tarjeta a un
+            tercio de pantalla dejó de caber, y el turno se descolgaba a una
+            segunda línea en unos exámenes sí y en otros no, con lo que la lista
+            quedaba dentada.
+
+            Con la asignatura arriba y la fecha debajo, todos los renglones
+            miden lo mismo pase lo que pase con el ancho.
+          */}
+          <ul className="space-y-2">
+            {EXAM_DATES.map((e, i) => (
+              <li
+                key={i}
+                className="rounded-xl border border-slate-800 bg-slate-800/40 px-4 py-2.5"
+              >
+                <span className="inline-block rounded-md px-2 py-0.5 text-xs font-medium" style={subjectStyle(e.subject)}>
+                  {e.subject}
+                </span>
+                <p className="mt-1.5 flex items-baseline justify-between gap-2">
+                  <span className="text-sm text-slate-300">
+                    {e.dia}, {e.fecha}
+                  </span>
+                  <span className="shrink-0 text-xs text-slate-500">{e.turno}</span>
+                </p>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 text-xs text-slate-500">
+            TFG y Prácticas Externas no tienen examen en esta convocatoria.
+          </p>
+        </Card>
+
+        {/* Aula Virtual */}
+        <Card className="lg:col-span-2">
         <h2 className="mb-2 flex items-center gap-2 text-lg font-semibold text-slate-100">
           <Link2 size={18} className="text-sky-400" /> Aula Virtual UMU
         </h2>
@@ -609,17 +638,21 @@ function Universidad() {
             );
           })}
         </div>
-      </Card>
+        </Card>
+      </div>
 
       {/*
-        A lo ancho, no en dos columnas. La rejilla de dos venía de cuando aquí
-        convivían la lista de tareas y las horas; al quitarse la lista, las
-        sesiones se quedaban en media pantalla y el gráfico semanal apretaba
-        siete barras en la mitad del espacio que tiene disponible.
+        El estudio, con el reparto INVERTIDO respecto a la fila de arriba: allí
+        1+2, aquí 2+1. Esa alternancia es lo que impide que la página vuelva a
+        leerse como una tabla de bloques iguales.
+
+        Las sesiones se llevan los dos tercios porque llevan formulario, lista y
+        gráfico semanal de siete barras: en media pantalla las barras se
+        apretaban. "Por asignatura" es un ranking corto y se lee bien estrecho.
       */}
-      <div className="space-y-6">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:gap-6">
         {/* Sesiones de estudio: los ratos que te reservas tú */}
-        <Card>
+        <Card className="lg:col-span-2">
           <div className="mb-1 flex items-center justify-between">
             <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
               <Clock size={18} className="text-amber-400" /> Sesiones de estudio
@@ -866,7 +899,16 @@ function Universidad() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {/*
+            Una sola columna, aunque quepan dos.
+
+            Ojo con `sm:grid-cols-2` aquí: los cortes de Tailwind miran el ancho
+            de la VENTANA, no el de la tarjeta. Esta tarjeta ahora vive en un
+            tercio de pantalla, así que en un portátil el `sm:` se activaba
+            igualmente y metía dos columnas de 200px donde no caben nombres como
+            "Infraest. Comp. Altas Prest.": se truncaban todos.
+          */}
+          <div className="grid grid-cols-1 gap-2">
             {SUBJECTS.map((s) => {
               const convalidada = !!convalidadas[s];
               return (
