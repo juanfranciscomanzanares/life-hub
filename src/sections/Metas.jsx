@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Flag, Plus, Trash2, TrendingUp, Dumbbell, Briefcase, Coins, GraduationCap, LineChart } from "lucide-react";
 import { usePersisted } from "../lib/store";
 import { removeWithUndo } from "../lib/toast";
-import { Card, SectionTitle, fmtEuro, monthKey, monthLabel } from "../lib/ui";
+import { Card, SectionTitle, Metrica, fmtEuro, monthKey, monthLabel } from "../lib/ui";
 import { confeti } from "../lib/confetti";
 import { totalHoras } from "../lib/estudio";
 
@@ -67,33 +67,27 @@ export default function Metas() {
   const inputCls =
     "rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none";
 
+  /*
+    El "este mes" sale de la etiqueta y baja a `detalle`: la etiqueta va en
+    versalitas y cuanto más corta, mejor se lee. Además el campo `sub` ya
+    existía y no lo pintaba nadie; ahora es el que se ve.
+  */
   const kpis = [
-    { label: "Gym este mes", value: `${gymThisMonth}`, sub: "sesiones", icon: Dumbbell, color: "text-emerald-400 bg-emerald-500/15" },
-    { label: "Trabajo este mes", value: `${workHoursMonth}h`, sub: "Agrosana", icon: Briefcase, color: "text-indigo-400 bg-indigo-500/15" },
-    { label: "Invertido este mes", value: fmtEuro(investedMonth), sub: "aportado", icon: Coins, color: "text-amber-400 bg-amber-500/15" },
-    { label: "Horas de estudio", value: `${studyTotal}h`, sub: "acumuladas", icon: GraduationCap, color: "text-fuchsia-400 bg-fuchsia-500/15" },
+    { label: "Gym", value: `${gymThisMonth}`, detalle: "sesiones este mes", icon: Dumbbell, color: "text-emerald-400 bg-emerald-500/15" },
+    { label: "Trabajo", value: `${workHoursMonth}h`, detalle: "este mes en Agrosana", icon: Briefcase, color: "text-indigo-400 bg-indigo-500/15" },
+    { label: "Invertido", value: fmtEuro(investedMonth), detalle: "aportado este mes", icon: Coins, color: "text-amber-400 bg-amber-500/15" },
+    { label: "Estudio", value: `${studyTotal}h`, detalle: "acumuladas", icon: GraduationCap, color: "text-fuchsia-400 bg-fuchsia-500/15" },
   ];
 
   return (
     <div>
       <SectionTitle icon={Flag} title="Metas y progreso" subtitle="Tus objetivos y el pulso de cada área" />
 
-      {/* KPIs automáticos */}
+      {/* KPIs automáticos, con la ficha compartida (`Metrica` en src/lib/ui.jsx). */}
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {kpis.map((k) => {
-          const Icon = k.icon;
-          return (
-            <Card key={k.label} className="flex items-center gap-3">
-              <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${k.color}`}>
-                <Icon size={20} />
-              </div>
-              <div>
-                <p className="text-xl font-bold text-slate-100">{k.value}</p>
-                <p className="text-xs text-slate-400">{k.label}</p>
-              </div>
-            </Card>
-          );
-        })}
+        {kpis.map((k) => (
+          <Metrica key={k.label} icono={k.icon} etiqueta={k.label} valor={k.value} detalle={k.detalle} color={k.color} />
+        ))}
       </div>
 
       {/* Objetivos manuales */}

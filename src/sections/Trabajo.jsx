@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { Plus, Trash2, Clock, TrendingUp, Briefcase, BarChart3, BookOpen, Sprout, Building2, Laptop, Car } from "lucide-react";
 import { usePersisted } from "../lib/store";
-import { Card, SectionTitle, todayISO } from "../lib/ui";
+import { Card, SectionTitle, Metrica, todayISO } from "../lib/ui";
 import { removeWithUndo } from "../lib/toast";
 import { claveMes, etiquetaMes, ultimosMeses } from "../lib/meses";
 import { nuevoId } from "../lib/id";
@@ -153,54 +153,49 @@ function Trabajo() {
     <div>
       <SectionTitle icon={Sprout} title="Trabajo · Agrosana" subtitle="Prácticas de Ingeniería y Ciencia de Datos" />
 
-      {/* KPIs del mes */}
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="flex items-center gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-500/15 text-indigo-400">
-            <Clock size={24} />
-          </div>
-          <div>
-            <p className="text-2xl font-bold tabular-nums text-slate-100">{fmtHoras(analytics.current)}</p>
-            <p className="text-sm text-slate-400">Este mes ({etiquetaMes(analytics.currentKey)})</p>
-          </div>
-        </Card>
-        <Card className="flex items-center gap-4">
-          <div
-            className={`flex h-12 w-12 items-center justify-center rounded-xl ${
-              analytics.diffPct === null || analytics.diffPct >= 0
-                ? "bg-emerald-500/15 text-emerald-400"
-                : "bg-rose-500/15 text-rose-400"
-            }`}
-          >
-            <TrendingUp size={24} />
-          </div>
-          <div>
-            <p className="text-2xl font-bold text-slate-100">
-              {analytics.diffPct === null ? "—" : `${analytics.diffPct > 0 ? "+" : ""}${analytics.diffPct}%`}
-            </p>
-            <p className="text-sm text-slate-400">vs mes anterior ({fmtHoras(analytics.prev)})</p>
-          </div>
-        </Card>
-        <Card className="flex items-center gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/15 text-amber-400">
-            <BarChart3 size={24} />
-          </div>
-          <div>
-            <p className="text-2xl font-bold text-slate-100">{analytics.currentCount}</p>
-            <p className="text-sm text-slate-400">Actividades este mes</p>
-          </div>
-        </Card>
-        <Card className="flex items-center gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-sky-500/15 text-sky-400">
-            <Car size={24} />
-          </div>
-          <div>
-            <p className="text-2xl font-bold tabular-nums text-slate-100">{fmtKm(presencia.kmMes)}</p>
-            <p className="text-sm text-slate-400">
-              {presencia.diasOficina} {presencia.diasOficina === 1 ? "día" : "días"} en oficina
-            </p>
-          </div>
-        </Card>
+      {/*
+        Las cifras del mes, con la ficha compartida (ver `Metrica` en
+        src/lib/ui.jsx). Estaban maquetadas a mano, con el icono al lado del
+        número y la aclaración metida entre paréntesis en la etiqueta: cuatro
+        bloques copiados que además no se parecían a los de Inicio ni a los de
+        Salud, aunque enseñaran exactamente lo mismo.
+
+        Lo que iba entre paréntesis pasa a `detalle`, que es su sitio: la
+        etiqueta va en versalitas y ahí un "(sep 26)" se lee fatal.
+      */}
+      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <Metrica
+          icono={Clock}
+          color="bg-indigo-500/15 text-indigo-400"
+          etiqueta="Este mes"
+          valor={fmtHoras(analytics.current)}
+          detalle={etiquetaMes(analytics.currentKey)}
+        />
+        <Metrica
+          icono={TrendingUp}
+          color={
+            analytics.diffPct === null || analytics.diffPct >= 0
+              ? "bg-emerald-500/15 text-emerald-400"
+              : "bg-rose-500/15 text-rose-400"
+          }
+          etiqueta="vs mes anterior"
+          valor={analytics.diffPct === null ? "—" : `${analytics.diffPct > 0 ? "+" : ""}${analytics.diffPct}%`}
+          detalle={fmtHoras(analytics.prev)}
+        />
+        <Metrica
+          icono={BarChart3}
+          color="bg-amber-500/15 text-amber-400"
+          etiqueta="Actividades"
+          valor={analytics.currentCount}
+          detalle="este mes"
+        />
+        <Metrica
+          icono={Car}
+          color="bg-sky-500/15 text-sky-400"
+          etiqueta="Kilómetros"
+          valor={fmtKm(presencia.kmMes)}
+          detalle={`${presencia.diasOficina} ${presencia.diasOficina === 1 ? "día" : "días"} en oficina`}
+        />
       </div>
 
       <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">

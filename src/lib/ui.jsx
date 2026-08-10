@@ -54,7 +54,13 @@ export function Card({ children, className = "", padding = "p-5", ...resto }) {
 
   `tabular-nums` para que al cambiar de 9 a 10 no bailen las columnas.
 */
-export function Metrica({ icono: Icono, etiqueta, valor, detalle = null, color = "bg-indigo-500/15 text-indigo-400", fila = false }) {
+/*
+  `tono` tiñe la CIFRA, no el icono, y solo debe usarse cuando el color
+  significa algo: verde si ganas, rojo si pierdes. Para lo demás se queda el
+  gris claro de siempre, porque si todas las cifras van de colores ninguna
+  destaca y el verde deja de querer decir nada.
+*/
+export function Metrica({ icono: Icono, etiqueta, valor, detalle = null, color = "bg-indigo-500/15 text-indigo-400", tono = "text-slate-100", fila = false }) {
   const chip = (
     <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${color}`}>
       {Icono ? <Icono size={16} aria-hidden="true" /> : null}
@@ -75,7 +81,7 @@ export function Metrica({ icono: Icono, etiqueta, valor, detalle = null, color =
           <p className="text-2xs font-semibold uppercase tracking-[0.08em] text-slate-500">{etiqueta}</p>
           {detalle && <p className="truncate text-xs text-slate-500">{detalle}</p>}
         </div>
-        <p className="font-display text-2xl font-bold tabular-nums leading-none text-slate-100">{valor}</p>
+        <p className={`font-display text-2xl font-bold tabular-nums leading-none ${tono}`}>{valor}</p>
       </Card>
     );
   }
@@ -86,7 +92,7 @@ export function Metrica({ icono: Icono, etiqueta, valor, detalle = null, color =
         <p className="text-2xs font-semibold uppercase tracking-[0.08em] text-slate-500">{etiqueta}</p>
         {chip}
       </div>
-      <p className="font-display text-3xl font-bold tabular-nums leading-none text-slate-100">{valor}</p>
+      <p className={`font-display text-3xl font-bold tabular-nums leading-none ${tono}`}>{valor}</p>
       {detalle && <p className="mt-1.5 text-xs text-slate-500">{detalle}</p>}
     </Card>
   );

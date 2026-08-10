@@ -2,7 +2,7 @@ import { useState } from "react";
 import { LineChart, Coins, Wallet, TrendingUp, TrendingDown, BarChart3, PiggyBank, Plus, Trash2, RefreshCw } from "lucide-react";
 import { usePersisted } from "../lib/store";
 import { removeWithUndo } from "../lib/toast";
-import { Card, SectionTitle, fmtEuro, todayISO } from "../lib/ui";
+import { Card, SectionTitle, Metrica, fmtEuro, todayISO } from "../lib/ui";
 
 import { nuevoId } from "../lib/id";
 const INVEST_TYPES = ["Fondo indexado", "ETF", "Acciones", "Cripto", "Plan de pensiones", "Cuenta remunerada", "Otro"];
@@ -135,39 +135,44 @@ export default function Inversiones() {
     <div>
       <SectionTitle icon={LineChart} title="Inversiones" subtitle="Aporta desde tu sueldo y sigue tu cartera" />
 
-      {/* Resumen */}
+      {/* Resumen, con la ficha compartida (ver `Metrica` en src/lib/ui.jsx).
+          Aquí la cifra sí va teñida: en ganancia y pérdida el color significa
+          algo y tiene que decir lo mismo en los dos temas. */}
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Card className="flex items-center gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-500/15 text-indigo-400"><Coins size={24} /></div>
-          <div>
-            <p className="text-2xl font-bold text-slate-100">{fmtEuro(totalAportado)}</p>
-            <p className="text-sm text-slate-400">Aportado</p>
-          </div>
-        </Card>
-        <Card className="flex items-center gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-400"><Wallet size={24} /></div>
-          <div>
-            <p className="text-2xl font-bold text-slate-100">{fmtEuro(totalActual)}</p>
-            <p className="text-sm text-slate-400">Valor actual</p>
-          </div>
-        </Card>
-        <Card className="flex items-center gap-4">
-          <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${pl >= 0 ? "bg-emerald-500/15 text-emerald-400" : "bg-rose-500/15 text-rose-400"}`}>
-            {pl >= 0 ? <TrendingUp size={24} /> : <TrendingDown size={24} />}
-          </div>
-          <div>
-            <p className={`text-2xl font-bold ${pl >= 0 ? "text-emerald-400" : "text-rose-400"}`}>{pl >= 0 ? "+" : ""}{fmtEuro(pl)}</p>
-            <p className="text-sm text-slate-400">Ganancia / pérdida</p>
-          </div>
-        </Card>
-        <Card className="flex items-center gap-4">
-          <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${plPct >= 0 ? "bg-emerald-500/15 text-emerald-400" : "bg-rose-500/15 text-rose-400"}`}><BarChart3 size={24} /></div>
-          <div>
-            <p className={`text-2xl font-bold ${plPct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>{plPct >= 0 ? "+" : ""}{plPct.toFixed(1)}%</p>
-            <p className="text-sm text-slate-400">Rentabilidad</p>
-            {totalDiv > 0 && <p className="text-3xs text-emerald-400">Con dividendos: {rentTotal >= 0 ? "+" : ""}{rentTotal.toFixed(1)}%</p>}
-          </div>
-        </Card>
+        <Metrica
+          icono={Coins}
+          color="bg-indigo-500/15 text-indigo-400"
+          etiqueta="Aportado"
+          valor={fmtEuro(totalAportado)}
+          detalle="de tu bolsillo"
+        />
+        <Metrica
+          icono={Wallet}
+          color="bg-emerald-500/15 text-emerald-400"
+          etiqueta="Valor actual"
+          valor={fmtEuro(totalActual)}
+          detalle="lo que vale hoy"
+        />
+        <Metrica
+          icono={pl >= 0 ? TrendingUp : TrendingDown}
+          color={pl >= 0 ? "bg-emerald-500/15 text-emerald-400" : "bg-rose-500/15 text-rose-400"}
+          tono={pl >= 0 ? "text-emerald-400" : "text-rose-400"}
+          etiqueta={pl >= 0 ? "Ganancia" : "Pérdida"}
+          valor={`${pl >= 0 ? "+" : ""}${fmtEuro(pl)}`}
+          detalle="sobre lo aportado"
+        />
+        <Metrica
+          icono={BarChart3}
+          color={plPct >= 0 ? "bg-emerald-500/15 text-emerald-400" : "bg-rose-500/15 text-rose-400"}
+          tono={plPct >= 0 ? "text-emerald-400" : "text-rose-400"}
+          etiqueta="Rentabilidad"
+          valor={`${plPct >= 0 ? "+" : ""}${plPct.toFixed(1)}%`}
+          detalle={
+            totalDiv > 0
+              ? `${rentTotal >= 0 ? "+" : ""}${rentTotal.toFixed(1)}% con dividendos`
+              : "sin contar dividendos"
+          }
+        />
       </div>
 
       {/* Objetivo mensual */}
