@@ -191,64 +191,36 @@ function Inicio({ perfil }) {
       <HoyWidget />
 
       {/*
-        Las cuatro cifras del día.
+        REJILLA ASIMÉTRICA, y no una pila de cajas iguales.
 
-        DOS COLUMNAS YA EN EL MÓVIL, no una. Antes iban apiladas de una en una y
-        las cuatro ocupaban unos 440 px: había que hacer scroll para ver la
-        última. Son justo los cuatro números por los que se abre la app de
-        camino a algún sitio, así que tienen que caber en la primera pantalla.
+        Antes esto era: cuatro métricas iguales a lo ancho, y debajo dos
+        tarjetas al 50%. Todo del mismo tamaño y del mismo peso, que es la
+        composición por defecto de cualquier panel y no dice nada sobre qué
+        importa.
 
-        En vertical el icono va encima y no al lado: en una tarjeta de ~170 px
-        de ancho, icono y texto en la misma línea dejaban tan poco sitio que
-        "Trabajo (semana)" se partía en dos líneas y descuadraba la fila.
+        El problema no era solo estético: el principio del producto es "qué toca
+        hoy va primero", y "Lo de hoy" estaba EN TERCER LUGAR y a media anchura,
+        por debajo de cuatro cifras que son información de contexto. La pantalla
+        contradecía su propia razón de existir.
 
-        Eran cuatro bloques copiados y pegados, idénticos salvo tres valores.
-        Ahora es una lista, como en Salud: añadir o quitar una métrica es tocar
-        un renglón, y no pueden volver a separarse entre sí.
+        Ahora son dos filas de 3 columnas que alternan el reparto —2+1 y luego
+        1+2—, y esa alternancia es lo que rompe la sensación de rejilla:
+
+          [ Lo de hoy (2/3) ][ métricas (1/3) ]
+          [ Tareas (1/3) ][ Horas de trabajo (2/3) ]
+
+        Las métricas bajan a una columna estrecha en fila (ver `Metrica`): no
+        han dejado de importar, han dejado de gritar. En el móvil todo vuelve a
+        una sola columna, con "Lo de hoy" el primero.
       */}
-      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {[
-          {
-            icono: Flame,
-            color: "bg-rose-500/15 text-rose-400",
-            etiqueta: "Para hoy",
-            valor: <Cifra valor={urgencias.length} />,
-            detalle: urgencias.length ? "entre entregas y citas" : "nada señalado",
-          },
-          {
-            icono: CheckCircle2,
-            color: "bg-emerald-500/15 text-emerald-400",
-            etiqueta: "Tareas por hacer",
-            valor: <Cifra valor={pendientesUni} />,
-            detalle: "del Aula Virtual",
-          },
-          {
-            icono: Clock,
-            color: "bg-indigo-500/15 text-indigo-400",
-            etiqueta: "Trabajo",
-            valor: <Cifra valor={horasSemana} decimales={horasSemana % 1 ? 1 : 0} sufijo="h" />,
-            detalle: "esta semana",
-          },
-          {
-            icono: TrendingUp,
-            color: "bg-amber-500/15 text-amber-400",
-            etiqueta: "Racha",
-            valor: <Cifra valor={rachaMaxima} />,
-            detalle: rachaMaxima === 1 ? "día seguido" : "días seguidos",
-          },
-        ].map((m) => (
-          <Metrica key={m.etiqueta} {...m} />
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Tareas urgentes */}
-        <Card>
-          <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-slate-100">
-            <Flame size={18} className="text-rose-400" /> Lo de hoy
+      <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-3 lg:gap-6">
+        {/* Lo que toca hoy: la pieza dominante de la pantalla. */}
+        <Card className="lg:col-span-2">
+          <h2 className="mb-4 flex items-center gap-2 font-display text-xl font-bold text-slate-100">
+            <Flame size={20} className="text-rose-400" aria-hidden="true" /> Lo de hoy
           </h2>
           {urgencias.length === 0 ? (
-            <p className="py-6 text-center text-sm text-slate-500">
+            <p className="py-10 text-center text-sm text-slate-500">
               Hoy no tienes nada señalado. Aquí sale lo que se entrega hoy y lo que tengas en el
               calendario para hoy.
             </p>
@@ -272,6 +244,47 @@ function Inicio({ perfil }) {
           )}
         </Card>
 
+        {/* Las cifras, al lado y en voz baja. Siempre en fila: en el móvil a
+            ancho completo se leen igual de bien y ocupan lo mismo que en
+            fichas, y así no hace falta medir la ventana con JavaScript para
+            decidir la maqueta. */}
+        <div className="grid grid-cols-1 gap-3">
+          {[
+            {
+              icono: Flame,
+              color: "bg-rose-500/15 text-rose-400",
+              etiqueta: "Para hoy",
+              valor: <Cifra valor={urgencias.length} />,
+              detalle: urgencias.length ? "entregas y citas" : "nada señalado",
+            },
+            {
+              icono: CheckCircle2,
+              color: "bg-emerald-500/15 text-emerald-400",
+              etiqueta: "Tareas",
+              valor: <Cifra valor={pendientesUni} />,
+              detalle: "del Aula Virtual",
+            },
+            {
+              icono: Clock,
+              color: "bg-indigo-500/15 text-indigo-400",
+              etiqueta: "Trabajo",
+              valor: <Cifra valor={horasSemana} decimales={horasSemana % 1 ? 1 : 0} sufijo="h" />,
+              detalle: "esta semana",
+            },
+            {
+              icono: TrendingUp,
+              color: "bg-amber-500/15 text-amber-400",
+              etiqueta: "Racha",
+              valor: <Cifra valor={rachaMaxima} />,
+              detalle: rachaMaxima === 1 ? "día seguido" : "días seguidos",
+            },
+          ].map((m) => (
+            <Metrica key={m.etiqueta} {...m} fila />
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:gap-6">
         {/* Notas rápidas del botón + */}
         <Card>
           <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-slate-100">
@@ -312,13 +325,14 @@ function Inicio({ perfil }) {
             </ul>
           )}
         </Card>
-      </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-6">
-        {/* Evolución de las horas de trabajo */}
-        <Card>
+        {/* La gráfica se lleva los otros dos tercios: aquí el reparto se
+            INVIERTE respecto a la fila de arriba (allí 2+1, aquí 1+2), y esa
+            alternancia es justo lo que rompe la sensación de rejilla. Además la
+            gráfica necesita el ancho: a un tercio, ocho semanas no caben. */}
+        <Card className="lg:col-span-2">
           <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-slate-100">
-            <Clock size={18} className="text-indigo-400" /> Horas de trabajo (últimas 8 semanas)
+            <Clock size={18} className="text-indigo-400" aria-hidden="true" /> Horas de trabajo (últimas 8 semanas)
           </h2>
           {/*
             Las columnas se estiran a toda la altura (sin items-end): con

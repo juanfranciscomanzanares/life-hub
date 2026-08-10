@@ -54,14 +54,37 @@ export function Card({ children, className = "", padding = "p-5", ...resto }) {
 
   `tabular-nums` para que al cambiar de 9 a 10 no bailen las columnas.
 */
-export function Metrica({ icono: Icono, etiqueta, valor, detalle = null, color = "bg-indigo-500/15 text-indigo-400" }) {
+export function Metrica({ icono: Icono, etiqueta, valor, detalle = null, color = "bg-indigo-500/15 text-indigo-400", fila = false }) {
+  const chip = (
+    <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${color}`}>
+      {Icono ? <Icono size={16} aria-hidden="true" /> : null}
+    </div>
+  );
+
+  /*
+    Variante en fila, para cuando las métricas van en una columna estrecha al
+    lado de algo más importante. Cuatro fichas altas apiladas en un lateral
+    ocupan más que el contenido principal y le roban el protagonismo; en fila
+    ocupan un tercio y siguen leyéndose de un vistazo.
+  */
+  if (fila) {
+    return (
+      <Card padding="p-4" className="flex items-center gap-3">
+        {chip}
+        <div className="min-w-0 flex-1">
+          <p className="text-2xs font-semibold uppercase tracking-[0.08em] text-slate-500">{etiqueta}</p>
+          {detalle && <p className="truncate text-xs text-slate-500">{detalle}</p>}
+        </div>
+        <p className="font-display text-2xl font-bold tabular-nums leading-none text-slate-100">{valor}</p>
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <div className="mb-3 flex items-start justify-between gap-2">
         <p className="text-2xs font-semibold uppercase tracking-[0.08em] text-slate-500">{etiqueta}</p>
-        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${color}`}>
-          {Icono ? <Icono size={16} aria-hidden="true" /> : null}
-        </div>
+        {chip}
       </div>
       <p className="font-display text-3xl font-bold tabular-nums leading-none text-slate-100">{valor}</p>
       {detalle && <p className="mt-1.5 text-xs text-slate-500">{detalle}</p>}
