@@ -455,7 +455,7 @@ export function Medidor({ titulo, valor, sub, color = "bg-indigo-500" }) {
         <span className="text-sm font-bold text-slate-100">{valor}%</span>
       </div>
       <div className="h-2 overflow-hidden rounded-full bg-slate-800">
-        <div className={`h-full rounded-full ${color}`} style={{ width: `${valor}%` }} />
+        <div className={`lh-progreso h-full rounded-full ${color}`} style={{ width: `${valor}%` }} />
       </div>
       {sub && <p className="mt-1 text-2xs text-slate-500">{sub}</p>}
     </div>

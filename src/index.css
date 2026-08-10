@@ -857,6 +857,19 @@ html[data-theme="light"] .lh-seccion::before {
     transition: none;
   }
   /*
+    Al pulsar, el botón deja de encogerse: un cambio de escala es movimiento, y
+    es lo que se ha pedido quitar. El estado sigue siendo perceptible por el
+    cambio de color de :active, que no se toca.
+  */
+  button:not(:disabled):active,
+  [role="button"]:not([aria-disabled="true"]):active {
+    transform: none;
+  }
+  /* La barra llega a su valor nuevo sin recorrido, pero llega. */
+  .lh-progreso {
+    transition: none;
+  }
+  /*
     El skeleton conserva el bloque gris (sigue diciendo "esto está cargando")
     pero sin el barrido, que es lo que molesta.
   */
@@ -1138,6 +1151,57 @@ html[data-perfil="rosa"][data-theme="light"] [data-seccion="tenis-notas"] {
   - Se anima solo `opacity` y `transform`, que no pasan por maquetacion ni
     pintado y van en la GPU.
 */
+/*
+  --- Respuesta al pulsar ---
+
+  La app NO TENÍA NINGUNA. Ni un solo botón de las 18 secciones reaccionaba a
+  que lo pulsaras: había estados de hover (que en el móvil no existen) y nada
+  más. Pulsabas y la interfaz se quedaba quieta hasta que terminaba de pasar lo
+  que fuera.
+
+  Es lo que hace que una app parezca muerta al tacto, y se nota especialmente
+  en el teléfono, que es donde esta se usa instalada: sin cursor no hay ninguna
+  otra señal de que el toque ha entrado.
+
+  El 0,97 es deliberadamente pequeño. Lo suficiente para sentirlo, no tanto
+  como para verlo: si lo notas conscientemente, te está distrayendo. Y 140 ms,
+  que es el tramo de la respuesta al pulsar (100-160 ms); más lento y el botón
+  parece que va con retraso respecto al dedo.
+
+  `scale` arrastra a los hijos, que aquí es justo lo que se quiere: el icono y
+  el texto de dentro se encogen con el botón, como un objeto de verdad.
+
+  El :not(:disabled) importa: un botón desactivado que se hunde al pulsarlo
+  está diciendo que ha aceptado algo que en realidad ha ignorado.
+*/
+button,
+[role="button"] {
+  transition: transform 140ms var(--lh-ease);
+}
+button:not(:disabled):active,
+[role="button"]:not([aria-disabled="true"]):active {
+  transform: scale(0.97);
+}
+
+/*
+  --- Barras de progreso ---
+
+  Cambiaban de ancho de golpe. Apuntabas un vaso de agua y la barra de
+  hidratación aparecía ya en su sitio nuevo, sin recorrido: te perdías
+  exactamente la parte que da la satisfacción de haberlo apuntado.
+
+  450 ms, más que los 300 de una animación de interfaz corriente, y a propósito:
+  esto no es un menú que abres para seguir trabajando, es el resultado de lo que
+  acabas de hacer, y quieres verlo avanzar. Sigue siendo `ease-out`, así que la
+  mayor parte del recorrido pasa en el primer tercio del tiempo.
+
+  Solo `width`, que no es de las baratas, pero son barras de unos pocos píxeles
+  de alto y nunca hay muchas a la vez en pantalla.
+*/
+.lh-progreso {
+  transition: width 450ms var(--lh-ease);
+}
+
 /*
   --- El velo de todo lo que se pone por encima ---
 

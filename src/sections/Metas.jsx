@@ -131,7 +131,7 @@ export default function Metas() {
                   </div>
                 </div>
                 <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-800">
-                  <div className={`h-full rounded-full ${done ? "bg-emerald-500" : "bg-indigo-500"}`} style={{ width: `${pct}%` }} />
+                  <div className={`lh-progreso h-full rounded-full ${done ? "bg-emerald-500" : "bg-indigo-500"}`} style={{ width: `${pct}%` }} />
                 </div>
               </div>
             );

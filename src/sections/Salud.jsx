@@ -120,7 +120,7 @@ export default function Salud({ perfilApp = null }) {
               <span>Meta: {perfil.objetivo} kg</span>
             </div>
             <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-800">
-              <div className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-emerald-500" style={{ width: `${Math.min(100, (perfil.objetivo / last.peso) * 100)}%` }} />
+              <div className="lh-progreso h-full rounded-full bg-gradient-to-r from-indigo-500 to-emerald-500" style={{ width: `${Math.min(100, (perfil.objetivo / last.peso) * 100)}%` }} />
             </div>
           </div>
         )}
@@ -130,7 +130,7 @@ export default function Salud({ perfilApp = null }) {
             <span className="text-slate-300">{last.agua || 0} / {metaAgua} L</span>
           </div>
           <div className="h-2 w-full overflow-hidden rounded-full bg-slate-800">
-            <div className="h-full rounded-full bg-sky-400" style={{ width: `${Math.min(100, ((last.agua || 0) / metaAgua) * 100)}%` }} />
+            <div className="lh-progreso h-full rounded-full bg-sky-400" style={{ width: `${Math.min(100, ((last.agua || 0) / metaAgua) * 100)}%` }} />
           </div>
         </div>
       </Card>

@@ -181,7 +181,7 @@ export default function Inversiones() {
           </div>
         </div>
         <div className="h-3 w-full overflow-hidden rounded-full bg-slate-800">
-          <div className="h-full rounded-full bg-gradient-to-r from-fuchsia-500 to-indigo-500" style={{ width: `${goalPct}%` }} />
+          <div className="lh-progreso h-full rounded-full bg-gradient-to-r from-fuchsia-500 to-indigo-500" style={{ width: `${goalPct}%` }} />
         </div>
         <p className="mt-2 text-xs text-slate-500">Llevas {fmtEuro(investedThisMonth)} invertidos este mes de un objetivo de {fmtEuro(goal)}.</p>
       </Card>
@@ -271,7 +271,7 @@ export default function Inversiones() {
               ) : null}
               <div className="mb-3">
                 <div className="mb-1 flex justify-between text-xs text-slate-500"><span>Peso en la cartera</span><span>{weight.toFixed(0)}%</span></div>
-                <div className="h-2 w-full overflow-hidden rounded-full bg-slate-800"><div className="h-full rounded-full bg-indigo-500" style={{ width: `${weight}%` }} /></div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-slate-800"><div className="lh-progreso h-full rounded-full bg-indigo-500" style={{ width: `${weight}%` }} /></div>
               </div>
               <div className="flex gap-2">
                 <input type="number" placeholder="Aportar €" value={aporte[h.id] || ""} onChange={(e) => setAporte({ ...aporte, [h.id]: e.target.value })} className={`flex-1 ${inputCls}`} />
