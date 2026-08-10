@@ -9,8 +9,8 @@ export default {
         CDN, y se importan en index.css.
       */
       fontFamily: {
-        sans: ["Inter Variable", "system-ui", "-apple-system", "Segoe UI", "sans-serif"],
-        display: ["Space Grotesk Variable", "Inter Variable", "system-ui", "sans-serif"],
+        sans: ["Geist Variable", "Inter Variable", "system-ui", "-apple-system", "Segoe UI", "sans-serif"],
+        display: ["Space Grotesk Variable", "Geist Variable", "system-ui", "sans-serif"],
       },
       /*
         Los dos peldaños que le faltaban a la escala, por debajo de `text-xs`.

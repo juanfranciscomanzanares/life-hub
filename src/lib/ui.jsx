@@ -109,8 +109,21 @@ export function SectionTitle({ icon: Icon, title, subtitle }) {
 */
 export function Logo({ size = 36, className = "" }) {
   return (
+    /*
+      Un solo tono, no un degradado a fucsia.
+
+      Era `from-indigo-500 to-fuchsia-500`, que es EL tópico visual del software
+      generado: el degradado morado-azulado que llevan miles de productos que se
+      parecen entre sí. Ahora va del 500 al 600 del propio acento —el color que
+      elijas en Ajustes— así que sigue teniendo volumen pero es tu color, no el
+      de todos. El `ring` interior hace el resto: le da canto sin necesidad de
+      un segundo tono.
+
+      Ojo: public/icon.svg (el de la PWA) lleva el degradado fijo y hay que
+      cambiarlo aparte, como avisa CLAUDE.md.
+    */
     <div
-      className={`flex shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-fuchsia-500 ${className}`}
+      className={`flex shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 shadow-lg shadow-indigo-500/25 ring-1 ring-inset ring-white/15 ${className}`}
       style={{ width: size, height: size }}
     >
       <svg viewBox="0 0 512 512" width={size * 0.78} height={size * 0.78} aria-hidden="true" focusable="false">

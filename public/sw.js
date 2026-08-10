@@ -1,18 +1,18 @@
 // Service worker de Life Hub.
 //
-// Estrategia (importante, arreglo del "pantallazo negro" en el mÃƒÂ³vil):
+// Estrategia (importante, arreglo del "pantallazo negro" en el mÃƒÆ’Ã‚Â³vil):
 //   - Navegaciones (el HTML): SIEMPRE red primero. Si no hay red, cae al HTML
-//     cacheado. Nunca al revÃƒÂ©s: si servimos el HTML viejo desde cachÃƒÂ©, ese HTML
+//     cacheado. Nunca al revÃƒÆ’Ã‚Â©s: si servimos el HTML viejo desde cachÃƒÆ’Ã‚Â©, ese HTML
 //     apunta a bundles /assets/index-XXXX.js que ya no existen en el servidor
-//     tras un redespliegue Ã¢â€ â€™ 404 Ã¢â€ â€™ pantalla en blanco/negra para siempre.
-//   - Assets con hash (/assets/...): cachÃƒÂ© primero, son inmutables.
+//     tras un redespliegue ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ 404 ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ pantalla en blanco/negra para siempre.
+//   - Assets con hash (/assets/...): cachÃƒÆ’Ã‚Â© primero, son inmutables.
 //   - Resto de GET del propio origen: stale-while-revalidate.
-//   - Nunca devolvemos HTML como respuesta a una peticiÃƒÂ³n de JS/CSS (provocarÃƒÂ­a
-//     un error de MIME type y tambiÃƒÂ©n dejarÃƒÂ­a la pantalla en negro).
-// SÃƒÂºbela al cambiar iconos o manifest: al activarse, el SW borra las cachÃƒÂ©s de
-// versiones anteriores. Sin eso, "stale-while-revalidate" servirÃƒÂ­a el icono
-// viejo durante toda la primera visita y el nuevo no se verÃƒÂ­a hasta la segunda.
-const VERSION = "v7";
+//   - Nunca devolvemos HTML como respuesta a una peticiÃƒÆ’Ã‚Â³n de JS/CSS (provocarÃƒÆ’Ã‚Â­a
+//     un error de MIME type y tambiÃƒÆ’Ã‚Â©n dejarÃƒÆ’Ã‚Â­a la pantalla en negro).
+// SÃƒÆ’Ã‚Âºbela al cambiar iconos o manifest: al activarse, el SW borra las cachÃƒÆ’Ã‚Â©s de
+// versiones anteriores. Sin eso, "stale-while-revalidate" servirÃƒÆ’Ã‚Â­a el icono
+// viejo durante toda la primera visita y el nuevo no se verÃƒÆ’Ã‚Â­a hasta la segunda.
+const VERSION = "v8";
 const CACHE = "life-hub-" + VERSION;
 const OFFLINE_URL = "/";
 
@@ -32,13 +32,13 @@ self.addEventListener("activate", (e) => {
   );
 });
 
-// Permite que la pÃƒÂ¡gina fuerce la actualizaciÃƒÂ³n del SW.
+// Permite que la pÃƒÆ’Ã‚Â¡gina fuerce la actualizaciÃƒÆ’Ã‚Â³n del SW.
 self.addEventListener("message", (e) => {
   if (e.data === "SKIP_WAITING") self.skipWaiting();
 });
 
 // --- Notificaciones push (Web Push) ---
-// Requiere claves VAPID y un backend que envÃƒÂ­e los mensajes (ver INTEGRACIONES.md).
+// Requiere claves VAPID y un backend que envÃƒÆ’Ã‚Â­e los mensajes (ver INTEGRACIONES.md).
 self.addEventListener("push", (e) => {
   let payload = { title: "Life Hub", body: "Tienes una novedad." };
   try {
@@ -67,7 +67,7 @@ self.addEventListener("fetch", (e) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return; // APIs externas (Supabase) van directas
 
-  // 1) Navegaciones: red primero, cachÃƒÂ© solo como respaldo sin conexiÃƒÂ³n.
+  // 1) Navegaciones: red primero, cachÃƒÆ’Ã‚Â© solo como respaldo sin conexiÃƒÆ’Ã‚Â³n.
   if (req.mode === "navigate") {
     e.respondWith(
       fetch(req)
@@ -81,7 +81,7 @@ self.addEventListener("fetch", (e) => {
     return;
   }
 
-  // 2) Assets con hash: inmutables, cachÃƒÂ© primero.
+  // 2) Assets con hash: inmutables, cachÃƒÆ’Ã‚Â© primero.
   const esAssetConHash = url.pathname.startsWith("/assets/");
   if (esAssetConHash) {
     e.respondWith(

@@ -3,6 +3,22 @@
   Space Grotesk para títulos y cifras grandes. Variables, así que un solo
   archivo por familia cubre todos los pesos.
 */
+/*
+  Geist para el texto, no Inter.
+
+  Inter es una fuente excelente y por eso está en absolutamente todas partes:
+  es la que sale por defecto cuando nadie elige, y una interfaz hecha con ella
+  no dice nada de sí misma. Geist tiene el mismo esqueleto de grotesca —igual
+  de legible a 11px, que es lo que no se podía perder— pero con detalles
+  propios: terminaciones más rectas, la "a" y la "g" con más carácter, y unas
+  cifras tabulares mejores, que en una app que es toda números importa más que
+  el estilo.
+
+  Inter se queda instalada como respaldo: si Geist tardara en cargar, el texto
+  cae en algo casi idéntico en métricas en vez de saltar a la fuente del
+  sistema, que sí se notaría.
+*/
+@import "@fontsource-variable/geist";
 @import "@fontsource-variable/inter";
 @import "@fontsource-variable/space-grotesk";
 
@@ -238,9 +254,19 @@ body,
   height: 100%;
 }
 
+/*
+  `text-wrap: pretty` evita las viudas: esa última línea con UNA palabra suelta
+  que deja los párrafos cojos. El navegador reparte las líneas para que la
+  última nunca quede huérfana. Los títulos van con `balance` (más abajo), que
+  reparte para que las líneas queden parejas.
+
+  Es de esas cosas que nadie ve y que hacen que un texto parezca compuesto en
+  vez de volcado. Donde no está soportado no pasa nada: se ignora.
+*/
 body {
   margin: 0;
   background: rgb(var(--lh-fondo));
+  text-wrap: pretty;
   /*
     El recorte horizontal va aquí y no en un contenedor interno: en el <body>
     se propaga a la ventana, así que la página sigue teniendo un único
@@ -248,6 +274,15 @@ body {
     segundo contenedor de scroll y el móvil se vuelve errático.
   */
   overflow-x: hidden;
+}
+
+/* En los títulos, `balance`: reparte las líneas para que queden parejas en vez
+   de dejar una larga y una de dos palabras. Solo hasta 6 líneas, que es donde
+   los navegadores lo aplican. */
+h1,
+h2,
+h3 {
+  text-wrap: balance;
 }
 
 /*
@@ -266,16 +301,45 @@ body::before {
   z-index: -1;
   pointer-events: none;
   background:
-    radial-gradient(42rem circle at 12% -5%, rgb(var(--c-indigo-500) / 0.16), transparent 60%),
-    radial-gradient(48rem circle at 90% 15%, rgb(var(--c-fuchsia-500) / 0.09), transparent 65%),
-    radial-gradient(52rem circle at 50% 110%, rgb(var(--c-sky-500) / 0.08), transparent 60%);
+    radial-gradient(52rem circle at 8% -10%, rgb(var(--c-indigo-500) / 0.15), transparent 62%),
+    radial-gradient(38rem circle at 88% 8%, rgb(var(--c-indigo-400) / 0.07), transparent 68%);
 }
 /* En claro las auroras bajan de intensidad: sobre blanco tiñen enseguida. */
 html[data-theme="light"] body::before {
   background:
-    radial-gradient(42rem circle at 12% -5%, rgb(var(--c-indigo-500) / 0.1), transparent 60%),
-    radial-gradient(48rem circle at 90% 15%, rgb(var(--c-fuchsia-500) / 0.06), transparent 65%),
-    radial-gradient(52rem circle at 50% 110%, rgb(var(--c-sky-500) / 0.05), transparent 60%);
+    radial-gradient(52rem circle at 8% -10%, rgb(var(--c-indigo-500) / 0.09), transparent 62%),
+    radial-gradient(38rem circle at 88% 8%, rgb(var(--c-indigo-400) / 0.05), transparent 68%);
+}
+
+/*
+  --- Grano ---
+
+  Una capa de ruido finísima sobre toda la página. Es lo que quita el aspecto
+  de "renderizado en un ordenador y nada más": los degradados digitales puros
+  no existen en la naturaleza, y un fondo perfectamente liso se lee como
+  sintético aunque no sepas decir por qué. El grano rompe esa uniformidad y de
+  paso disimula el bandeado de los degradados grandes, que en pantallas de 8
+  bits se ve a franjas.
+
+  Es un SVG de ruido incrustado (feTurbulence), no una imagen: pesa unos 200
+  bytes, no es otra petición de red y escala a cualquier resolución.
+
+  `pointer-events: none` y z-index bajo: está por encima del fondo pero por
+  debajo de todo lo que se toca. Y opacidad muy baja a propósito, porque el
+  grano que se nota conscientemente es suciedad, no textura.
+*/
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+/* En claro el grano se ve mucho más sobre blanco: la mitad de intensidad. */
+html[data-theme="light"] body::after {
+  opacity: 0.02;
 }
 
 /*
