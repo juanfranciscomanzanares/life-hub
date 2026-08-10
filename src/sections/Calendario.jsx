@@ -397,9 +397,9 @@ export default function Calendario() {
                 )}
               </p>
               <div className="space-y-1">
-                {d.items.length === 0 && <p className="text-[10px] text-slate-600">—</p>}
+                {d.items.length === 0 && <p className="text-3xs text-slate-600">—</p>}
                 {d.items.map((it, j) => (
-                  <div key={j} className={`truncate rounded px-1.5 py-0.5 text-[10px] ${TYPE_STYLE[it.tipo] || TYPE_STYLE.Otro}`} title={`${it.hora} ${it.label}`}>
+                  <div key={j} className={`truncate rounded px-1.5 py-0.5 text-3xs ${TYPE_STYLE[it.tipo] || TYPE_STYLE.Otro}`} title={`${it.hora} ${it.label}`}>
                     {it.hora && <span className="font-semibold">{it.hora} </span>}{it.label}
                   </div>
                 ))}
@@ -442,7 +442,7 @@ export default function Calendario() {
               >
                 <div className="mb-1 flex items-center justify-between gap-1">
                   {academico && academico.tipo !== "clases" && (
-                    <span className="truncate text-[9px] uppercase tracking-wide text-slate-500">
+                    <span className="truncate text-3xs uppercase tracking-wide text-slate-500">
                       {ETIQUETA_ACADEMICA[academico.tipo]}
                     </span>
                   )}
@@ -450,9 +450,9 @@ export default function Calendario() {
                 </div>
                 <div className="space-y-1">
                   {list.slice(0, 4).map((ev, j) => (
-                    <div key={j} title={`${ev.tipo}: ${ev.label}`} className={`truncate rounded px-1 py-0.5 text-[10px] ${TYPE_STYLE[ev.tipo] || TYPE_STYLE.Otro}`}>{ev.label}</div>
+                    <div key={j} title={`${ev.tipo}: ${ev.label}`} className={`truncate rounded px-1 py-0.5 text-3xs ${TYPE_STYLE[ev.tipo] || TYPE_STYLE.Otro}`}>{ev.label}</div>
                   ))}
-                  {list.length > 4 && <div className="text-[10px] text-slate-500">+{list.length - 4} más</div>}
+                  {list.length > 4 && <div className="text-3xs text-slate-500">+{list.length - 4} más</div>}
                 </div>
               </div>
             );

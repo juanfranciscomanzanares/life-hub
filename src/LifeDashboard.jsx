@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import { usePersisted } from "./lib/store";
 import { useRuta } from "./lib/ruta";
+import { resolverPerfil, navDelPerfil, ajustesIniciales } from "./lib/perfiles";
 import { Card, SectionTitle, SkeletonSeccion, Logo, todayISO } from "./lib/ui";
 import { horasPorSemana, fmtHoras } from "./lib/trabajo";
 import { Cifra } from "./lib/animar";
@@ -41,13 +42,14 @@ import { normalizarHabito, mejorRacha } from "./lib/habitos";
 import { normalizarTareas, esPendiente } from "./lib/aula";
 import HoyWidget from "./sections/HoyWidget.jsx";
 import { useRoutineNotifier } from "./lib/useRoutineNotifier";
-import { useTheme, useAccent } from "./lib/useTheme";
+import { useTheme, useAccent, usePerfilTema } from "./lib/useTheme";
 import { useAutoBackup } from "./lib/useAutoBackup";
 import CommandPalette from "./CommandPalette.jsx";
 import QuickAdd from "./QuickAdd.jsx";
 import Onboarding from "./Onboarding.jsx";
 import ToastHost from "./ToastHost.jsx";
 import BarraInferior from "./BarraInferior.jsx";
+import Saludo from "./Saludo.jsx";
 import { removeWithUndo } from "./lib/toast";
 
 /*
@@ -101,10 +103,16 @@ const URGENCIA = {
 /*  SECCIÓN: INICIO                                                    */
 /* ------------------------------------------------------------------ */
 
-function Inicio() {
+function Inicio({ perfil }) {
   const [work] = usePersisted("lh_work_log", []);
   const [habits] = usePersisted("lh_habits", []);
-  const [ajustes] = usePersisted("lh_settings", { nombre: "Quico" });
+  /*
+    El nombre por defecto sale del perfil y no está escrito a mano: a Carmen le
+    saludaba "Buenos días, Quico" hasta que se cambiara en Ajustes. El valor
+    inicial completo es el mismo para todos los que tocan `lh_settings`, y por
+    eso viene de una sola función (ver src/lib/perfiles.js).
+  */
+  const [ajustes] = usePersisted("lh_settings", ajustesIniciales(perfil));
 
   /*
     Lo urgente sale de datos de verdad y no de una marca "urgente" puesta a
@@ -160,56 +168,43 @@ function Inicio() {
 
   return (
     <div>
-      <SectionTitle icon={Home} title="Inicio" subtitle={`${saludo}, ${ajustes.nombre || "Quico"}`} />
+      <SectionTitle icon={Home} title="Inicio" subtitle={`${saludo}, ${ajustes.nombre || perfil.nombre}`} />
 
       <HoyWidget />
 
-      {/* Tarjetas de métricas */}
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="flex items-center gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-rose-500/15 text-rose-400">
-            <Flame size={24} />
-          </div>
-          <div>
-            <p className="font-display text-2xl font-bold text-slate-100">
-              <Cifra valor={urgencias.length} />
-            </p>
-            <p className="text-sm text-slate-400">Para hoy</p>
-          </div>
-        </Card>
-        <Card className="flex items-center gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-400">
-            <CheckCircle2 size={24} />
-          </div>
-          <div>
-            <p className="font-display text-2xl font-bold text-slate-100">
-              <Cifra valor={pendientesUni} />
-            </p>
-            <p className="text-sm text-slate-400">Tareas por hacer</p>
-          </div>
-        </Card>
-        <Card className="flex items-center gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-500/15 text-indigo-400">
-            <Clock size={24} />
-          </div>
-          <div>
-            <p className="font-display text-2xl font-bold text-slate-100">
-              <Cifra valor={horasSemana} decimales={horasSemana % 1 ? 1 : 0} sufijo="h" />
-            </p>
-            <p className="text-sm text-slate-400">Trabajo (semana)</p>
-          </div>
-        </Card>
-        <Card className="flex items-center gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/15 text-amber-400">
-            <TrendingUp size={24} />
-          </div>
-          <div>
-            <p className="font-display text-2xl font-bold text-slate-100">
-              <Cifra valor={rachaMaxima} />
-            </p>
-            <p className="text-sm text-slate-400">Racha hábitos</p>
-          </div>
-        </Card>
+      {/*
+        Las cuatro cifras del día.
+
+        DOS COLUMNAS YA EN EL MÓVIL, no una. Antes iban apiladas de una en una y
+        las cuatro ocupaban unos 440 px: había que hacer scroll para ver la
+        última. Son justo los cuatro números por los que se abre la app de
+        camino a algún sitio, así que tienen que caber en la primera pantalla.
+
+        En vertical el icono va encima y no al lado: en una tarjeta de ~170 px
+        de ancho, icono y texto en la misma línea dejaban tan poco sitio que
+        "Trabajo (semana)" se partía en dos líneas y descuadraba la fila.
+
+        Eran cuatro bloques copiados y pegados, idénticos salvo tres valores.
+        Ahora es una lista, como en Salud: añadir o quitar una métrica es tocar
+        un renglón, y no pueden volver a separarse entre sí.
+      */}
+      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {[
+          { icono: Flame, color: "bg-rose-500/15 text-rose-400", etiqueta: "Para hoy", cifra: <Cifra valor={urgencias.length} /> },
+          { icono: CheckCircle2, color: "bg-emerald-500/15 text-emerald-400", etiqueta: "Tareas por hacer", cifra: <Cifra valor={pendientesUni} /> },
+          { icono: Clock, color: "bg-indigo-500/15 text-indigo-400", etiqueta: "Trabajo (semana)", cifra: <Cifra valor={horasSemana} decimales={horasSemana % 1 ? 1 : 0} sufijo="h" /> },
+          { icono: TrendingUp, color: "bg-amber-500/15 text-amber-400", etiqueta: "Racha hábitos", cifra: <Cifra valor={rachaMaxima} /> },
+        ].map(({ icono: Icono, color, etiqueta, cifra }) => (
+          <Card key={etiqueta} className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl sm:h-12 sm:w-12 ${color}`}>
+              <Icono size={22} aria-hidden="true" />
+            </div>
+            <div className="min-w-0">
+              <p className="font-display text-2xl font-bold text-slate-100">{cifra}</p>
+              <p className="text-sm text-slate-400">{etiqueta}</p>
+            </div>
+          </Card>
+        ))}
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -308,7 +303,7 @@ function Inicio() {
             >
               {semanasTrabajo.map((s) => (
                 <div key={s.desde} className="flex flex-1 flex-col items-center justify-end gap-1.5">
-                  <span className="text-[10px] font-medium text-slate-400 sm:text-xs">
+                  <span className="text-3xs font-medium text-slate-400 sm:text-xs">
                     {s.horas ? fmtHoras(s.horas) : ""}
                   </span>
                   <div className="flex w-full flex-1 items-end">
@@ -318,7 +313,7 @@ function Inicio() {
                       title={`Semana del ${s.etiqueta}: ${fmtHoras(s.horas)}`}
                     />
                   </div>
-                  <span className="text-[10px] text-slate-400 sm:text-xs">{s.etiqueta}</span>
+                  <span className="text-3xs text-slate-400 sm:text-xs">{s.etiqueta}</span>
                 </div>
               ))}
             </div>
@@ -392,25 +387,43 @@ const NAV_GROUPS = [
   },
 ];
 
-const NAV = NAV_GROUPS.flatMap((g) => (g.items ? g.items : [g]));
-
-const IDS_SECCION = NAV.map((s) => s.id);
-
 export default function LifeDashboard({ userEmail = null, onSignOut = null }) {
+  /*
+    Quién está usando la app. De aquí salen las secciones que existen, el color
+    del mundo y el saludo de entrada (ver src/lib/perfiles.js).
+
+    La elección manual solo pinta cuando el correo no identifica a nadie: es el
+    escape para el modo local y para probar el otro perfil.
+  */
+  const [perfilElegido] = usePersisted("lh_perfil", null);
+  const { perfil, origen: origenPerfil } = useMemo(
+    () => resolverPerfil(userEmail, perfilElegido),
+    [userEmail, perfilElegido]
+  );
+
+  /*
+    La navegación es la del perfil, no la de todos. NAV_GROUPS sigue siendo la
+    lista completa; aquí se le quitan las secciones que este perfil no tiene.
+  */
+  const navGrupos = useMemo(() => navDelPerfil(NAV_GROUPS, perfil.sinSecciones), [perfil]);
+  const navPlano = useMemo(() => navGrupos.flatMap((g) => (g.items ? g.items : [g])), [navGrupos]);
+  const idsSeccion = useMemo(() => navPlano.map((s) => s.id), [navPlano]);
+
   // La sección vive en la URL (#/gimnasio), no en un useState suelto: así el
   // botón "atrás" del móvil vuelve a la sección anterior en vez de cerrar la
   // app, y recargar te deja donde estabas. Ver src/lib/ruta.js.
-  const [active, irASeccion] = useRuta(IDS_SECCION, "inicio");
+  const [active, irASeccion] = useRuta(idsSeccion, "inicio");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openGroup, setOpenGroup] = useState(null);
   const headerRef = useRef(null);
 
   useRoutineNotifier();
   useAutoBackup();
-  const { theme, toggle: toggleTheme } = useTheme();
-  // Aquí solo para que el acento guardado se aplique al arrancar la app; se
-  // elige en Ajustes.
-  useAccent();
+  const { theme, toggle: toggleTheme } = useTheme(perfil.tema);
+  usePerfilTema(perfil.tema);
+  // Aquí solo para que el acento se aplique al arrancar la app; se elige en
+  // Ajustes, salvo que el perfil imponga el suyo.
+  useAccent(perfil.acento);
   const [paletteOpen, setPaletteOpen] = useState(false);
   useEffect(() => {
     const onKey = (e) => {
@@ -487,13 +500,13 @@ export default function LifeDashboard({ userEmail = null, onSignOut = null }) {
             <Logo size={36} className="shadow-lg shadow-indigo-500/25" />
             <div className="hidden text-left sm:block">
               <p className="font-bold leading-tight text-slate-100">Life Hub</p>
-              <p className="text-[10px] leading-tight text-slate-500">Panel personal</p>
+              <p className="text-3xs leading-tight text-slate-500">Panel personal</p>
             </div>
           </button>
 
           {/* Navegación de escritorio */}
           <nav aria-label="Secciones" className="ml-4 hidden flex-1 items-center gap-1 lg:flex">
-            {NAV_GROUPS.map((g) => {
+            {navGrupos.map((g) => {
               const Icon = g.icon;
               if (!g.items) {
                 const isActive = active === g.id;
@@ -566,7 +579,7 @@ export default function LifeDashboard({ userEmail = null, onSignOut = null }) {
             >
               <Search size={15} />
               <span className="hidden xl:inline">Buscar</span>
-              <kbd className="hidden rounded border border-slate-700 bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-500 xl:inline">⌘K</kbd>
+              <kbd className="hidden rounded border border-slate-700 bg-slate-800 px-1.5 py-0.5 text-3xs text-slate-500 xl:inline">⌘K</kbd>
             </button>
             <button
               onClick={toggleTheme}
@@ -607,12 +620,12 @@ export default function LifeDashboard({ userEmail = null, onSignOut = null }) {
         */}
         {mobileOpen && (
           <nav id="menu-movil" aria-label="Todas las secciones" className="mobile-panel lh-panel-movil overflow-y-auto border-t border-slate-800 bg-slate-950/95 px-4 backdrop-blur lg:hidden">
-            {NAV_GROUPS.map((g) => {
+            {navGrupos.map((g) => {
               const items = g.items || [g];
               return (
                 <div key={g.label} className="pt-4">
                   {g.items && (
-                    <p className="mb-1.5 px-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500">{g.label}</p>
+                    <p className="mb-1.5 px-1 text-2xs font-semibold uppercase tracking-wider text-slate-500">{g.label}</p>
                   )}
                   <div className="grid grid-cols-2 gap-1.5">
                     {items.map((item) => {
@@ -654,7 +667,7 @@ export default function LifeDashboard({ userEmail = null, onSignOut = null }) {
       {/* Fondo oscurecido bajo el panel móvil. aria-hidden porque no aporta
           nada al leerlo: cerrar con teclado ya lo cubre Escape. */}
       {mobileOpen && (
-        <div aria-hidden="true" className="fixed inset-0 z-20 bg-black/50 lg:hidden" onClick={() => setMobileOpen(false)} />
+        <div aria-hidden="true" className="lh-velo fixed inset-0 z-20 lg:hidden" onClick={() => setMobileOpen(false)} />
       )}
 
       {/*
@@ -678,13 +691,13 @@ export default function LifeDashboard({ userEmail = null, onSignOut = null }) {
             // página no da un salto cuando llega el contenido de verdad.
             fallback={<SkeletonSeccion />}
           >
-          {active === "inicio" && <Inicio />}
+          {active === "inicio" && <Inicio perfil={perfil} />}
           {active === "trabajo" && <Trabajo />}
           {active === "gimnasio" && <Gimnasio />}
           {active === "universidad" && <Universidad />}
           {active === "tenis" && <TenisMesa />}
           {active === "tenis-notas" && <TenisEntrenos />}
-          {active === "salud" && <Salud />}
+          {active === "salud" && <Salud perfilApp={perfil} />}
           {active === "finanzas" && <Finanzas />}
           {active === "inversiones" && <Inversiones />}
           {active === "plan" && <PlanFinanciero />}
@@ -700,7 +713,7 @@ export default function LifeDashboard({ userEmail = null, onSignOut = null }) {
           
           
           {active === "datos" && <Datos />}
-          {active === "ajustes" && <Ajustes />}
+          {active === "ajustes" && <Ajustes perfil={perfil} origenPerfil={origenPerfil} />}
           </Suspense>
         </div>
       </main>
@@ -710,11 +723,15 @@ export default function LifeDashboard({ userEmail = null, onSignOut = null }) {
         onNavigate={navigate}
         onAbrirMenu={() => setMobileOpen(!mobileOpen)}
         menuAbierto={mobileOpen}
+        sinSecciones={perfil.sinSecciones}
       />
 
       {/* Por `navigate` y no por `irASeccion` a secas: saltar desde la paleta
           también tiene que cerrar el desplegable o el panel del móvil. */}
-      <CommandPalette open={paletteOpen} setOpen={setPaletteOpen} sections={NAV} onNavigate={navigate} />
+      {/* Solo los perfiles que traen saludo lo pintan; el resto no monta nada. */}
+      <Saludo texto={perfil.saludo} />
+
+      <CommandPalette open={paletteOpen} setOpen={setPaletteOpen} sections={navPlano} onNavigate={navigate} />
       <QuickAdd />
       <Onboarding />
       <ToastHost />

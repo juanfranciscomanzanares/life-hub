@@ -94,8 +94,19 @@ function Finanzas() {
     rowsMes.filter((r) => r.monto < 0).forEach((r) => { m[r.categoria] = (m[r.categoria] || 0) + Math.abs(r.monto); });
     return m;
   }, [rowsMes]);
+  /*
+    Colores de SERIE de la gráfica de gastos: aquí el hex fijo es la excepción
+    documentada del proyecto, porque cada categoría tiene que ser el mismo color
+    en tema claro y en oscuro para poder compararla de un vistazo.
+  */
   const CAT_COLORS = { Comida: "#f43f5e", Universidad: "#6366f1", Deporte: "#10b981", Ocio: "#f59e0b", Transporte: "#0ea5e9", Vivienda: "#a855f7", Suscripciones: "#14b8a6", Salud: "#ec4899", Banco: "#14b8a6" };
-  const catColor = (c) => CAT_COLORS[c] || "#94a3b8";
+  /*
+    El de reserva NO es una serie: es el neutro de "categoría sin color propio",
+    y como tal sí debe seguir a la paleta. Estaba puesto a "#94a3b8" (el gris
+    azulado de Tailwind) y se quedaba fijo: en el tema claro no se invertía y
+    sobre el fondo ciruela del perfil rosa se veía sucio.
+  */
+  const catColor = (c) => CAT_COLORS[c] || "rgb(var(--c-slate-400))";
   const gastoCats = Object.entries(gastoPorCat).sort((a, b) => b[1] - a[1]);
   const totalGastoMes = gastoCats.reduce((a, b) => a + b[1], 0);
   const [finOrden, setFinOrden] = useState({ campo: "fecha", dir: "desc" });

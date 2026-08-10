@@ -30,7 +30,7 @@ export default function Onboarding() {
   const ultimo = i === PASOS.length - 1;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4">
+    <div className="lh-velo fixed inset-0 z-[60] flex items-center justify-center p-4">
       <div
         ref={refDialogo}
         role="dialog"

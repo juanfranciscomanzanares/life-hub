@@ -279,12 +279,12 @@ function Universidad() {
         */
         className="m-px overflow-hidden rounded-lg px-2 py-1"
       >
-        <p className="text-[11px] font-semibold leading-tight">{c.subject}</p>
+        <p className="text-2xs font-semibold leading-tight">{c.subject}</p>
         {/* Las opacidades no bajan más: sobre el fondo pastel del tema claro,
             un 60% ya se lee con esfuerzo. */}
-        <p className="text-[10px] leading-tight opacity-90">{queEs(c)}</p>
+        <p className="text-3xs leading-tight opacity-90">{queEs(c)}</p>
         {tramo(c.hora).dura >= 90 && (
-          <p className="mt-0.5 text-[10px] leading-tight opacity-75">{c.hora}</p>
+          <p className="mt-0.5 text-3xs leading-tight opacity-75">{c.hora}</p>
         )}
       </div>
     );
@@ -348,7 +348,7 @@ function Universidad() {
                   <div
                     key={h}
                     style={{ gridRow: `${filasDe(h, inicio)} / span ${60 / PASO}` }}
-                    className="-translate-y-1.5 pr-2 text-right text-[10px] tabular-nums text-slate-400"
+                    className="-translate-y-1.5 pr-2 text-right text-3xs tabular-nums text-slate-400"
                   >
                     {aTexto(h)}
                   </div>
@@ -380,15 +380,15 @@ function Universidad() {
               <ul className="space-y-1.5">
                 {d.clases.map((c, i) => (
                   <li key={i} className="flex items-start gap-2.5">
-                    <span className="w-[5.5rem] shrink-0 pt-0.5 text-[11px] tabular-nums text-slate-400">
+                    <span className="w-[5.5rem] shrink-0 pt-0.5 text-2xs tabular-nums text-slate-400">
                       {c.hora}
                     </span>
                     <span
                       className="min-w-0 flex-1 rounded-lg px-2 py-1"
                       style={subjectStyle(c.subject)}
                     >
-                      <span className="block text-[11px] font-semibold leading-tight">{c.subject}</span>
-                      <span className="block text-[10px] leading-tight opacity-80">{queEs(c)}</span>
+                      <span className="block text-2xs font-semibold leading-tight">{c.subject}</span>
+                      <span className="block text-3xs leading-tight opacity-80">{queEs(c)}</span>
                     </span>
                   </li>
                 ))}
@@ -564,7 +564,7 @@ function Universidad() {
                       {grupo.asignatura}
                     </span>
                     {grupo.curso && (
-                      <span className="shrink-0 rounded bg-slate-700/60 px-1.5 py-0.5 text-[11px] text-slate-400">
+                      <span className="shrink-0 rounded bg-slate-700/60 px-1.5 py-0.5 text-2xs text-slate-400">
                         {grupo.curso}
                       </span>
                     )}
@@ -579,7 +579,7 @@ function Universidad() {
                   <ul className="space-y-1.5 border-t border-slate-800 px-4 py-3">
                     {grupo.tareas.map((t) => (
                       <li key={t.id} className="flex flex-wrap items-center gap-2 text-sm">
-                        <span className={`shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium ${ESTADO_AULA[t.estado].clase}`}>
+                        <span className={`shrink-0 rounded px-1.5 py-0.5 text-2xs font-medium ${ESTADO_AULA[t.estado].clase}`}>
                           {ESTADO_AULA[t.estado].texto}
                         </span>
                         <span className="min-w-0 flex-1 truncate text-slate-200">{t.titulo}</span>
@@ -769,7 +769,7 @@ function Universidad() {
           {seriesVisibles.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1.5">
               {seriesVisibles.map((s) => (
-                <span key={s} className="flex items-center gap-1.5 text-[11px] text-slate-400">
+                <span key={s} className="flex items-center gap-1.5 text-2xs text-slate-400">
                   <span
                     aria-hidden="true"
                     className="h-2.5 w-2.5 shrink-0 rounded-sm"

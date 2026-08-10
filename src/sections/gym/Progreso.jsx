@@ -12,7 +12,7 @@ function Barras({ puntos, valorDe, sufijo, color }) {
         const v = valorDe(p);
         return (
           <div key={p.id ?? p.fecha} className="flex min-w-[2.2rem] flex-1 flex-col items-center gap-1.5">
-            <span className="text-[10px] font-medium text-slate-400">
+            <span className="text-3xs font-medium text-slate-400">
               {v.toLocaleString("es-ES")}
             </span>
             <div className="flex w-full flex-1 items-end">
@@ -22,7 +22,7 @@ function Barras({ puntos, valorDe, sufijo, color }) {
                 title={`${p.fecha}: ${v.toLocaleString("es-ES")}${sufijo}`}
               />
             </div>
-            <span className="text-[10px] text-slate-500">{String(p.fecha).slice(5)}</span>
+            <span className="text-3xs text-slate-500">{String(p.fecha).slice(5)}</span>
           </div>
         );
       })}

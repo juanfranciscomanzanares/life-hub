@@ -12,6 +12,19 @@
   Lo que sí queda fijo son los colores de SERIE cuando se pasan a mano desde
   una sección (verde = ganado, rojo = perdido): ahí el color significa algo y
   tiene que decir lo mismo en los dos temas.
+
+  TIPOGRAFÍA: DENTRO DEL <svg> NO SE USAN LOS TOKENS DE LA ESCALA.
+
+  Este es el único archivo donde `text-[11px]` y compañía son lo correcto y no
+  un descuido. Dentro de un <svg> con `viewBox`, esos píxeles son unidades del
+  LIENZO: la etiqueta crece y mengua con la gráfica, que es justo lo que se
+  quiere cuando el mismo gráfico se pinta a 320 px en el móvil y al doble en el
+  ordenador. Los tokens de tailwind.config.js (`text-2xs`, `text-3xs`) van en
+  `rem`, que es una medida absoluta: al achicar el SVG el texto se quedaría
+  igual de grande y acabaría saliéndose o pisando la rejilla.
+
+  La regla práctica: si el elemento lleva una clase `fill-*`, es SVG y va con
+  píxeles a mano. Si lleva `text-*` de color, es HTML normal y va con la escala.
 */
 import { useState, useId } from "react";
 import { caminoSuave } from "./curva";
@@ -38,6 +51,15 @@ export function Anillo({ valor, total, etiqueta, color = "rgb(var(--c-emerald-40
           strokeLinecap="round"
           strokeDasharray={`${circunferencia * proporcion} ${circunferencia}`}
         />
+        {/*
+          El 26 se queda a mano, y NO es un descuido de la escala tipográfica.
+
+          Está dentro de un <svg> con viewBox de 130×130: aquí "26px" son
+          unidades del lienzo, no píxeles de pantalla, así que la cifra escala
+          con la gráfica pase lo que pase con el tamaño del SVG. Un token en
+          `rem` (text-2xs y compañía) es una medida absoluta y rompería
+          justamente eso: al achicar el donut, el porcentaje se saldría.
+        */}
         <text
           x="65"
           y="60"
@@ -214,7 +236,7 @@ export function Linea({ datos, valor, etiqueta, color = "rgb(var(--c-indigo-400)
             {valor(datos[activo])}
             {sufijo}
           </p>
-          <p className="text-[11px] text-slate-400">{etiqueta(datos[activo])}</p>
+          <p className="text-2xs text-slate-400">{etiqueta(datos[activo])}</p>
         </div>
       )}
     </div>
@@ -266,7 +288,7 @@ export function BarrasH({
                 esa asignatura tenía algo cuando marcaba justo lo contrario.
               */}
               {vacia ? (
-                <span className="absolute inset-y-0 left-2 flex items-center text-[11px] font-medium text-slate-500">
+                <span className="absolute inset-y-0 left-2 flex items-center text-2xs font-medium text-slate-500">
                   {escribir(v)}
                 </span>
               ) : (
@@ -274,7 +296,7 @@ export function BarrasH({
                   className={`flex h-full items-center justify-end rounded-md ${color} px-2 transition-all`}
                   style={{ width: `${Math.max((v / max) * 100, 8)}%` }}
                 >
-                  <span className="text-[11px] font-semibold text-white">{escribir(v)}</span>
+                  <span className="text-2xs font-semibold text-white">{escribir(v)}</span>
                 </div>
               )}
             </div>
@@ -409,7 +431,7 @@ export function BarrasApiladas({ datos }) {
           className="pointer-events-none absolute z-10 -translate-x-1/2 rounded-lg border border-slate-700 bg-slate-900/95 px-2.5 py-1.5 shadow-lg"
           style={{ left: `${((pad.i + activo * paso + paso / 2) / W) * 100}%`, bottom: "22%" }}
         >
-          <p className="mb-1 text-[11px] text-slate-400">Jornada {datos[activo].jornada}</p>
+          <p className="mb-1 text-2xs text-slate-400">Jornada {datos[activo].jornada}</p>
           <p className="flex items-center gap-1.5 text-sm font-bold tabular-nums text-slate-100">
             <span className="h-2 w-2 rounded-sm" style={{ background: GANADO }} />
             {datos[activo].ganados} ganados
@@ -435,7 +457,7 @@ export function Medidor({ titulo, valor, sub, color = "bg-indigo-500" }) {
       <div className="h-2 overflow-hidden rounded-full bg-slate-800">
         <div className={`h-full rounded-full ${color}`} style={{ width: `${valor}%` }} />
       </div>
-      {sub && <p className="mt-1 text-[11px] text-slate-500">{sub}</p>}
+      {sub && <p className="mt-1 text-2xs text-slate-500">{sub}</p>}
     </div>
   );
 }
@@ -501,7 +523,7 @@ export function BarrasVerticales({
               {/* La cifra solo en la barra que se está mirando y en las que
                   tienen algo: un número sobre cada columna es ruido. */}
               <span
-                className={`mb-1 text-center text-[10px] font-semibold tabular-nums transition ${
+                className={`mb-1 text-center text-3xs font-semibold tabular-nums transition ${
                   esActivo && total > 0 ? "text-slate-100" : "text-transparent"
                 }`}
               >
@@ -540,7 +562,7 @@ export function BarrasVerticales({
                 abajo que las demás, con lo que la fila de días no cuadra.
               */}
               <span
-                className={`mt-1.5 block h-4 truncate text-center text-[10px] leading-4 transition ${
+                className={`mt-1.5 block h-4 truncate text-center text-3xs leading-4 transition ${
                   d.esHoy || esActivo ? "font-semibold text-slate-200" : "text-slate-500"
                 }`}
               >

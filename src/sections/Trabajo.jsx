@@ -469,7 +469,7 @@ function Trabajo() {
                   {festivoDe(festivos, e.fecha) && (
                     <span
                       title={festivoDe(festivos, e.fecha).titulo}
-                      className="ml-2 rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-300"
+                      className="ml-2 rounded bg-amber-500/15 px-1.5 py-0.5 text-3xs font-medium text-amber-300"
                     >
                       festivo
                     </span>

@@ -29,6 +29,50 @@ build** y solo revienta al abrir esa pantalla en el navegador.
 - Estado persistente: hook `usePersisted(clave, inicial)` de [src/lib/store.js](src/lib/store.js). Las claves siempre con prefijo `lh_` (p. ej. `lh_habits`). Ese mismo store sincroniza con Supabase si hay sesión.
 - Lógica pura testeable en `src/lib/*.js` con su `*.test.js` al lado (vitest). Los tests que necesitan montar componentes llevan `// @vitest-environment jsdom` en la primera línea; el resto corre en `node`, que es mucho más rápido.
 
+### Perfiles (Quico y Carmen)
+
+La app la usan **dos personas con cuentas distintas**, y no ve lo mismo cada
+una. Todo lo que distingue a un perfil está en [src/lib/perfiles.js](src/lib/perfiles.js),
+que es una tabla y funciones puras: sin estado ni efectos, para poder probarlo
+en `node`.
+
+- **El perfil se decide por el CORREO de la sesión**, no por un ajuste guardado.
+  `lh_perfil` existe como escape (modo local sin nube, y para probar el otro
+  perfil desde Ajustes) pero **manda menos que el correo**: el ajuste vive en el
+  navegador, así que en un dispositivo compartido se quedaría pegado y la
+  siguiente persona entraría con la app de la anterior.
+- Un perfil define cuatro cosas: `sinSecciones`, `acento`, `tema` y `saludo`.
+  Una sección nueva la ven todos salvo que se añada a `sinSecciones`.
+- **`NAV_GROUPS` sigue siendo la lista completa**; el shell la filtra con
+  `navDelPerfil()`. Los ids resultantes son los que recibe `useRuta`: sin eso,
+  escribir `#/tenis` a mano abría una sección que ese perfil no tiene y de la
+  que no había forma de salir, porque tampoco estaba en su menú.
+- **`useRuta` ya no puede suponer que la lista de ids es constante.** Lo era
+  cuando se derivaba de `NAV_GROUPS`; ahora depende de quién ha entrado y puede
+  llegar tarde. La lista viaja en una ref (para no reenganchar los listeners del
+  historial en cada render) y hay un efecto que te saca de la sección si deja de
+  existir. Además el hook **normaliza la URL**: un hash que no lleva a ningún
+  sitio se reescribe al de la sección que se está viendo de verdad, porque si no
+  guardar la página en favoritos abría algo distinto de lo que ponía la barra.
+- **Tercera capa de color**, en `html[data-perfil]` (ver `index.css`). Las otras
+  dos —acento global y color de sección— siguen igual; esta redefine la escala
+  neutra `--c-slate-*` entera, que es de donde salen fondo, tarjetas, bordes y
+  todos los tonos de texto. Por eso el mundo rosa no obliga a tocar ni un
+  componente. Los valores están elegidos midiendo contraste contra el fondo
+  real de cada tema, no a ojo: si tocas uno, recalcula.
+- **El acento que impone un perfil no se escribe en `lh_accent`.** Esa clave es
+  del dispositivo: si se guardara, al volver el otro perfil se encontraría su
+  color cambiado.
+- **`lh_settings` la escriben tres pantallas** (Inicio, Ajustes y Salud) y su
+  valor inicial sale de `ajustesIniciales()`, una sola función. Cada una
+  declaraba el suyo con distintas claves y, en una cuenta nueva, la primera
+  pantalla que abrieras decidía qué campos existían: las metas de agua y de
+  sueño salían vacías.
+- **PENDIENTE**: el bloque `uni` por perfil. El horario, las asignaturas y los
+  exámenes de [src/lib/datosUni.js](src/lib/datosUni.js) y [src/lib/uni.js](src/lib/uni.js)
+  siguen siendo constantes con la carrera de Quico. Carmen ve esas secciones con
+  datos que no son suyos hasta que se parametricen.
+
 ### Sincronización entre dispositivos
 
 Los conflictos se resuelven **elemento a elemento**, no por bloques (ver [src/lib/fusionar.js](src/lib/fusionar.js)). Antes ganaba el bloque con la fecha más nueva, así que apuntar un gasto en el móvil y otro en el PC hacía desaparecer uno de los dos. Lo que hay que saber al tocar esto:
@@ -85,6 +129,10 @@ probándose en `node` sin arrastrar JSX.
   - *Color de sección* (`seccion-*` → `--c-seccion-*`, redefinidas por `data-seccion` que pone el shell): título de sección, resplandor superior y detalles propios del área. Gimnasio acero, tenis rojo, dinero verde, etc.
 - Gráficas nuevas: la curva suave sale de `caminoSuave` ([src/lib/curva.js](src/lib/curva.js)), que es una spline **monótona**. No la cambies por una Bézier normal: esa se inventa valles y picos entre puntos, y con kg o euros eso es mentir.
 - **Tipografía**: `font-sans` (Inter) para texto y `font-display` (Space Grotesk) para títulos y cifras grandes. Las cifras, con `tabular-nums` o con el componente `Cifra` de [src/lib/animar.jsx](src/lib/animar.jsx), que además las anima al aparecer.
+- **Escala tipográfica: nada de `text-[Npx]`.** Por debajo de `text-xs` hay dos peldaños declarados en [tailwind.config.js](tailwind.config.js), con su interletrado: `text-2xs` (11px) para pistas, etiquetas y metadatos, y `text-3xs` (10px) **solo** donde 11 no cabe (ejes de gráficas, rejilla del calendario, barra inferior). No hay nada por debajo de 10px. Había 52 tamaños sueltos inventados por las pantallas —9, 10, 11 y 12px usados sin criterio— porque la escala no existía. **Única excepción: dentro de un `<svg>` con `viewBox`** (o sea, [src/lib/graficos.jsx](src/lib/graficos.jsx)), donde los píxeles son unidades del lienzo y escalan con la gráfica; ahí los tokens en `rem` romperían el dibujo. La pista para distinguirlo: si el elemento lleva `fill-*`, es SVG.
+- **Una sola curva: `var(--lh-ease)`** (`cubic-bezier(0.22, 1, 0.36, 1)`, un `ease-out` fuerte), declarada en `index.css`. Estaba copiada literal en nueve sitios y ya se habían colado dos variantes casi idénticas. `ease-in` no se usa nunca: empieza lento justo cuando se está mirando. Los fundidos de opacidad pura sí van con `ease` a secas, que es lo correcto para un cambio de color.
+- **Cuanto más se repite una animación, más corta.** Cambiar de sección pasa decenas de veces al día (y con Ctrl+K es acción de teclado), así que `.section-fade` se asienta en 0,38 s y no en los 0,55 s que tenía. Lo que se ve una vez al día puede permitirse medio segundo; lo que se ve treinta, no.
+- **El velo de lo que se pone por encima es `.lh-velo`**, una sola clase para el menú del móvil, la paleta, el añadido rápido, el onboarding y el saludo. Usa `--c-slate-950`, no negro: así sigue el mundo del perfil en vez de apagarlo a gris. Antes había tres opacidades distintas elegidas cada una por su lado.
 - **Cristal**: el aspecto de las tarjetas vive en la clase `.lh-card` de `index.css`, no en clases sueltas. El desenfoque solo se aplica desde 640px por rendimiento en el móvil. Cuidado: `backdrop-filter` crea bloque contenedor, así que nada con `position: fixed` puede ir dentro de una tarjeta.
 - Animaciones definidas en `index.css` (`section-fade`, `lh-card`, `lh-barra`, `lh-skeleton`...): siempre con su variante en `@media (prefers-reduced-motion: reduce)`. El confeti de [src/lib/confetti.js](src/lib/confetti.js) se calla solo en ese caso.
 - Registros iniciales vacíos (nada de datos de ejemplo): un dispositivo nuevo podría subirlos a Supabase como si fueran reales. Los catálogos (asignaturas, categorías) sí pueden ir rellenos.

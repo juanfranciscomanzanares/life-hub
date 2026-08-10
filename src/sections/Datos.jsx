@@ -335,7 +335,7 @@ export default function Datos() {
               <li key={r.id} className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-800/40 px-3 py-2 text-sm">
                 <span className={r.avisado ? "text-slate-500" : "text-slate-200"}>
                   <span className="text-slate-500">{r.cuando.replace("T", " ")}</span> · {r.titulo}
-                  {r.avisado && <span className="ml-2 text-[10px] text-emerald-400">avisado</span>}
+                  {r.avisado && <span className="ml-2 text-3xs text-emerald-400">avisado</span>}
                 </span>
                 <button onClick={() => setReminders(reminders.filter((x) => x.id !== r.id))} className="text-slate-500 hover:text-rose-400">
                   <Trash2 size={15} />

@@ -73,7 +73,7 @@ export default function CommandPalette({ open, setOpen, sections, onNavigate }) 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 p-4 pt-24" onClick={cerrar}>
+    <div className="lh-velo fixed inset-0 z-50 flex items-start justify-center p-4 pt-24" onClick={cerrar}>
       <div
         ref={refDialogo}
         role="dialog"
@@ -91,11 +91,11 @@ export default function CommandPalette({ open, setOpen, sections, onNavigate }) 
             placeholder="Buscar secciones, tareas, notas, ejercicios..."
             className="w-full bg-transparent py-3.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none"
           />
-          <kbd className="hidden rounded bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-400 sm:block">Esc</kbd>
+          <kbd className="hidden rounded bg-slate-800 px-1.5 py-0.5 text-3xs text-slate-400 sm:block">Esc</kbd>
         </form>
 
         <div className="max-h-80 overflow-y-auto p-2">
-          {secciones.length > 0 && <p className="px-2 py-1 text-[10px] font-semibold uppercase text-slate-500">Secciones</p>}
+          {secciones.length > 0 && <p className="px-2 py-1 text-3xs font-semibold uppercase text-slate-500">Secciones</p>}
           {secciones.map((s) => {
             const Icon = s.icon;
             return (
@@ -106,11 +106,11 @@ export default function CommandPalette({ open, setOpen, sections, onNavigate }) 
             );
           })}
 
-          {datos.length > 0 && <p className="mt-2 px-2 py-1 text-[10px] font-semibold uppercase text-slate-500">Resultados</p>}
+          {datos.length > 0 && <p className="mt-2 px-2 py-1 text-3xs font-semibold uppercase text-slate-500">Resultados</p>}
           {datos.map((d, i) => (
             <button key={i} onClick={() => go(d.seccion)} className="flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-sm text-slate-200 hover:bg-slate-800">
               <span className="truncate">{d.texto}</span>
-              <span className="shrink-0 rounded bg-slate-800 px-2 py-0.5 text-[10px] text-slate-400">{d.tipo}</span>
+              <span className="shrink-0 rounded bg-slate-800 px-2 py-0.5 text-3xs text-slate-400">{d.tipo}</span>
             </button>
           ))}
 
@@ -119,7 +119,7 @@ export default function CommandPalette({ open, setOpen, sections, onNavigate }) 
           )}
         </div>
 
-        <div className="flex items-center gap-2 border-t border-slate-800 px-4 py-2 text-[10px] text-slate-500">
+        <div className="flex items-center gap-2 border-t border-slate-800 px-4 py-2 text-3xs text-slate-500">
           <CornerDownLeft size={12} /> Enter para abrir el primero
         </div>
       </div>

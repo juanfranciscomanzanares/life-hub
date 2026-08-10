@@ -212,7 +212,7 @@ export default function Analitica() {
                 />
               </div>
               {/* Con 28-31 barras no caben todas las etiquetas: se pone una de cada tres. */}
-              <span className="truncate text-[9px] text-slate-500">
+              <span className="truncate text-3xs text-slate-500">
                 {barras.length > 12 && i % 3 !== 0 ? "" : b.etiqueta}
               </span>
             </div>
@@ -227,7 +227,7 @@ export default function Analitica() {
                 {barras[barra].valor.toLocaleString("es-ES")}
                 {metricaGrafica.dinero ? "€" : metricaGrafica.unidad}
               </p>
-              <p className="text-[11px] text-slate-400">{barras[barra].etiqueta}</p>
+              <p className="text-2xs text-slate-400">{barras[barra].etiqueta}</p>
             </div>
           )}
         </div>

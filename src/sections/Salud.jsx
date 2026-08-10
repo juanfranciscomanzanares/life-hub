@@ -5,16 +5,24 @@ import { removeWithUndo } from "../lib/toast";
 import { Card, SectionTitle, todayISO } from "../lib/ui";
 
 import { nuevoId } from "../lib/id";
+import { ajustesIniciales } from "../lib/perfiles";
 // Vacío a propósito: estos cuatro días eran de ejemplo y se guardaban como
 // reales. Además falseaban el patrón de sueño frente a gimnasio de Analítica.
 const INITIAL_HEALTH = [];
 
 const empty = { fecha: "", peso: "", sueno: "", pasos: "", fc: "", agua: "" };
 
-export default function Salud() {
+/* `perfilApp` es el perfil de la app (Quico / Carmen); el `perfil` de más abajo
+   son los datos corporales, que no tienen nada que ver. */
+export default function Salud({ perfilApp = null }) {
   const [log, setLog] = usePersisted("lh_health", INITIAL_HEALTH);
   const [perfil, setPerfil] = usePersisted("lh_salud_perfil", { altura: 175, objetivo: 72 });
-  const [ajustes] = usePersisted("lh_settings", { metaAgua: 2 });
+  /*
+    El valor inicial es el mismo que usan Inicio y Ajustes. Declarar aquí solo
+    `{metaAgua}` hacía que, si Salud era la primera pantalla que se abría en una
+    cuenta nueva, se guardara un `lh_settings` sin nombre ni meta de sueño.
+  */
+  const [ajustes] = usePersisted("lh_settings", ajustesIniciales(perfilApp));
   const metaAgua = Number(ajustes.metaAgua) || 2;
   const [form, setForm] = useState(empty);
 
@@ -140,11 +148,11 @@ export default function Salud() {
           <div className="flex h-40 items-end justify-between gap-2">
             {pesos.map((p) => (
               <div key={p.id} className="flex flex-1 flex-col items-center gap-2">
-                <span className="text-[10px] text-slate-400">{p.peso}</span>
+                <span className="text-3xs text-slate-400">{p.peso}</span>
                 <div className="flex w-full flex-1 items-end">
                   <div className="w-full rounded-t-lg bg-gradient-to-t from-indigo-600 to-indigo-400" style={{ height: `${20 + ((p.peso - minP) / range) * 80}%` }} title={`${p.fecha}: ${p.peso} kg`} />
                 </div>
-                <span className="text-[10px] text-slate-500">{p.fecha.slice(5)}</span>
+                <span className="text-3xs text-slate-500">{p.fecha.slice(5)}</span>
               </div>
             ))}
           </div>

@@ -165,7 +165,7 @@ export default function Inversiones() {
           <div>
             <p className={`text-2xl font-bold ${plPct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>{plPct >= 0 ? "+" : ""}{plPct.toFixed(1)}%</p>
             <p className="text-sm text-slate-400">Rentabilidad</p>
-            {totalDiv > 0 && <p className="text-[10px] text-emerald-400">Con dividendos: {rentTotal >= 0 ? "+" : ""}{rentTotal.toFixed(1)}%</p>}
+            {totalDiv > 0 && <p className="text-3xs text-emerald-400">Con dividendos: {rentTotal >= 0 ? "+" : ""}{rentTotal.toFixed(1)}%</p>}
           </div>
         </Card>
       </div>

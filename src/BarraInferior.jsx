@@ -17,7 +17,15 @@ const ATAJOS = [
   { id: "finanzas", label: "Dinero", icon: Wallet },
 ];
 
-export default function BarraInferior({ active, onNavigate, onAbrirMenu, menuAbierto }) {
+/*
+  `sinSecciones` viene del perfil. Hoy ninguno oculta ninguno de estos cuatro
+  atajos, pero dejar la lista fija es el mismo fallo que se acaba de arreglar en
+  la navegación de arriba: en cuanto un perfil esconda gimnasio o finanzas, aquí
+  saldría un botón que `useRuta` rechaza y que al pulsarlo no hace nada.
+*/
+export default function BarraInferior({ active, onNavigate, onAbrirMenu, menuAbierto, sinSecciones = [] }) {
+  const atajos = ATAJOS.filter((a) => !sinSecciones.includes(a.id));
+
   return (
     <nav
       aria-label="Navegación principal"
@@ -29,14 +37,14 @@ export default function BarraInferior({ active, onNavigate, onAbrirMenu, menuAbi
       className="fixed bottom-0 left-0 right-0 z-40 border-t border-slate-800 bg-slate-950/90 backdrop-blur-md lg:hidden"
     >
       <ul className="flex items-stretch">
-        {ATAJOS.map(({ id, label, icon: Icono }) => {
+        {atajos.map(({ id, label, icon: Icono }) => {
           const activo = active === id && !menuAbierto;
           return (
             <li key={id} className="flex-1">
               <button
                 onClick={() => onNavigate(id)}
                 aria-current={activo ? "page" : undefined}
-                className={`flex w-full flex-col items-center gap-0.5 py-2 text-[10px] font-medium transition ${
+                className={`flex w-full flex-col items-center gap-0.5 py-2 text-3xs font-medium transition ${
                   activo ? "text-seccion-400" : "text-slate-500"
                 }`}
               >
@@ -59,7 +67,7 @@ export default function BarraInferior({ active, onNavigate, onAbrirMenu, menuAbi
             onClick={onAbrirMenu}
             aria-expanded={menuAbierto}
             aria-controls="menu-movil"
-            className={`flex w-full flex-col items-center gap-0.5 py-2 text-[10px] font-medium transition ${
+            className={`flex w-full flex-col items-center gap-0.5 py-2 text-3xs font-medium transition ${
               menuAbierto ? "text-indigo-400" : "text-slate-500"
             }`}
           >

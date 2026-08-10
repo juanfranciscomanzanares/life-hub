@@ -22,20 +22,61 @@ export const ACENTOS = [
   { id: "rosa", nombre: "Rosa", muestra: "#f43f5e" },
 ];
 
-export function useAccent() {
+/*
+  `fijo` es el acento que impone el perfil (ver src/lib/perfiles.js). Cuando lo
+  hay, manda sobre lo guardado y no se puede cambiar.
+
+  Podría parecer más amable dejarlo solo como valor inicial, pero `lh_accent` es
+  del DISPOSITIVO, no de la cuenta: en un navegador compartido Carmen heredaría
+  el color que dejara Quico la última vez y su perfil no sería suyo. Con `fijo`
+  el perfil se ve igual en cualquier navegador, que es justo lo que se pedía.
+
+  Tampoco se escribe en `lh_accent`: si se guardara, al volver Quico se
+  encontraría su acento cambiado por el paso de ella.
+*/
+export function useAccent(fijo = null) {
   const [accent, setAccent] = useState(() => localStorage.getItem("lh_accent") || "indigo");
+  const impuesto = fijo && ACENTOS.some((a) => a.id === fijo) ? fijo : null;
+  const activo = impuesto || accent;
 
   useEffect(() => {
-    const valido = ACENTOS.some((a) => a.id === accent) ? accent : "indigo";
+    const valido = ACENTOS.some((a) => a.id === activo) ? activo : "indigo";
     document.documentElement.dataset.accent = valido;
-    localStorage.setItem("lh_accent", valido);
-  }, [accent]);
+    if (!impuesto) localStorage.setItem("lh_accent", valido);
+  }, [activo, impuesto]);
 
-  return { accent, setAccent };
+  return { accent: activo, setAccent, fijado: Boolean(impuesto) };
 }
 
+/*
+  El "mundo" de color del perfil: pone `data-perfil` en <html>, de donde cuelgan
+  las variables --c-slate-* rosadas de src/index.css.
+
+  Va aparte del acento porque son dos capas distintas: el acento tiñe botones y
+  enlaces, y esto tiñe el fondo, las tarjetas y los bordes. Un perfil sin tema
+  propio deja el atributo fuera y la app se ve como siempre.
+*/
+export function usePerfilTema(tema) {
+  useEffect(() => {
+    const raiz = document.documentElement;
+    if (tema) raiz.dataset.perfil = tema;
+    else delete raiz.dataset.perfil;
+  }, [tema]);
+}
+
+/*
+  El color de la barra del navegador, que tiene que ir a juego con el fondo real
+  de la app. Son los mismos valores que --c-slate-950 de src/index.css: si los
+  cambias allí, cámbialos aquí, porque una franja gris sobre un fondo rosa se ve
+  igual de mal que la franja oscura sobre fondo claro que había antes.
+*/
+const BARRA = {
+  "": { light: "#f8fafc", dark: "#020617" },
+  rosa: { light: "#fdf6f8", dark: "#180a10" },
+};
+
 // Tema claro/oscuro persistente (se aplica en <html data-theme>).
-export function useTheme() {
+export function useTheme(perfilTema = null) {
   const [theme, setTheme] = useState(() => localStorage.getItem("lh_theme") || "dark");
 
   useEffect(() => {
@@ -44,8 +85,9 @@ export function useTheme() {
     // La barra del navegador (y la de estado en iOS) sigue al tema; si no, en
     // claro se quedaba una franja oscura arriba.
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute("content", theme === "light" ? "#f8fafc" : "#020617");
-  }, [theme]);
+    const paleta = BARRA[perfilTema || ""] || BARRA[""];
+    if (meta) meta.setAttribute("content", theme === "light" ? paleta.light : paleta.dark);
+  }, [theme, perfilTema]);
 
   const toggle = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
   return { theme, toggle };

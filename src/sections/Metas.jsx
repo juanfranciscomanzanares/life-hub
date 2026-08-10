@@ -158,7 +158,7 @@ export default function Metas() {
           <div className="flex h-48 items-end justify-between gap-2">
             {shownHistory.map((h) => (
               <div key={h.month} className="flex flex-1 flex-col items-center gap-2">
-                <span className="text-[10px] font-medium text-slate-400">{fmtEuro(h.valor)}</span>
+                <span className="text-3xs font-medium text-slate-400">{fmtEuro(h.valor)}</span>
                 <div className="flex w-full flex-1 items-end">
                   <div
                     className="w-full rounded-t-lg bg-gradient-to-t from-emerald-600 to-emerald-400"
@@ -166,7 +166,7 @@ export default function Metas() {
                     title={`${monthLabel(h.month)}: ${fmtEuro(h.valor)}`}
                   />
                 </div>
-                <span className="text-[10px] text-slate-500">{monthLabel(h.month)}</span>
+                <span className="text-3xs text-slate-500">{monthLabel(h.month)}</span>
               </div>
             ))}
           </div>

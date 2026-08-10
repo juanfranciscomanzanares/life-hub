@@ -66,7 +66,7 @@ export default function QuickAdd() {
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 sm:items-center" onClick={cerrar}>
+        <div className="lh-velo fixed inset-0 z-50 flex items-end justify-center p-4 sm:items-center" onClick={cerrar}>
           {/* Con el teclado abierto el alto útil se queda en nada: sin límite y
               sin scroll propio, el botón de guardar quedaba fuera de la pantalla. */}
           <div

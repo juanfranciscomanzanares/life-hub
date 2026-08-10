@@ -13,6 +13,33 @@ export default {
         display: ["Space Grotesk Variable", "Inter Variable", "system-ui", "sans-serif"],
       },
       /*
+        Los dos peldaños que le faltaban a la escala, por debajo de `text-xs`.
+
+        No existían, así que cada pantalla se los inventó a mano: había 54
+        tamaños sueltos repartidos por 20 archivos —`text-[9px]`, `[10px]`,
+        `[11px]`— usados indistintamente y sin ninguna regla sobre cuál tocaba.
+        Es la clase de detalle que nadie sabe nombrar pero que se nota: la letra
+        pequeña cambiaba de tamaño de una tarjeta a otra.
+
+        Llevan interletrado propio. A tamaños tan pequeños el espaciado normal
+        aprieta demasiado las letras y cuesta leerlas; abrirlo un poco es lo que
+        hace la diferencia entre "letra pequeña" y "letra pequeña legible", y es
+        de lo primero que se descuida.
+
+        CUÁNDO USAR CADA UNO:
+        - `text-2xs` (11px) — el pequeño de la casa: pistas bajo un campo,
+          etiquetas, metadatos, leyendas. Es el que se usa por defecto.
+        - `text-3xs` (10px) — SOLO donde 11px no cabe: ejes de gráficas, celdas
+          de la rejilla del calendario, etiquetas de la barra inferior.
+
+        Y no hay nada por debajo de 10px a propósito. Había dos sitios con 9px y
+        no se leían.
+      */
+      fontSize: {
+        "3xs": ["0.625rem", { lineHeight: "0.875rem", letterSpacing: "0.02em" }],
+        "2xs": ["0.6875rem", { lineHeight: "1rem", letterSpacing: "0.01em" }],
+      },
+      /*
         Los colores apuntan a variables CSS en vez de a valores fijos, para que
         el tema claro se consiga cambiando la paleta y no invirtiendo la página
         entera con un filtro. Los valores están en src/index.css.
@@ -88,6 +115,11 @@ export default {
         teal: {
           300: "rgb(var(--c-teal-300) / <alpha-value>)",
           500: "rgb(var(--c-teal-500) / <alpha-value>)",
+        },
+        orange: {
+          300: "rgb(var(--c-orange-300) / <alpha-value>)",
+          400: "rgb(var(--c-orange-400) / <alpha-value>)",
+          500: "rgb(var(--c-orange-500) / <alpha-value>)",
         },
         /*
           Color de la sección abierta. No es un tono fijo: el shell pone
