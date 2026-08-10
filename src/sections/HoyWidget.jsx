@@ -78,10 +78,17 @@ export default function HoyWidget() {
         )}
       </h2>
       {items.length === 0 ? (
+        /*
+          Decía "¡Día libre!", y era mentira. Esta tarjeta solo mira la RUTINA
+          semanal (`lh_routine`); las entregas, los exámenes y las citas viven
+          en "Lo de hoy", justo debajo. Así que anunciaba día libre con dos
+          cosas señaladas para hoy dos centímetros más abajo, en la misma
+          pantalla. Ahora dice exactamente lo que sabe y nada más.
+        */
         <p className="text-sm text-slate-500">
           {ocultas > 0
             ? "Hoy no hay clase, así que no te pongo el horario de la facultad."
-            : "No hay nada fijo en tu rutina para hoy. ¡Día libre!"}
+            : "Hoy no tienes nada fijo en tu rutina semanal."}
         </p>
       ) : (
         <ul className="space-y-2">

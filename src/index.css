@@ -289,21 +289,45 @@ html[data-theme="light"] body::before {
   ratón. Solo aparece con hover real (ratón): en táctil no existe y ahorrarse
   el listener es gratis.
 */
+/*
+  EL FILO DE LUZ (`inset 0 1px 0`).
+
+  Es el detalle que más separa una tarjeta oscura cualquiera de una tarjeta
+  cuidada, y casi nadie lo ve conscientemente: una línea de luz de 1px en el
+  borde de ARRIBA, como si hubiera una fuente de luz por encima de la pantalla.
+  Sin ella la tarjeta es un rectángulo pegado al fondo; con ella tiene canto, y
+  parece un objeto apoyado encima.
+
+  Va en `box-shadow` y no en `border-top` a propósito: un borde distinto arriba
+  desplazaría el contenido 1px y rompería la alineación con las tarjetas
+  vecinas.
+
+  La sombra tampoco es negro puro. Un negro neutro sobre un fondo con color
+  (azul noche, o ciruela en el perfil rosa) lo desatura y ensucia; tintándola
+  del propio --c-slate-950 la tarjeta se levanta sin apagar lo que hay debajo.
+*/
 .lh-card {
   position: relative;
-  border-radius: 1rem;
+  border-radius: 1.125rem;
   border: 1px solid rgb(var(--c-slate-800) / 0.9);
   background: rgb(var(--c-slate-900) / 0.62);
   box-shadow:
-    0 1px 2px rgb(0 0 0 / 0.25),
-    0 12px 32px -16px rgb(0 0 0 / 0.45);
+    inset 0 1px 0 rgb(255 255 255 / 0.055),
+    0 1px 2px rgb(var(--c-slate-950) / 0.5),
+    0 12px 32px -16px rgb(var(--c-slate-950) / 0.75);
   transition: transform 0.2s var(--lh-ease), border-color 0.2s, box-shadow 0.2s;
 }
+/*
+  En claro el filo se invierte: la luz ya viene del fondo blanco, así que una
+  línea blanca no se vería. Lo que da canto aquí es una sombra interior muy
+  suave en el borde de ABAJO, que es donde se apoyaría la tarjeta.
+*/
 html[data-theme="light"] .lh-card {
   background: rgb(var(--c-slate-900) / 0.78);
   box-shadow:
-    0 1px 2px rgb(15 23 42 / 0.06),
-    0 12px 32px -16px rgb(15 23 42 / 0.14);
+    inset 0 -1px 0 rgb(15 23 42 / 0.04),
+    0 1px 2px rgb(15 23 42 / 0.05),
+    0 12px 32px -16px rgb(15 23 42 / 0.16);
 }
 
 /*
@@ -339,12 +363,21 @@ html[data-theme="light"] .lh-card {
   pointer-events: none;
 }
 @media (hover: hover) {
+  /* Al levantarse, el filo de luz sube también: si se quedara igual, la tarjeta
+     se movería pero seguiría pareciendo plana. */
   .lh-card:hover {
     transform: translateY(-2px);
     border-color: rgb(var(--c-slate-700));
     box-shadow:
-      0 2px 4px rgb(0 0 0 / 0.25),
-      0 18px 44px -16px rgb(0 0 0 / 0.55);
+      inset 0 1px 0 rgb(255 255 255 / 0.085),
+      0 2px 4px rgb(var(--c-slate-950) / 0.5),
+      0 18px 44px -16px rgb(var(--c-slate-950) / 0.85);
+  }
+  html[data-theme="light"] .lh-card:hover {
+    box-shadow:
+      inset 0 -1px 0 rgb(15 23 42 / 0.05),
+      0 2px 4px rgb(15 23 42 / 0.06),
+      0 18px 44px -16px rgb(15 23 42 / 0.2);
   }
   .lh-card:hover::before {
     opacity: 1;

@@ -34,7 +34,7 @@ import {
 import { usePersisted } from "./lib/store";
 import { useRuta } from "./lib/ruta";
 import { resolverPerfil, navDelPerfil, ajustesIniciales } from "./lib/perfiles";
-import { Card, SectionTitle, SkeletonSeccion, Logo, todayISO } from "./lib/ui";
+import { Card, SectionTitle, SkeletonSeccion, Logo, Metrica, todayISO } from "./lib/ui";
 import { horasPorSemana, fmtHoras } from "./lib/trabajo";
 import { Cifra } from "./lib/animar";
 import { urgenciasDeHoy } from "./lib/uni";
@@ -91,6 +91,13 @@ const Datos = lazy(() => import("./sections/Datos.jsx"));
   Etiquetas de lo que urge hoy, en Inicio. Los catálogos de la carrera (horarios,
   prácticas, exámenes) se fueron con la sección a src/lib/datosUni.js.
 */
+/*
+  La barra más alta ocupa el 88% del alto y no el 100%: el 12% de arriba es el
+  hueco donde va su cifra. Sin reservarlo, la etiqueta de la semana más alta se
+  salía de la tarjeta.
+*/
+const ALTO_BARRA = 88;
+
 const URGENCIA = {
   examen: { texto: "Examen", clase: "bg-amber-500/15 text-amber-300" },
   entrega: { texto: "Entrega", clase: "bg-indigo-500/15 text-indigo-300" },
@@ -165,6 +172,17 @@ function Inicio({ perfil }) {
   const semanasTrabajo = useMemo(() => horasPorSemana(work, todayISO(), 8), [work]);
   const maxSemana = Math.max(...semanasTrabajo.map((s) => s.horas), 1);
   const totalSemanas = semanasTrabajo.reduce((a, s) => a + s.horas, 0);
+  /*
+    La media SIN la última semana, que es la que está en curso.
+
+    Meterla dentro hundía la media: un lunes por la mañana esa semana lleva 6 h
+    frente a las 35 de una completa, y la referencia salía falseada justo el día
+    que menos datos hay.
+  */
+  const mediaSemanal = useMemo(() => {
+    const terminadas = semanasTrabajo.slice(0, -1).filter((s) => s.horas > 0);
+    return terminadas.length ? terminadas.reduce((a, s) => a + s.horas, 0) / terminadas.length : 0;
+  }, [semanasTrabajo]);
 
   return (
     <div>
@@ -190,20 +208,36 @@ function Inicio({ perfil }) {
       */}
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
         {[
-          { icono: Flame, color: "bg-rose-500/15 text-rose-400", etiqueta: "Para hoy", cifra: <Cifra valor={urgencias.length} /> },
-          { icono: CheckCircle2, color: "bg-emerald-500/15 text-emerald-400", etiqueta: "Tareas por hacer", cifra: <Cifra valor={pendientesUni} /> },
-          { icono: Clock, color: "bg-indigo-500/15 text-indigo-400", etiqueta: "Trabajo (semana)", cifra: <Cifra valor={horasSemana} decimales={horasSemana % 1 ? 1 : 0} sufijo="h" /> },
-          { icono: TrendingUp, color: "bg-amber-500/15 text-amber-400", etiqueta: "Racha hábitos", cifra: <Cifra valor={rachaMaxima} /> },
-        ].map(({ icono: Icono, color, etiqueta, cifra }) => (
-          <Card key={etiqueta} className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl sm:h-12 sm:w-12 ${color}`}>
-              <Icono size={22} aria-hidden="true" />
-            </div>
-            <div className="min-w-0">
-              <p className="font-display text-2xl font-bold text-slate-100">{cifra}</p>
-              <p className="text-sm text-slate-400">{etiqueta}</p>
-            </div>
-          </Card>
+          {
+            icono: Flame,
+            color: "bg-rose-500/15 text-rose-400",
+            etiqueta: "Para hoy",
+            valor: <Cifra valor={urgencias.length} />,
+            detalle: urgencias.length ? "entre entregas y citas" : "nada señalado",
+          },
+          {
+            icono: CheckCircle2,
+            color: "bg-emerald-500/15 text-emerald-400",
+            etiqueta: "Tareas por hacer",
+            valor: <Cifra valor={pendientesUni} />,
+            detalle: "del Aula Virtual",
+          },
+          {
+            icono: Clock,
+            color: "bg-indigo-500/15 text-indigo-400",
+            etiqueta: "Trabajo",
+            valor: <Cifra valor={horasSemana} decimales={horasSemana % 1 ? 1 : 0} sufijo="h" />,
+            detalle: "esta semana",
+          },
+          {
+            icono: TrendingUp,
+            color: "bg-amber-500/15 text-amber-400",
+            etiqueta: "Racha",
+            valor: <Cifra valor={rachaMaxima} />,
+            detalle: rachaMaxima === 1 ? "día seguido" : "días seguidos",
+          },
+        ].map((m) => (
+          <Metrica key={m.etiqueta} {...m} />
         ))}
       </div>
 
@@ -294,28 +328,68 @@ function Inicio({ perfil }) {
           {totalSemanas === 0 ? (
             <p className="text-sm text-slate-500">Aún no hay horas de trabajo registradas.</p>
           ) : (
-            <div
-              role="img"
-              aria-label={`Horas de trabajo por semana: ${semanasTrabajo
-                .map((s) => `semana del ${s.etiqueta}, ${fmtHoras(s.horas)}`)
-                .join("; ")}.`}
-              className="flex h-36 justify-between gap-1.5 sm:gap-2"
-            >
-              {semanasTrabajo.map((s) => (
-                <div key={s.desde} className="flex flex-1 flex-col items-center justify-end gap-1.5">
-                  <span className="text-3xs font-medium text-slate-400 sm:text-xs">
-                    {s.horas ? fmtHoras(s.horas) : ""}
-                  </span>
-                  <div className="flex w-full flex-1 items-end">
-                    <div
-                      className="lh-barra-v w-full rounded-t-lg bg-gradient-to-t from-indigo-600 to-indigo-400"
-                      style={{ height: `${(s.horas / maxSemana) * 100}%` }}
-                      title={`Semana del ${s.etiqueta}: ${fmtHoras(s.horas)}`}
-                    />
+            <div>
+              <div
+                role="img"
+                aria-label={`Horas de trabajo por semana: ${semanasTrabajo
+                  .map((s, i) => `semana del ${s.etiqueta}, ${fmtHoras(s.horas)}${i === semanasTrabajo.length - 1 ? " (en curso)" : ""}`)
+                  .join("; ")}. Media de las semanas terminadas: ${fmtHoras(mediaSemanal)}.`}
+                className="relative h-40"
+              >
+                {/*
+                  La media de las semanas TERMINADAS, como línea de referencia.
+
+                  Sin ella, ocho barras solo dicen cuál es más alta que cuál. Con
+                  ella cada semana dice algo por sí sola: por encima o por debajo
+                  de lo normal en ti. Es la diferencia entre un adorno y un dato.
+                */}
+                {mediaSemanal > 0 && (
+                  <div
+                    className="pointer-events-none absolute inset-x-0 z-10 border-t border-dashed border-slate-600"
+                    style={{ bottom: `${(mediaSemanal / maxSemana) * ALTO_BARRA}%` }}
+                  >
+                    <span className="absolute -top-2.5 right-0 rounded bg-slate-900 px-1 text-3xs text-slate-500">
+                      media {fmtHoras(mediaSemanal)}
+                    </span>
                   </div>
-                  <span className="text-3xs text-slate-400 sm:text-xs">{s.etiqueta}</span>
+                )}
+
+                <div className="absolute inset-0 flex items-end justify-between gap-1.5 sm:gap-2">
+                  {semanasTrabajo.map((s, i) => {
+                    const enCurso = i === semanasTrabajo.length - 1;
+                    const alto = (s.horas / maxSemana) * ALTO_BARRA;
+                    return (
+                      <div key={s.desde} className="relative h-full flex-1">
+                        <div
+                          className={`lh-barra-v absolute inset-x-0 bottom-0 rounded-t-lg ${
+                            enCurso
+                              ? "bg-gradient-to-t from-indigo-600/35 to-indigo-400/35 ring-1 ring-inset ring-indigo-400/50"
+                              : "bg-gradient-to-t from-indigo-600 to-indigo-400"
+                          }`}
+                          style={{ height: `${alto}%` }}
+                          title={`Semana del ${s.etiqueta}: ${fmtHoras(s.horas)}${enCurso ? " (aún en curso)" : ""}`}
+                        />
+                        <span
+                          className={`absolute inset-x-0 text-center text-3xs font-medium tabular-nums ${
+                            enCurso ? "text-indigo-300" : "text-slate-400"
+                          }`}
+                          style={{ bottom: `calc(${alto}% + 0.375rem)` }}
+                        >
+                          {s.horas ? fmtHoras(s.horas) : ""}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
-              ))}
+              </div>
+
+              <div className="mt-2 flex justify-between gap-1.5 sm:gap-2">
+                {semanasTrabajo.map((s, i) => (
+                  <span key={s.desde} className="flex-1 text-center text-3xs text-slate-500">
+                    {i === semanasTrabajo.length - 1 ? "en curso" : s.etiqueta}
+                  </span>
+                ))}
+              </div>
             </div>
           )}
         </Card>

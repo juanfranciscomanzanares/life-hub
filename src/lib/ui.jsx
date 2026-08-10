@@ -34,18 +34,64 @@ export function Card({ children, className = "", padding = "p-5", ...resto }) {
 }
 
 /*
+  Ficha de métrica: las cifras grandes de la parte de arriba de una sección.
+
+  Estaba maquetada a mano y distinta en cada sitio (Inicio con el icono al lado
+  del número, Salud con otro tamaño de icono), así que dos pantallas que
+  enseñaban lo mismo no se parecían.
+
+  La composición no es la obvia, y es a propósito:
+
+  - LA ETIQUETA VA ARRIBA, en versalitas pequeñas y con el interletrado
+    abierto. Con la etiqueta debajo del número, la vista tiene que leer la
+    cifra, bajar y volver para saber de qué era. Arriba se lee "PARA HOY → 2",
+    que es el orden en el que se pregunta.
+  - EL NÚMERO MANDA, en la tipografía de display y a 3xl. Es el único dato de
+    la tarjeta que importa a un metro de distancia.
+  - EL ICONO SE APARTA a una esquina y se hace pequeño. Antes competía en peso
+    con la cifra estando al lado; aquí solo sirve para reconocer la tarjeta de
+    un vistazo, que es todo lo que se le pide.
+
+  `tabular-nums` para que al cambiar de 9 a 10 no bailen las columnas.
+*/
+export function Metrica({ icono: Icono, etiqueta, valor, detalle = null, color = "bg-indigo-500/15 text-indigo-400" }) {
+  return (
+    <Card>
+      <div className="mb-3 flex items-start justify-between gap-2">
+        <p className="text-2xs font-semibold uppercase tracking-[0.08em] text-slate-500">{etiqueta}</p>
+        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${color}`}>
+          {Icono ? <Icono size={16} aria-hidden="true" /> : null}
+        </div>
+      </div>
+      <p className="font-display text-3xl font-bold tabular-nums leading-none text-slate-100">{valor}</p>
+      {detalle && <p className="mt-1.5 text-xs text-slate-500">{detalle}</p>}
+    </Card>
+  );
+}
+
+/*
   El icono va con el color de la SECCIÓN (`seccion-*`), no con el acento global:
   es lo que hace que cada área se reconozca de un vistazo. Los tonos salen de
   `data-seccion`, que pone el shell (ver src/index.css).
 */
 export function SectionTitle({ icon: Icon, title, subtitle }) {
   return (
-    <div className="mb-6 flex items-center gap-3">
-      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-seccion-500/15 text-seccion-400 ring-1 ring-inset ring-seccion-500/25">
-        {Icon ? <Icon size={22} /> : null}
+    /*
+      El título crece a 3xl en escritorio y baja a 2xl en el móvil. Antes era
+      2xl siempre: en una pantalla grande se quedaba del mismo tamaño que los
+      encabezados de las tarjetas de debajo, y la jerarquía se aplanaba justo
+      donde había sitio de sobra para marcarla.
+
+      `-tracking-[0.01em]` es cosa de la tipografía de display: Space Grotesk
+      viene bastante suelta y a tamaños grandes se abre demasiado. Apretarla un
+      pelo es lo que hace que un titular parezca compuesto y no escrito.
+    */
+    <div className="mb-6 flex items-center gap-3.5">
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-seccion-500/15 text-seccion-400 ring-1 ring-inset ring-seccion-500/25 sm:h-12 sm:w-12">
+        {Icon ? <Icon size={22} aria-hidden="true" /> : null}
       </div>
-      <div>
-        <h1 className="font-display text-2xl font-bold tracking-tight text-slate-100">{title}</h1>
+      <div className="min-w-0">
+        <h1 className="font-display text-2xl font-bold -tracking-[0.01em] text-slate-100 sm:text-3xl">{title}</h1>
         {subtitle && <p className="text-sm text-slate-400">{subtitle}</p>}
       </div>
     </div>

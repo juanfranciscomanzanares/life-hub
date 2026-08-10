@@ -2,7 +2,7 @@ import { useState } from "react";
 import { HeartPulse, Plus, Trash2, Moon, Footprints, Droplet, Scale, Watch } from "lucide-react";
 import { usePersisted } from "../lib/store";
 import { removeWithUndo } from "../lib/toast";
-import { Card, SectionTitle, todayISO } from "../lib/ui";
+import { Card, SectionTitle, Metrica, todayISO } from "../lib/ui";
 
 import { nuevoId } from "../lib/id";
 import { ajustesIniciales } from "../lib/perfiles";
@@ -56,11 +56,16 @@ export default function Salud({ perfilApp = null }) {
   const inputCls =
     "rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none";
 
+  /*
+    La media de 7 días iba metida en la etiqueta ("Sueño (media 7d)"). Con la
+    ficha nueva la etiqueta va en versalitas y arriba, y un paréntesis ahí se
+    lee fatal: el matiz baja a `detalle`, que es su sitio.
+  */
   const kpis = [
-    { label: "Peso", value: last.peso ? `${last.peso} kg` : "—", icon: Scale, color: "text-indigo-400 bg-indigo-500/15" },
-    { label: "Sueño (media 7d)", value: `${avg("sueno")} h`, icon: Moon, color: "text-sky-400 bg-sky-500/15" },
-    { label: "Pasos (media 7d)", value: avg("pasos").toLocaleString("es-ES"), icon: Footprints, color: "text-emerald-400 bg-emerald-500/15" },
-    { label: "FC reposo", value: last.fc ? `${last.fc} ppm` : "—", icon: HeartPulse, color: "text-rose-400 bg-rose-500/15" },
+    { label: "Peso", value: last.peso ? `${last.peso} kg` : "—", detalle: "última medida", icon: Scale, color: "text-indigo-400 bg-indigo-500/15" },
+    { label: "Sueño", value: `${avg("sueno")} h`, detalle: "media de 7 días", icon: Moon, color: "text-sky-400 bg-sky-500/15" },
+    { label: "Pasos", value: avg("pasos").toLocaleString("es-ES"), detalle: "media de 7 días", icon: Footprints, color: "text-emerald-400 bg-emerald-500/15" },
+    { label: "FC reposo", value: last.fc ? `${last.fc} ppm` : "—", detalle: "última medida", icon: HeartPulse, color: "text-rose-400 bg-rose-500/15" },
   ];
 
   return (
@@ -76,20 +81,11 @@ export default function Salud({ perfilApp = null }) {
         </p>
       </div>
 
-      {/* KPIs */}
+      {/* KPIs. Misma ficha que Inicio: ver `Metrica` en src/lib/ui.jsx. */}
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {kpis.map((k) => {
-          const Icon = k.icon;
-          return (
-            <Card key={k.label} className="flex items-center gap-3">
-              <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${k.color}`}><Icon size={20} /></div>
-              <div>
-                <p className="text-xl font-bold text-slate-100">{k.value}</p>
-                <p className="text-xs text-slate-400">{k.label}</p>
-              </div>
-            </Card>
-          );
-        })}
+        {kpis.map((k) => (
+          <Metrica key={k.label} icono={k.icon} etiqueta={k.label} valor={k.value} detalle={k.detalle} color={k.color} />
+        ))}
       </div>
 
       {/* IMC, objetivo e hidratación */}
