@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Plus, X } from "lucide-react";
 import { usePersisted } from "./lib/store";
 import { todayISO } from "./lib/ui";
@@ -7,10 +7,46 @@ import { useDialogo } from "./lib/useDialogo";
 
 const TIPOS = ["Gasto", "Gym", "Tarea", "Peso"];
 
+/*
+  Cuánto hay que desplazarse para que el botón reaccione.
+
+  Sin umbral, el temblor del dedo al leer ya lo hacía aparecer y desaparecer.
+  24px es más que ese ruido y menos que un gesto de scroll de verdad.
+*/
+const UMBRAL_SCROLL = 24;
+
 export default function QuickAdd() {
   const [open, setOpen] = useState(false);
   const [tipo, setTipo] = useState("Gasto");
   const [v, setV] = useState({});
+
+  // Se aparta al bajar y vuelve al subir (ver el comentario del botón).
+  const [oculto, setOculto] = useState(false);
+  const ultimoY = useRef(0);
+
+  useEffect(() => {
+    ultimoY.current = window.scrollY;
+
+    const alDesplazar = () => {
+      const y = window.scrollY;
+      const dy = y - ultimoY.current;
+      if (Math.abs(dy) < UMBRAL_SCROLL) return;
+      ultimoY.current = y;
+      // Arriba del todo siempre visible: ahí no tapa nada y es donde se empieza.
+      setOculto(dy > 0 && y > 120);
+    };
+
+    // `passive`: le dice al navegador que no vamos a bloquear el gesto, y así
+    // el desplazamiento no espera a este manejador para pintar.
+    window.addEventListener("scroll", alDesplazar, { passive: true });
+    return () => window.removeEventListener("scroll", alDesplazar);
+  }, []);
+
+  // Con el diálogo abierto el botón no debe estar escondido: al cerrarlo, el
+  // foco vuelve a él y tiene que estar donde el usuario lo dejó.
+  useEffect(() => {
+    if (open) setOculto(false);
+  }, [open]);
 
   const [finance, setFinance] = usePersisted("lh_finance", []);
   const [gym, setGym] = usePersisted("lh_gym", []);
@@ -54,15 +90,33 @@ export default function QuickAdd() {
 
   return (
     <>
+      {/*
+        Se aparta al bajar y vuelve al subir.
+
+        Es un botón flotante de 56px anclado a la esquina, así que siempre tapa
+        un trozo de lo que hay debajo; en el móvil llegaba a ocultar una cifra
+        entera de las tarjetas. Pero esconderlo del todo tampoco vale: es el
+        atajo para apuntar algo al vuelo y tiene que estar a mano.
+
+        El compromiso es el de las apps de mensajería: si estás BAJANDO, estás
+        leyendo, así que se quita de en medio; en cuanto subes un poco —que es
+        el gesto de quien busca algo o va a actuar— vuelve. Se desplaza en vez
+        de desaparecer, para que no dé el respingo de aparecer de la nada.
+
+        `translate-y` y no `display`: se anima en la GPU y el botón nunca deja
+        de existir para un lector de pantalla ni para el tabulador.
+      */}
       <button
         onClick={() => setOpen(true)}
         aria-label="Añadido rápido"
         aria-haspopup="dialog"
         aria-expanded={open}
         // En movil sube para no quedar debajo de la barra inferior de navegacion.
-        className="fixed bottom-20 right-4 z-40 lg:bottom-6 lg:right-6 flex h-14 w-14 items-center justify-center rounded-full bg-indigo-500 text-white shadow-xl transition hover:bg-indigo-400"
+        className={`fixed bottom-20 right-4 z-40 lg:bottom-6 lg:right-6 flex h-14 w-14 items-center justify-center rounded-full bg-indigo-500 text-white shadow-xl transition duration-300 hover:bg-indigo-400 ${
+          oculto ? "pointer-events-none translate-y-24 opacity-0 lg:translate-y-0 lg:opacity-100 lg:pointer-events-auto" : ""
+        }`}
       >
-        <Plus size={26} />
+        <Plus size={26} aria-hidden="true" />
       </button>
 
       {open && (

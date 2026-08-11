@@ -282,13 +282,22 @@ body,
   su origen. Si algún día vuelve a aparecer scroll lateral, hay algo nuevo
   desbordando y hay que buscarlo, no subir más el recorte.
 */
+/*
+  Las dos declaraciones van en este orden a propósito: es la técnica clásica de
+  respaldo en CSS. Un navegador que no entienda `clip` descarta esa línea y se
+  queda con `hidden`, que recorta igual aunque tenga el efecto secundario del
+  contenedor de desplazamiento. `clip` llegó en Safari 16, así que un iPhone sin
+  actualizar cae en `hidden` en vez de quedarse sin recorte ninguno.
+*/
 html {
+  overflow-x: hidden;
   overflow-x: clip;
 }
 body {
   margin: 0;
   background: rgb(var(--lh-fondo));
   text-wrap: pretty;
+  overflow-x: hidden;
   overflow-x: clip;
   /* Sin rebote horizontal: en iOS el arrastre lateral daba goma aunque no
      hubiera nada que desplazar. */

@@ -443,7 +443,17 @@ const NAV_GROUPS = [
     icon: Dumbbell,
     items: [
       { id: "gimnasio", label: "Gimnasio", icon: Dumbbell },
-      { id: "tenis", label: "Resultados deportivos", icon: Target },
+      /*
+        "Partidos" y no "Resultados deportivos". Lo segundo no dice de qué
+        deporte, entra en dos líneas en el menú del móvil y encima suena a
+        categoría general estando dentro de un grupo que YA se llama Deporte.
+        Con "Partidos" y "Entrenamientos" juntos se entiende solo: las dos son
+        de tenis de mesa y una es lo que juegas y otra lo que entrenas.
+
+        Cambiar la etiqueta no toca el id (`tenis`), así que las URLs guardadas
+        siguen funcionando. Si lo prefieres como estaba, es esta línea.
+      */
+      { id: "tenis", label: "Partidos", icon: Target },
       { id: "tenis-notas", label: "Entrenamientos", icon: Target },
       { id: "salud", label: "Salud", icon: HeartPulse },
     ],
