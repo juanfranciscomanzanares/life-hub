@@ -142,9 +142,10 @@ function Habitos() {
               })}
               <button
                 onClick={() => setHabits(habits.filter((x) => x.id !== h.id))}
+                aria-label={`Borrar el hábito ${h.name}`}
                 className="ml-1 flex h-9 w-9 items-center justify-center text-slate-500 transition hover:text-rose-400"
               >
-                <Trash2 size={15} />
+                <Trash2 size={15} aria-hidden="true" />
               </button>
             </div>
           </div>

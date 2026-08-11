@@ -314,12 +314,12 @@ export default function Calendario() {
           <Repeat size={18} className="text-indigo-400" /> Rutina semanal fija
         </h2>
         <div className="mb-4 flex flex-wrap items-end gap-2">
-          <select value={rForm.dia} onChange={(e) => setRForm({ ...rForm, dia: e.target.value })} className={inputCls}>
+          <select aria-label="Día de la semana" value={rForm.dia} onChange={(e) => setRForm({ ...rForm, dia: e.target.value })} className={inputCls}>
             {WEEKDAYS_FULL.map((d, i) => <option key={i} value={i}>{d}</option>)}
           </select>
-          <input type="time" value={rForm.hora} onChange={(e) => setRForm({ ...rForm, hora: e.target.value })} className={inputCls} />
+          <input type="time" aria-label="Hora de la rutina" value={rForm.hora} onChange={(e) => setRForm({ ...rForm, hora: e.target.value })} className={inputCls} />
           <input placeholder="Actividad (Gym piernas, clases...)" value={rForm.titulo} onChange={(e) => setRForm({ ...rForm, titulo: e.target.value })} className={`flex-1 ${inputCls}`} />
-          <select value={rForm.tipo} onChange={(e) => setRForm({ ...rForm, tipo: e.target.value })} className={inputCls}>
+          <select aria-label="Tipo de rutina" value={rForm.tipo} onChange={(e) => setRForm({ ...rForm, tipo: e.target.value })} className={inputCls}>
             {ROUTINE_TYPES.map((t) => <option key={t}>{t}</option>)}
           </select>
           <button onClick={addRoutine} className="flex items-center gap-1 rounded-lg bg-indigo-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-400"><Plus size={15} /> Añadir</button>
@@ -365,7 +365,7 @@ export default function Calendario() {
       {/* Evento puntual */}
       <Card className="mb-4">
         <div className="flex flex-wrap items-end gap-2">
-          <input type="date" value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} className={inputCls} />
+          <input type="date" aria-label="Fecha del evento" value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} className={inputCls} />
           <input placeholder="Evento puntual (examen, cita, viaje...)" value={form.titulo} onChange={(e) => setForm({ ...form, titulo: e.target.value })} className={`flex-1 ${inputCls}`} />
           <button onClick={addEvent} className="flex items-center gap-1 rounded-lg bg-fuchsia-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-fuchsia-400"><Plus size={15} /> Añadir</button>
         </div>
@@ -412,9 +412,11 @@ export default function Calendario() {
       {/* Calendario mensual */}
       <Card>
         <div className="mb-4 flex items-center justify-between">
-          <button onClick={prev} className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700"><ChevronLeft size={18} /></button>
+          {/* Los dos únicos controles para moverse por el calendario, y un
+              lector de pantalla los anunciaba solo como "botón". */}
+          <button onClick={prev} aria-label="Mes anterior" className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700"><ChevronLeft size={18} aria-hidden="true" /></button>
           <h2 className="text-lg font-semibold text-slate-100">{MONTHS[month]} {year}</h2>
-          <button onClick={next} className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700"><ChevronRight size={18} /></button>
+          <button onClick={next} aria-label="Mes siguiente" className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700"><ChevronRight size={18} aria-hidden="true" /></button>
         </div>
 
         <div className="grid grid-cols-7 gap-1.5">
@@ -475,7 +477,7 @@ export default function Calendario() {
             {events.slice().sort((a, b) => a.fecha.localeCompare(b.fecha)).map((e) => (
               <li key={e.id} className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-800/40 px-3 py-2 text-sm">
                 <span className="text-slate-200"><span className="text-slate-500">{e.fecha}</span> · {e.titulo}</span>
-                <button onClick={() => removeWithUndo(events, setEvents, e.id, "Evento")} className="text-slate-500 hover:text-rose-400"><Trash2 size={15} /></button>
+                <button onClick={() => removeWithUndo(events, setEvents, e.id, "Evento")} aria-label={`Borrar ${e.titulo}`} className="text-slate-500 hover:text-rose-400"><Trash2 size={15} aria-hidden="true" /></button>
               </li>
             ))}
           </ul>

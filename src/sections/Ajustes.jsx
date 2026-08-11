@@ -40,20 +40,28 @@ export default function Ajustes({ perfil = PERFILES[PERFIL_POR_DEFECTO], origenP
             app" y, navegando por encabezados, dos "Perfil" seguidos no se
             distinguen. */}
         <h2 className="mb-4 text-lg font-semibold text-slate-100">Tus datos</h2>
+        {/*
+          `htmlFor` + `id` en cada campo, y no solo el <label> suelto de antes.
+
+          Un <label> sin `htmlFor` es texto decorativo: se VE al lado del campo
+          pero no está unido a él, así que un lector de pantalla anunciaba
+          "edición, en blanco" sin decir de qué. Es el fallo más repetido del
+          proyecto y aquí se arregla en las tres pantallas que más se tocan.
+        */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div>
-            <label className="mb-1 block text-xs text-slate-400">Tu nombre</label>
-            <input value={aj.nombre} onChange={(e) => set("nombre", e.target.value)} className={inputCls} />
+            <label htmlFor="aj-nombre" className="mb-1 block text-xs text-slate-400">Tu nombre</label>
+            <input id="aj-nombre" value={aj.nombre} onChange={(e) => set("nombre", e.target.value)} className={inputCls} />
             <p className="mt-1 text-3xs text-slate-500">Se usa en el saludo de Inicio.</p>
           </div>
           <div>
-            <label className="mb-1 block text-xs text-slate-400">Meta de agua (L/día)</label>
-            <input type="number" step="0.1" value={aj.metaAgua} onChange={(e) => set("metaAgua", Number(e.target.value) || 0)} className={inputCls} />
+            <label htmlFor="aj-agua" className="mb-1 block text-xs text-slate-400">Meta de agua (L/día)</label>
+            <input id="aj-agua" type="number" step="0.1" value={aj.metaAgua} onChange={(e) => set("metaAgua", Number(e.target.value) || 0)} className={inputCls} />
             <p className="mt-1 text-3xs text-slate-500">Se usa en el medidor de hidratación (Salud).</p>
           </div>
           <div>
-            <label className="mb-1 block text-xs text-slate-400">Meta de sueño (h/día)</label>
-            <input type="number" step="0.5" value={aj.metaSueno} onChange={(e) => set("metaSueno", Number(e.target.value) || 0)} className={inputCls} />
+            <label htmlFor="aj-sueno" className="mb-1 block text-xs text-slate-400">Meta de sueño (h/día)</label>
+            <input id="aj-sueno" type="number" step="0.5" value={aj.metaSueno} onChange={(e) => set("metaSueno", Number(e.target.value) || 0)} className={inputCls} />
           </div>
         </div>
       </Card>

@@ -352,7 +352,7 @@ function Trabajo() {
           <Briefcase size={18} className="text-indigo-400" /> Registrar tiempo
         </h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <input type="date" value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} className={inputCls} />
+          <input type="date" aria-label="Fecha de la actividad" value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} className={inputCls} />
           <input
             placeholder="Actividad"
             value={form.actividad}
@@ -540,7 +540,7 @@ function Trabajo() {
             <div key={r.id} className="rounded-xl border border-slate-800 bg-slate-800/40 p-4">
               <div className="mb-1 flex items-start justify-between gap-2">
                 <h3 className="font-semibold text-slate-100">{r.titulo}</h3>
-                <button onClick={() => removeWithUndo(runbooks, setRunbooks, r.id, "Procedimiento")} className="shrink-0 text-slate-500 transition hover:text-rose-400">
+                <button onClick={() => removeWithUndo(runbooks, setRunbooks, r.id, "Procedimiento")} aria-label={`Borrar ${r.titulo}`} className="shrink-0 text-slate-500 transition hover:text-rose-400">
                   <Trash2 size={15} />
                 </button>
               </div>

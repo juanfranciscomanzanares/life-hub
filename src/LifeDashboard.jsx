@@ -327,6 +327,7 @@ function Inicio({ perfil }) {
                   </span>
                   <button
                     onClick={() => removeWithUndo(rapidas, setRapidas, t.id, "Tarea")}
+                    aria-label={`Borrar ${t.text}`}
                     className="text-slate-500 transition hover:text-rose-400"
                   >
                     <Trash2 size={15} />
@@ -434,6 +435,43 @@ function Inicio({ perfil }) {
   el resto cuelga de un grupo temático. NAV (plano) se deriva de aquí y es lo
   que consume la paleta de comandos.
 */
+/*
+  Una entrada del menú del móvil.
+
+  Va en su propio componente porque se pinta en dos sitios —las entradas
+  sueltas de arriba y las de cada grupo— y estaba copiada en los dos.
+
+  `data-seccion` en el propio botón es lo que hace que ahí dentro se resuelvan
+  las variables --c-seccion-* de esa área (ver index.css), así que el icono de
+  Universidad sale cian, el de Dinero verde y el de Gimnasio acero. Era una
+  capa de color que ya existía, medida y con su versión para tema claro, y que
+  hasta ahora solo pintaba el iconito del título de sección.
+
+  El nombre se parte en dos líneas si hace falta y no se recorta: unos puntos
+  suspensivos en un menú son justo lo que no quieres cuando buscas dónde ir.
+  Los botones de una misma fila se estiran solos a la altura del más alto.
+*/
+function EntradaMenu({ item, activo, onIr }) {
+  const Icono = item.icon;
+  return (
+    <button
+      data-seccion={item.id}
+      onClick={() => onIr(item.id)}
+      aria-current={activo ? "page" : undefined}
+      className={`flex items-center gap-2.5 rounded-xl border px-2.5 py-2.5 text-left transition ${
+        activo ? "border-seccion-500/50 bg-seccion-500/10" : "border-slate-800 bg-slate-900/50 hover:border-slate-700"
+      }`}
+    >
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-seccion-500/15 text-seccion-400">
+        <Icono size={16} aria-hidden="true" />
+      </span>
+      <span className={`min-w-0 flex-1 text-sm font-medium leading-tight ${activo ? "text-slate-100" : "text-slate-300"}`}>
+        {item.label}
+      </span>
+    </button>
+  );
+}
+
 const NAV_GROUPS = [
   { id: "inicio", label: "Inicio", icon: Home },
   { id: "universidad", label: "Universidad", icon: GraduationCap },
@@ -751,13 +789,28 @@ export default function LifeDashboard({ userEmail = null, onSignOut = null }) {
         */}
         {mobileOpen && (
           <nav id="menu-movil" aria-label="Todas las secciones" className="mobile-panel lh-panel-movil overflow-y-auto border-t border-slate-800 bg-slate-950/95 px-4 backdrop-blur lg:hidden">
-            {navGrupos.map((g) => {
-              const items = g.items || [g];
+            {/*
+              Las entradas SUELTAS (Inicio, Universidad, Trabajo) van juntas en
+              una sola rejilla, no una por bloque.
+
+              Antes cada una era su propio grupo, así que caía sola en una
+              rejilla de dos columnas y ocupaba media fila con un hueco al lado.
+              Con las entradas sin recuadro apenas se notaba; en cuanto tienen
+              superficie propia, tres medias tarjetas sueltas se ven como un
+              error de maquetación.
+            */}
+            {navGrupos.some((g) => !g.items) && (
+              <div className="grid grid-cols-2 gap-2 pt-4">
+                {navGrupos.filter((g) => !g.items).map((item) => (
+                  <EntradaMenu key={item.id} item={item} activo={active === item.id} onIr={navigate} />
+                ))}
+              </div>
+            )}
+            {navGrupos.filter((g) => g.items).map((g) => {
+              const items = g.items;
               return (
                 <div key={g.label} className="pt-4">
-                  {g.items && (
-                    <p className="mb-1.5 px-1 text-2xs font-semibold uppercase tracking-wider text-slate-500">{g.label}</p>
-                  )}
+                  <p className="mb-1.5 px-1 text-2xs font-semibold uppercase tracking-wider text-slate-500">{g.label}</p>
                   {/*
                     Cada entrada, con el COLOR DE SU SECCIÓN.
 
@@ -775,42 +828,9 @@ export default function LifeDashboard({ userEmail = null, onSignOut = null }) {
                     una lista, no un menú.
                   */}
                   <div className="grid grid-cols-2 gap-2">
-                    {items.map((item) => {
-                      const ItemIcon = item.icon;
-                      const isActive = active === item.id;
-                      return (
-                        <button
-                          key={item.id}
-                          data-seccion={item.id}
-                          onClick={() => navigate(item.id)}
-                          aria-current={isActive ? "page" : undefined}
-                          className={`flex items-center gap-2.5 rounded-xl border px-2.5 py-2.5 text-left transition ${
-                            isActive
-                              ? "border-seccion-500/50 bg-seccion-500/10"
-                              : "border-slate-800 bg-slate-900/50 hover:border-slate-700"
-                          }`}
-                        >
-                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-seccion-500/15 text-seccion-400">
-                            <ItemIcon size={16} aria-hidden="true" />
-                          </span>
-                          {/*
-                            El nombre se parte en dos líneas si hace falta y no
-                            se recorta: "Resultados deportivos" no cabe de una
-                            en media pantalla de móvil, y unos puntos
-                            suspensivos en un menú son justo lo que no quieres
-                            cuando buscas dónde ir. Los botones de una misma
-                            fila se estiran solos a la altura del más alto.
-                          */}
-                          <span
-                            className={`min-w-0 flex-1 text-sm font-medium leading-tight ${
-                              isActive ? "text-slate-100" : "text-slate-300"
-                            }`}
-                          >
-                            {item.label}
-                          </span>
-                        </button>
-                      );
-                    })}
+                    {items.map((item) => (
+                      <EntradaMenu key={item.id} item={item} activo={active === item.id} onIr={navigate} />
+                    ))}
                   </div>
                 </div>
               );
@@ -898,7 +918,10 @@ export default function LifeDashboard({ userEmail = null, onSignOut = null }) {
       <Saludo texto={perfil.saludo} />
 
       <CommandPalette open={paletteOpen} setOpen={setPaletteOpen} sections={navPlano} onNavigate={navigate} />
-      <QuickAdd />
+      {/* Con el menú del móvil abierto, el botón + se aparta: flota por encima
+          del panel (z-40 contra z-30 de la cabecera) y se quedaba plantado
+          sobre las últimas entradas, tapándolas. */}
+      <QuickAdd tapado={mobileOpen} />
       <Onboarding />
       <ToastHost />
     </div>

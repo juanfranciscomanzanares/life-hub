@@ -323,9 +323,9 @@ export default function Datos() {
         </div>
 
         <div className="mb-4 flex flex-wrap items-end gap-2">
-          <input type="datetime-local" value={form.cuando} onChange={(e) => setForm({ ...form, cuando: e.target.value })} className={inputCls} />
+          <input type="datetime-local" aria-label="Cuándo avisar" value={form.cuando} onChange={(e) => setForm({ ...form, cuando: e.target.value })} className={inputCls} />
           <input placeholder="Recordatorio (entregar práctica, aportar al fondo...)" value={form.titulo} onChange={(e) => setForm({ ...form, titulo: e.target.value })} className={`flex-1 ${inputCls}`} />
-          <select value={form.repetir} onChange={(e) => setForm({ ...form, repetir: e.target.value })} className={inputCls}>
+          <select aria-label="Cada cuánto se repite" value={form.repetir} onChange={(e) => setForm({ ...form, repetir: e.target.value })} className={inputCls}>
             <option value="una vez">Una vez</option>
             <option value="diario">Cada día</option>
             <option value="semanal">Cada semana</option>
@@ -346,7 +346,7 @@ export default function Datos() {
                   <span className="text-slate-500">{r.cuando.replace("T", " ")}</span> · {r.titulo}
                   {r.avisado && <span className="ml-2 text-3xs text-emerald-400">avisado</span>}
                 </span>
-                <button onClick={() => setReminders(reminders.filter((x) => x.id !== r.id))} className="text-slate-500 hover:text-rose-400">
+                <button onClick={() => setReminders(reminders.filter((x) => x.id !== r.id))} aria-label={`Borrar el recordatorio ${r.titulo}`} className="text-slate-500 hover:text-rose-400">
                   <Trash2 size={15} />
                 </button>
               </li>
@@ -448,7 +448,7 @@ export default function Datos() {
           <FileText size={18} className="text-amber-400" /> Informe mensual (PDF)
         </h2>
         <div className="flex flex-wrap items-end gap-3">
-          <input type="month" value={mes} onChange={(e) => setMes(e.target.value)} className={inputCls} />
+          <input type="month" aria-label="Mes del informe" value={mes} onChange={(e) => setMes(e.target.value)} className={inputCls} />
           <button onClick={informe} className="flex items-center gap-2 rounded-lg bg-indigo-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-400">
             <FileText size={16} /> Generar informe
           </button>

@@ -181,7 +181,7 @@ export default function Inversiones() {
           <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100"><PiggyBank size={18} className="text-fuchsia-400" /> Aportación de este mes</h2>
           <div className="flex items-center gap-2 text-sm text-slate-400">
             <span>Objetivo mensual:</span>
-            <input type="number" value={goal} onChange={(e) => setGoal(Number(e.target.value) || 0)} className={`w-20 ${inputCls}`} />
+            <input type="number" aria-label="Objetivo mensual de inversión en euros" value={goal} onChange={(e) => setGoal(Number(e.target.value) || 0)} className={`w-20 ${inputCls}`} />
             <span>€</span>
           </div>
         </div>
@@ -196,7 +196,7 @@ export default function Inversiones() {
         <h2 className="mb-3 text-lg font-semibold text-slate-100">Añadir inversión</h2>
         <div className="flex flex-wrap items-end gap-3">
           <input placeholder="Nombre (p. ej. Fondo Amundi World)" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} className={`flex-1 ${inputCls}`} />
-          <select value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value })} className={inputCls}>
+          <select aria-label="Tipo de inversión" value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value })} className={inputCls}>
             {INVEST_TYPES.map((t) => <option key={t}>{t}</option>)}
           </select>
           <input type="number" placeholder="Importe inicial €" value={form.aportado} onChange={(e) => setForm({ ...form, aportado: e.target.value })} className={`w-32 ${inputCls}`} />
@@ -252,7 +252,7 @@ export default function Inversiones() {
                   <span className={`mt-1 inline-block rounded-md px-2 py-0.5 text-xs font-medium ${typeColor(h.tipo)}`}>{h.tipo}</span>
                   {h.coingeckoId && <span className="ml-2 text-xs text-slate-500">{h.cantidad} ud · {h.coingeckoId}</span>}
                 </div>
-                <button onClick={() => removeWithUndo(holdings, setHoldings, h.id, "Inversión")} className="text-slate-500 transition hover:text-rose-400"><Trash2 size={16} /></button>
+                <button onClick={() => removeWithUndo(holdings, setHoldings, h.id, "Inversión")} aria-label={`Borrar ${h.nombre}`} className="text-slate-500 transition hover:text-rose-400"><Trash2 size={16} aria-hidden="true" /></button>
               </div>
               <div className="mb-3 grid grid-cols-3 gap-2 text-sm">
                 <div>
@@ -312,7 +312,7 @@ export default function Inversiones() {
                 <td className="px-5 py-3 text-slate-400">{c.fecha}</td>
                 <td className="px-5 py-3 text-slate-200">{c.destino}</td>
                 <td className="px-5 py-3 text-right font-semibold text-emerald-400">+{fmtEuro(c.monto)}</td>
-                <td className="px-5 py-3 text-right"><button onClick={() => removeWithUndo(contribs, setContribs, c.id, "Aportación")} className="text-slate-500 transition hover:text-rose-400"><Trash2 size={15} /></button></td>
+                <td className="px-5 py-3 text-right"><button onClick={() => removeWithUndo(contribs, setContribs, c.id, "Aportación")} aria-label={`Borrar la aportación a ${c.destino} del ${c.fecha}`} className="text-slate-500 transition hover:text-rose-400"><Trash2 size={15} aria-hidden="true" /></button></td>
               </tr>
             ))}
           </tbody>

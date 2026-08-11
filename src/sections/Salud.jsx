@@ -92,13 +92,15 @@ export default function Salud({ perfilApp = null }) {
       <Card className="mb-6">
         <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-slate-100"><Scale size={18} className="text-indigo-400" /> IMC y objetivo</h2>
         <div className="mb-4 flex flex-wrap items-end gap-4">
+          {/* `htmlFor` + `id`: sin eso el <label> es solo texto al lado y el
+              campo se anuncia sin nombre. */}
           <div>
-            <label className="mb-1 block text-xs text-slate-400">Altura (cm)</label>
-            <input type="number" value={perfil.altura} onChange={(e) => setPerfil({ ...perfil, altura: Number(e.target.value) || 0 })} className="w-24 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none" />
+            <label htmlFor="salud-altura" className="mb-1 block text-xs text-slate-400">Altura (cm)</label>
+            <input id="salud-altura" type="number" value={perfil.altura} onChange={(e) => setPerfil({ ...perfil, altura: Number(e.target.value) || 0 })} className="w-24 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none" />
           </div>
           <div>
-            <label className="mb-1 block text-xs text-slate-400">Peso objetivo (kg)</label>
-            <input type="number" step="0.1" value={perfil.objetivo} onChange={(e) => setPerfil({ ...perfil, objetivo: Number(e.target.value) || 0 })} className="w-24 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none" />
+            <label htmlFor="salud-objetivo" className="mb-1 block text-xs text-slate-400">Peso objetivo (kg)</label>
+            <input id="salud-objetivo" type="number" step="0.1" value={perfil.objetivo} onChange={(e) => setPerfil({ ...perfil, objetivo: Number(e.target.value) || 0 })} className="w-24 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none" />
           </div>
           {(() => {
             const imc = last.peso && perfil.altura ? last.peso / Math.pow(perfil.altura / 100, 2) : 0;
@@ -159,7 +161,7 @@ export default function Salud({ perfilApp = null }) {
       <Card className="mb-4">
         <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-slate-100"><Droplet size={18} className="text-sky-400" /> Registrar día</h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-6">
-          <input type="date" value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} className={inputCls} />
+          <input type="date" aria-label="Fecha del registro" value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} className={inputCls} />
           <input type="number" step="0.1" placeholder="Peso kg" value={form.peso} onChange={(e) => setForm({ ...form, peso: e.target.value })} className={inputCls} />
           <input type="number" step="0.1" placeholder="Sueño h" value={form.sueno} onChange={(e) => setForm({ ...form, sueno: e.target.value })} className={inputCls} />
           <input type="number" placeholder="Pasos" value={form.pasos} onChange={(e) => setForm({ ...form, pasos: e.target.value })} className={inputCls} />
@@ -194,7 +196,7 @@ export default function Salud({ perfilApp = null }) {
                 <td className="px-5 py-3 text-slate-300">{r.pasos ? r.pasos.toLocaleString("es-ES") : "—"}</td>
                 <td className="px-5 py-3 text-slate-300">{r.fc || "—"}</td>
                 <td className="px-5 py-3 text-slate-300">{r.agua || "—"}{r.agua ? " L" : ""}</td>
-                <td className="px-5 py-3 text-right"><button onClick={() => removeWithUndo(log, setLog, r.id, "Registro")} className="text-slate-500 transition hover:text-rose-400"><Trash2 size={15} /></button></td>
+                <td className="px-5 py-3 text-right"><button onClick={() => removeWithUndo(log, setLog, r.id, "Registro")} aria-label={`Borrar el registro del ${r.fecha}`} className="text-slate-500 transition hover:text-rose-400"><Trash2 size={15} aria-hidden="true" /></button></td>
               </tr>
             ))}
           </tbody>

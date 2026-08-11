@@ -15,7 +15,9 @@ const TIPOS = ["Gasto", "Gym", "Tarea", "Peso"];
 */
 const UMBRAL_SCROLL = 24;
 
-export default function QuickAdd() {
+/* `tapado`: quien nos monta puede pedir que el botón se aparte porque hay algo
+   suyo por debajo que no debe quedar cubierto (el menú del móvil). */
+export default function QuickAdd({ tapado = false }) {
   const [open, setOpen] = useState(false);
   const [tipo, setTipo] = useState("Gasto");
   const [v, setV] = useState({});
@@ -113,7 +115,11 @@ export default function QuickAdd() {
         aria-expanded={open}
         // En movil sube para no quedar debajo de la barra inferior de navegacion.
         className={`fixed bottom-20 right-4 z-40 lg:bottom-6 lg:right-6 flex h-14 w-14 items-center justify-center rounded-full bg-indigo-500 text-white shadow-xl transition duration-300 hover:bg-indigo-400 ${
-          oculto ? "pointer-events-none translate-y-24 opacity-0 lg:translate-y-0 lg:opacity-100 lg:pointer-events-auto" : ""
+          tapado
+            ? "pointer-events-none translate-y-24 opacity-0"
+            : oculto
+              ? "pointer-events-none translate-y-24 opacity-0 lg:translate-y-0 lg:opacity-100 lg:pointer-events-auto"
+              : ""
         }`}
       >
         <Plus size={26} aria-hidden="true" />

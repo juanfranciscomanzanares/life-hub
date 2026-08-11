@@ -261,9 +261,9 @@ function Finanzas() {
                   <div className="mb-1 flex items-center justify-between text-sm">
                     <span className="text-slate-300">{sv.label}</span>
                     <div className="flex items-center gap-1.5 text-xs text-slate-400">
-                      <input type="number" value={sv.current} onChange={(e) => setSavings(savings.map((x) => (x.id === sv.id ? { ...x, current: Number(e.target.value) || 0 } : x)))} className="w-16 rounded border border-slate-700 bg-slate-800 px-1 py-0.5 text-right text-slate-100 focus:outline-none" />
+                      <input type="number" value={sv.current} onChange={(e) => setSavings(savings.map((x) => (x.id === sv.id ? { ...x, current: Number(e.target.value) || 0 } : x)))} aria-label={`Ahorrado en ${sv.label}`} className="w-16 rounded border border-slate-700 bg-slate-800 px-1 py-0.5 text-right text-slate-100 focus:outline-none" />
                       / {sv.target}€
-                      <button onClick={() => removeWithUndo(savings, setSavings, sv.id, "Objetivo")} className="text-slate-500 hover:text-rose-400"><Trash2 size={13} /></button>
+                      <button onClick={() => removeWithUndo(savings, setSavings, sv.id, "Objetivo")} aria-label={`Borrar el objetivo ${sv.label}`} className="text-slate-500 hover:text-rose-400"><Trash2 size={13} aria-hidden="true" /></button>
                     </div>
                   </div>
                   <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-800"><div className="lh-barra h-full rounded-full bg-gradient-to-r from-fuchsia-500 to-indigo-500" style={{ width: `${pct}%` }} /></div>
@@ -441,6 +441,7 @@ function Finanzas() {
           />
           {tipo === "gasto" && (
             <select
+              aria-label="Categoría del gasto"
               value={form.categoria}
               onChange={(e) => setForm({ ...form, categoria: e.target.value })}
               className={inputCls}
@@ -565,10 +566,20 @@ function Finanzas() {
             )}
             {rowsFin.map((r) => (
               <tr key={r.id} className="border-b border-slate-800/60 transition hover:bg-slate-800/40">
-                <td className="px-3 py-2 text-slate-400"><input type="date" value={r.fecha} onChange={(e) => updateFin(r.id, "fecha", e.target.value)} className="w-32 rounded bg-transparent px-1 py-1 hover:bg-slate-800 focus:bg-slate-800 focus:outline-none" /></td>
-                <td className="px-3 py-2 font-medium text-slate-100"><input value={r.concepto} onChange={(e) => updateFin(r.id, "concepto", e.target.value)} className="w-40 rounded bg-transparent px-1 py-1 hover:bg-slate-800 focus:bg-slate-800 focus:outline-none" /></td>
+                {/*
+                  Esta tabla se edita en el sitio, así que cada celda es un
+                  campo de formulario. Sin nombre, un lector de pantalla
+                  recorría la fila diciendo "edición, edición, lista" sin decir
+                  nunca de qué movimiento ni de qué columna.
+
+                  El nombre lleva el CONCEPTO del movimiento, no solo la
+                  columna: en una tabla de veinte filas, veinte campos llamados
+                  "Fecha" no te sitúan en ninguna.
+                */}
+                <td className="px-3 py-2 text-slate-400"><input type="date" aria-label={`Fecha de ${r.concepto}`} value={r.fecha} onChange={(e) => updateFin(r.id, "fecha", e.target.value)} className="w-32 rounded bg-transparent px-1 py-1 hover:bg-slate-800 focus:bg-slate-800 focus:outline-none" /></td>
+                <td className="px-3 py-2 font-medium text-slate-100"><input aria-label={`Concepto: ${r.concepto}`} value={r.concepto} onChange={(e) => updateFin(r.id, "concepto", e.target.value)} className="w-40 rounded bg-transparent px-1 py-1 hover:bg-slate-800 focus:bg-slate-800 focus:outline-none" /></td>
                 <td className="px-3 py-2">
-                  <select value={r.categoria} onChange={(e) => updateFin(r.id, "categoria", e.target.value)} className="rounded bg-slate-800 px-2 py-1 text-xs text-slate-300 focus:outline-none">
+                  <select aria-label={`Categoría de ${r.concepto}`} value={r.categoria} onChange={(e) => updateFin(r.id, "categoria", e.target.value)} className="rounded bg-slate-800 px-2 py-1 text-xs text-slate-300 focus:outline-none">
                     {CATS.map((c) => <option key={c}>{c}</option>)}
                   </select>
                 </td>

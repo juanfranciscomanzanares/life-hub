@@ -114,13 +114,15 @@ export default function Metas() {
                 <div className="mb-1 flex items-center justify-between text-sm">
                   <span className="font-medium text-slate-200">{g.titulo}</span>
                   <div className="flex items-center gap-2">
-                    <button onClick={() => bump(g.id, -1)} className="flex h-6 w-6 items-center justify-center rounded bg-slate-700 text-slate-200 hover:bg-slate-600">−</button>
+                    {/* "−" y "+" a secas no dicen nada leídos en voz alta: un
+                        lector anuncia "menos, botón" sin saber de qué meta. */}
+                    <button onClick={() => bump(g.id, -1)} aria-label={`Restar uno a ${g.titulo}`} className="flex h-6 w-6 items-center justify-center rounded bg-slate-700 text-slate-200 hover:bg-slate-600">−</button>
                     <span className="w-24 text-right text-slate-400">
                       {g.actual} / {g.objetivo} {g.unidad}
                     </span>
-                    <button onClick={() => bump(g.id, 1)} className="flex h-6 w-6 items-center justify-center rounded bg-indigo-500 text-white hover:bg-indigo-400">+</button>
-                    <button onClick={() => removeWithUndo(goals, setGoals, g.id, "Objetivo")} className="text-slate-500 hover:text-rose-400">
-                      <Trash2 size={15} />
+                    <button onClick={() => bump(g.id, 1)} aria-label={`Sumar uno a ${g.titulo}`} className="flex h-6 w-6 items-center justify-center rounded bg-indigo-500 text-white hover:bg-indigo-400">+</button>
+                    <button onClick={() => removeWithUndo(goals, setGoals, g.id, "Objetivo")} aria-label={`Borrar ${g.titulo}`} className="text-slate-500 hover:text-rose-400">
+                      <Trash2 size={15} aria-hidden="true" />
                     </button>
                   </div>
                 </div>
