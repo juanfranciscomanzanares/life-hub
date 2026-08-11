@@ -263,17 +263,36 @@ body,
   Es de esas cosas que nadie ve y que hacen que un texto parezca compuesto en
   vez de volcado. Donde no está soportado no pasa nada: se ignora.
 */
+/*
+  `clip` y no `hidden`, y la diferencia importa mucho aquí.
+
+  `overflow-x: hidden` en el <body> se propaga a la ventana, pero al hacerlo la
+  convierte en un CONTENEDOR DE DESPLAZAMIENTO en los dos ejes: por
+  especificación, ocultar un eje obliga al otro a `auto`. El resultado en el
+  móvil es que el contenido queda recortado pero la ventana sigue siendo
+  arrastrable de lado, y el dedo unas veces mueve la página y otras el
+  contenedor. Eso es lo que se sentía como que "se quedaba pillado".
+
+  `clip` recorta sin crear contenedor de desplazamiento y sin tocar el otro
+  eje, que es exactamente lo que hace falta. Va en el <html> además de en el
+  <body> porque es el elemento del que la ventana toma su comportamiento.
+
+  Ojo: esto es una RED DE SEGURIDAD, no el arreglo. Lo que sobresalía era el
+  resplandor de sección (ver `.lh-seccion::before`), y eso ya está corregido en
+  su origen. Si algún día vuelve a aparecer scroll lateral, hay algo nuevo
+  desbordando y hay que buscarlo, no subir más el recorte.
+*/
+html {
+  overflow-x: clip;
+}
 body {
   margin: 0;
   background: rgb(var(--lh-fondo));
   text-wrap: pretty;
-  /*
-    El recorte horizontal va aquí y no en un contenedor interno: en el <body>
-    se propaga a la ventana, así que la página sigue teniendo un único
-    desplazamiento vertical. Puesto en un <div>, ese div se convertiría en un
-    segundo contenedor de scroll y el móvil se vuelve errático.
-  */
-  overflow-x: hidden;
+  overflow-x: clip;
+  /* Sin rebote horizontal: en iOS el arrastre lateral daba goma aunque no
+     hubiera nada que desplazar. */
+  overscroll-behavior-x: none;
 }
 
 /* En los títulos, `balance`: reparte las líneas para que queden parejas en vez
@@ -667,6 +686,22 @@ html[data-theme="light"] [data-seccion="proximos"] {
 .lh-seccion {
   position: relative;
 }
+/*
+  El 100% de ancho es importante, y antes era `120%`.
+
+  En escritorio daba igual: el `min()` se quedaba con los 60rem porque son
+  menos que el contenedor. Pero en el móvil ganaba el 120%, y como esto va
+  centrado con `left:50%` + `translateX(-50%)`, sobresalía un 10% por CADA
+  lado: unos 39px en un teléfono de 390px.
+
+  Eso era el desplazamiento lateral de la app. Se podía arrastrar la pantalla
+  a los lados y lo que aparecía era el fondo a secas, porque el degradado ya se
+  ha desvanecido en sus bordes. `z-index: -1` lo pone detrás de todo pero NO
+  evita que cuente para el ancho de la página.
+
+  Al 100% el resplandor se ve igual —se apaga mucho antes de llegar al borde—
+  y deja de empujar la página.
+*/
 .lh-seccion::before {
   content: "";
   position: absolute;
@@ -674,7 +709,7 @@ html[data-theme="light"] [data-seccion="proximos"] {
   left: 50%;
   z-index: -1;
   height: 22rem;
-  width: min(60rem, 120%);
+  width: min(60rem, 100%);
   transform: translateX(-50%);
   pointer-events: none;
   background: radial-gradient(50% 50% at 50% 0%, rgb(var(--c-seccion-500) / 0.16), transparent 70%);

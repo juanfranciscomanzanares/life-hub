@@ -587,8 +587,21 @@ export default function LifeDashboard({ userEmail = null, onSignOut = null }) {
           <button onClick={() => navigate("inicio")} aria-label="Life Hub, ir a Inicio" className="flex shrink-0 items-center gap-3">
             <Logo size={36} className="shadow-lg shadow-indigo-500/25" />
             <div className="hidden text-left sm:block">
-              <p className="font-bold leading-tight text-slate-100">Life Hub</p>
-              <p className="text-3xs leading-tight text-slate-500">Panel personal</p>
+              {/*
+                El nombre, en la tipografía de DISPLAY.
+
+                Iba en la de texto, que es justo al revés de lo que toca: los
+                títulos de sección usan Space Grotesk y la marca —lo único que
+                sale en las 18 pantallas— usaba la misma fuente que un párrafo
+                cualquiera. Con el interletrado apretado un pelo, que es lo que
+                distingue un logotipo compuesto de un texto escrito.
+              */}
+              <p className="font-display text-base font-bold leading-tight -tracking-[0.01em] text-slate-100">
+                Life Hub
+              </p>
+              {/* 2xs y no 3xs: el peldaño de 10px es solo para donde 11 no
+                  cabe, y aquí sobra sitio. */}
+              <p className="text-2xs leading-tight text-slate-500">Panel personal</p>
             </div>
           </button>
 
@@ -715,21 +728,56 @@ export default function LifeDashboard({ userEmail = null, onSignOut = null }) {
                   {g.items && (
                     <p className="mb-1.5 px-1 text-2xs font-semibold uppercase tracking-wider text-slate-500">{g.label}</p>
                   )}
-                  <div className="grid grid-cols-2 gap-1.5">
+                  {/*
+                    Cada entrada, con el COLOR DE SU SECCIÓN.
+
+                    `data-seccion` en el propio botón hace que ahí dentro se
+                    resuelvan las variables --c-seccion-* de esa área (ver
+                    index.css), así que el icono de Universidad sale cian, el de
+                    Dinero verde y el de Gimnasio acero. Era una capa de color
+                    que ya existía, medida y con su versión para tema claro, y
+                    que hasta ahora solo pintaba el iconito del título: aquí por
+                    fin sirve para orientarse.
+
+                    Y cada entrada tiene ahora superficie propia (borde y
+                    fondo). Antes eran texto suelto sobre el panel, y sin
+                    recuadro no se leen como algo que se pueda pulsar: parecían
+                    una lista, no un menú.
+                  */}
+                  <div className="grid grid-cols-2 gap-2">
                     {items.map((item) => {
                       const ItemIcon = item.icon;
                       const isActive = active === item.id;
                       return (
                         <button
                           key={item.id}
+                          data-seccion={item.id}
                           onClick={() => navigate(item.id)}
                           aria-current={isActive ? "page" : undefined}
-                          className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
-                            isActive ? "bg-indigo-500/15 text-indigo-300" : "text-slate-300 hover:bg-slate-800"
+                          className={`flex items-center gap-2.5 rounded-xl border px-2.5 py-2.5 text-left transition ${
+                            isActive
+                              ? "border-seccion-500/50 bg-seccion-500/10"
+                              : "border-slate-800 bg-slate-900/50 hover:border-slate-700"
                           }`}
                         >
-                          <ItemIcon size={17} aria-hidden="true" className={isActive ? "" : "text-slate-500"} />
-                          {item.label}
+                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-seccion-500/15 text-seccion-400">
+                            <ItemIcon size={16} aria-hidden="true" />
+                          </span>
+                          {/*
+                            El nombre se parte en dos líneas si hace falta y no
+                            se recorta: "Resultados deportivos" no cabe de una
+                            en media pantalla de móvil, y unos puntos
+                            suspensivos en un menú son justo lo que no quieres
+                            cuando buscas dónde ir. Los botones de una misma
+                            fila se estiran solos a la altura del más alto.
+                          */}
+                          <span
+                            className={`min-w-0 flex-1 text-sm font-medium leading-tight ${
+                              isActive ? "text-slate-100" : "text-slate-300"
+                            }`}
+                          >
+                            {item.label}
+                          </span>
                         </button>
                       );
                     })}
