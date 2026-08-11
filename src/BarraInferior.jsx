@@ -26,6 +26,17 @@ const ATAJOS = [
 export default function BarraInferior({ active, onNavigate, onAbrirMenu, menuAbierto, sinSecciones = [] }) {
   const atajos = ATAJOS.filter((a) => !sinSecciones.includes(a.id));
 
+  /*
+    Si estás en una sección que no es ninguno de los cuatro atajos —Salud,
+    Metas, Calendario, Analítica...— antes no se encendía NADA en la barra: los
+    cuatro apagados y "Más" apagado también. Te quedabas sin saber dónde estás,
+    que es justo lo único que una barra de navegación tiene que decirte siempre.
+
+    Ahora en ese caso se marca "Más", que es literalmente por donde has llegado.
+  */
+  const enOtraSeccion = !menuAbierto && !atajos.some((a) => a.id === active);
+  const masDestacado = menuAbierto || enOtraSeccion;
+
   return (
     <nav
       aria-label="Navegación principal"
@@ -68,12 +79,12 @@ export default function BarraInferior({ active, onNavigate, onAbrirMenu, menuAbi
             aria-expanded={menuAbierto}
             aria-controls="menu-movil"
             className={`flex w-full flex-col items-center gap-0.5 py-2 text-3xs font-medium transition ${
-              menuAbierto ? "text-indigo-400" : "text-slate-500"
+              masDestacado ? "text-indigo-400" : "text-slate-500"
             }`}
           >
             <span
               className={`flex h-7 w-12 items-center justify-center rounded-full transition ${
-                menuAbierto ? "bg-indigo-500/20" : ""
+                masDestacado ? "bg-indigo-500/20" : ""
               }`}
             >
               <Menu size={19} aria-hidden="true" />

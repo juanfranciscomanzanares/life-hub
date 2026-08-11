@@ -12,7 +12,7 @@
 // Súbela al cambiar iconos o manifest: al activarse, el SW borra las cachés de
 // versiones anteriores. Sin eso, "stale-while-revalidate" serviría el icono
 // viejo durante toda la primera visita y el nuevo no se vería hasta la segunda.
-const VERSION = "v13";
+const VERSION = "v14";
 const CACHE = "life-hub-" + VERSION;
 const OFFLINE_URL = "/";
 

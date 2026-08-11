@@ -98,6 +98,17 @@ const Datos = lazy(() => import("./sections/Datos.jsx"));
 */
 const ALTO_BARRA = 88;
 
+/*
+  El modificador que se enseña en la pista del buscador.
+
+  Se mira el agente de usuario y no `navigator.platform`, que está obsoleto y
+  los navegadores han empezado a mentir en él. Ante la duda, "Ctrl": es lo que
+  usan Windows y Linux, que son la mayoría, y en un Mac el atajo funciona
+  igualmente porque el manejador acepta las dos teclas.
+*/
+const TECLA_ATAJO =
+  typeof navigator !== "undefined" && /mac|iphone|ipad/i.test(navigator.userAgent) ? "⌘" : "Ctrl+";
+
 const URGENCIA = {
   examen: { texto: "Examen", clase: "bg-amber-500/15 text-amber-300" },
   entrega: { texto: "Entrega", clase: "bg-indigo-500/15 text-indigo-300" },
@@ -678,9 +689,18 @@ export default function LifeDashboard({ userEmail = null, onSignOut = null }) {
               title="Buscar (Ctrl+K)"
               className="flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2 text-xs font-medium text-slate-400 transition hover:border-slate-700 hover:text-slate-200"
             >
-              <Search size={15} />
+              <Search size={15} aria-hidden="true" />
               <span className="hidden xl:inline">Buscar</span>
-              <kbd className="hidden rounded border border-slate-700 bg-slate-800 px-1.5 py-0.5 text-3xs text-slate-500 xl:inline">⌘K</kbd>
+              {/* La tecla de verdad, no siempre ⌘.
+
+                  Ponía "⌘K" fijo, que en Windows y en Linux es sencillamente
+                  falso: ahí el atajo es Ctrl+K, y una pista que enseña una
+                  tecla que tu teclado no tiene es peor que no poner ninguna.
+                  El manejador ya acepta las dos (metaKey || ctrlKey); lo único
+                  que faltaba era decirlo bien. */}
+              <kbd className="hidden rounded border border-slate-700 bg-slate-800 px-1.5 py-0.5 text-3xs text-slate-500 xl:inline">
+                {TECLA_ATAJO}K
+              </kbd>
             </button>
             <button
               onClick={toggleTheme}
