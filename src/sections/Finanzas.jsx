@@ -1,7 +1,7 @@
 import { useState, useMemo, lazy, Suspense } from "react";
 import { Trash2, Wallet, PiggyBank, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { usePersisted } from "../lib/store";
-import { Card, SectionTitle, Skeleton, todayISO, fmtEuro } from "../lib/ui";
+import { Card, SectionTitle, Skeleton, Metrica, todayISO, fmtEuro } from "../lib/ui";
 import { Cifra } from "../lib/animar";
 import { CATEGORIAS as CATEGORIAS_BANCO } from "../lib/banco";
 import { redondear } from "../lib/numeros";
@@ -173,40 +173,39 @@ function Finanzas() {
       </Card>
 
       {/*
-        En el móvil van los tres en fila y en vertical (icono arriba): apilados
-        a lo ancho ocupaban tres pantallazos para tres cifras, y había que hacer
-        scroll para ver el balance.
+        Las tres cifras del mes, con la ficha compartida (ver `Metrica` en
+        src/lib/ui.jsx). Estaban maquetadas a mano con seis variantes `sm:`
+        distintas para que cupieran; ahora eso lo resuelve el componente y son
+        iguales que las de Inicio, Trabajo, Salud y las demás.
+
+        DOS columnas en el móvil y tres a partir de tablet. Tres en un teléfono
+        dejaban unos 110px por tarjeta, y ahí un importe como "1.420€" no cabe.
+        El balance se queda solo en la segunda fila, que tampoco está mal: es el
+        número que resume a los otros dos.
       */}
-      <div className="mb-6 grid grid-cols-3 gap-2 sm:gap-4">
-        <Card padding="p-3 sm:p-5" className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-4">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-400 sm:h-12 sm:w-12">
-            <ArrowUpRight className="h-5 w-5 sm:h-6 sm:w-6" />
-          </div>
-          <div className="min-w-0">
-            <p className="font-display text-lg font-bold tabular-nums text-slate-100 sm:text-2xl"><Cifra valor={income} decimales={income % 1 ? 2 : 0} sufijo="€" /></p>
-            <p className="text-xs text-slate-400 sm:text-sm">Ingresos</p>
-          </div>
-        </Card>
-        <Card padding="p-3 sm:p-5" className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-4">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-500/15 text-rose-400 sm:h-12 sm:w-12">
-            <ArrowDownRight className="h-5 w-5 sm:h-6 sm:w-6" />
-          </div>
-          <div className="min-w-0">
-            <p className="font-display text-lg font-bold tabular-nums text-slate-100 sm:text-2xl"><Cifra valor={expenses} decimales={expenses % 1 ? 2 : 0} sufijo="€" /></p>
-            <p className="text-xs text-slate-400 sm:text-sm">Gastos</p>
-          </div>
-        </Card>
-        <Card padding="p-3 sm:p-5" className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-4">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-500/15 text-indigo-400 sm:h-12 sm:w-12">
-            <Wallet className="h-5 w-5 sm:h-6 sm:w-6" />
-          </div>
-          <div className="min-w-0">
-            <p className={`font-display text-lg font-bold tabular-nums sm:text-2xl ${balance >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-              <Cifra valor={balance} decimales={balance % 1 ? 2 : 0} sufijo="€" />
-            </p>
-            <p className="text-xs text-slate-400 sm:text-sm">Balance</p>
-          </div>
-        </Card>
+      <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-3">
+        <Metrica
+          icono={ArrowUpRight}
+          color="bg-emerald-500/15 text-emerald-400"
+          etiqueta="Ingresos"
+          valor={<Cifra valor={income} decimales={income % 1 ? 2 : 0} sufijo="€" />}
+          detalle={etiquetaMes(mes)}
+        />
+        <Metrica
+          icono={ArrowDownRight}
+          color="bg-rose-500/15 text-rose-400"
+          etiqueta="Gastos"
+          valor={<Cifra valor={expenses} decimales={expenses % 1 ? 2 : 0} sufijo="€" />}
+          detalle={etiquetaMes(mes)}
+        />
+        <Metrica
+          icono={Wallet}
+          color="bg-indigo-500/15 text-indigo-400"
+          tono={balance >= 0 ? "text-emerald-400" : "text-rose-400"}
+          etiqueta="Balance"
+          valor={<Cifra valor={balance} decimales={balance % 1 ? 2 : 0} sufijo="€" />}
+          detalle={balance >= 0 ? "te sobra" : "te falta"}
+        />
       </div>
 
       <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">

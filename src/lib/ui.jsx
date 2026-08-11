@@ -92,7 +92,10 @@ export function Metrica({ icono: Icono, etiqueta, valor, detalle = null, color =
         <p className="text-2xs font-semibold uppercase tracking-[0.08em] text-slate-500">{etiqueta}</p>
         {chip}
       </div>
-      <p className={`font-display text-3xl font-bold tabular-nums leading-none ${tono}`}>{valor}</p>
+      {/* 2xl en el móvil y 3xl a partir de tablet: hay pantallas que ponen tres
+          fichas por fila (Finanzas), y ahí un importe como "1.420€" a 30px se
+          sale de la tarjeta. */}
+      <p className={`font-display text-2xl font-bold tabular-nums leading-none sm:text-3xl ${tono}`}>{valor}</p>
       {detalle && <p className="mt-1.5 text-xs text-slate-500">{detalle}</p>}
     </Card>
   );
