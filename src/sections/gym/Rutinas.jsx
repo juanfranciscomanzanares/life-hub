@@ -4,6 +4,7 @@ import { usePersisted } from "../../lib/store";
 import { removeWithUndo } from "../../lib/toast";
 import { Card } from "../../lib/ui";
 import { catalogo, grupoDe, descripcionDe, nuevoId } from "../../lib/gym";
+import { CampoNumero } from "./CampoNumero";
 
 /*
   Rutinas propias: le pones nombre y eliges los ejercicios, con series y
@@ -137,24 +138,18 @@ export default function Rutinas({ onEmpezar }) {
                             </div>
                             <label className="text-xs text-slate-400">
                               <span className="sr-only">Series objetivo de {ej.nombre}</span>
-                              <input
-                                type="number"
-                                min="0"
-                                inputMode="numeric"
+                              <CampoNumero
                                 value={ej.series}
-                                onChange={(e) => cambiarObjetivo(rutina, ej.id, "series", e.target.value)}
+                                onChange={(v) => cambiarObjetivo(rutina, ej.id, "series", v)}
                                 className="w-14 rounded border border-slate-700 bg-slate-800 px-2 py-1 text-center text-sm text-slate-100"
                               />{" "}
                               series
                             </label>
                             <label className="text-xs text-slate-400">
                               <span className="sr-only">Repeticiones objetivo de {ej.nombre}</span>
-                              <input
-                                type="number"
-                                min="0"
-                                inputMode="numeric"
+                              <CampoNumero
                                 value={ej.reps}
-                                onChange={(e) => cambiarObjetivo(rutina, ej.id, "reps", e.target.value)}
+                                onChange={(v) => cambiarObjetivo(rutina, ej.id, "reps", v)}
                                 className="w-14 rounded border border-slate-700 bg-slate-800 px-2 py-1 text-center text-sm text-slate-100"
                               />{" "}
                               reps

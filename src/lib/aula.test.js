@@ -147,8 +147,10 @@ describe("normalizar lo que devuelve el Aula Virtual", () => {
     expect(lista.map((t) => t.id)).toEqual(["a3", "a1", "a5", "a2"]);
   });
 
-  it("cada tarea lleva el enlace a su asignatura", () => {
-    expect(lista[0].url).toBe("https://aulavirtual.um.es/portal/site/6584_G_2025_N_N");
+  it("cada tarea enlaza a la tarea concreta, no solo al sitio", () => {
+    // lista[0] es la tarea "a3" (ver orden arriba): el enlace apunta a esa
+    // entrega vía la URL directa de Sakai, no al portal general de la asignatura.
+    expect(lista[0].url).toBe("https://aulavirtual.um.es/direct/assignment/a3");
   });
 
   it("aguanta que no llegue nada", () => {

@@ -47,10 +47,14 @@ export async function leerTareas(page) {
     .map((a) => ({
       id: a.id ?? a.entityId,
       titulo: a.title ?? "(sin título)",
+      contexto: a.context ?? null,
       asignatura: nombrePorSitio.get(a.context) ?? a.context ?? "—",
       abre: a.openTimeString ?? a.openTime ?? null,
       entrega: a.dueTimeString ?? a.dueTime ?? null,
       cierra: a.closeTimeString ?? a.closeTime ?? null,
+      // URL directa a la tarea (Sakai la resuelve a la vista de la entrega).
+      // Si la API la trae hecha, se usa esa; si no, se arma con el id.
+      url: a.entityURL ?? (a.id ? `${BASE}/direct/assignment/${a.id}` : null),
     }))
     .sort((a, b) => String(b.entrega ?? "").localeCompare(String(a.entrega ?? "")));
 }

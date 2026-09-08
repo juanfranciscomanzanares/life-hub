@@ -110,6 +110,21 @@ export function estadoDe(tarea, ahora = new Date()) {
 export const esPendiente = (tarea) => tarea.estado === "abierta" || tarea.estado === "proxima";
 
 /*
+  Enlace a la tarea CONCRETA, no al sitio de la asignatura.
+
+  El Aula Virtual (Sakai) resuelve `/direct/assignment/{id}` a la vista de esa
+  entrega para el alumno que ha iniciado sesión. Si un día una tarea llega sin
+  id, se cae al sitio de la asignatura; y sin contexto, al portal general. Si el
+  scraper ya guardó la URL canónica (`t.url`), se respeta esa.
+*/
+export function enlaceTarea(t = {}) {
+  if (t.url) return t.url;
+  if (t.id) return `${BASE_AULA}/direct/assignment/${t.id}`;
+  if (t.contexto) return `${BASE_AULA}/portal/site/${t.contexto}`;
+  return BASE_AULA;
+}
+
+/*
   Junta las tareas con el nombre de su asignatura y les calcula el estado.
 
   Ojo con los sitios: `/direct/site.json` devuelve solo 10 por defecto, así que
@@ -136,7 +151,7 @@ export function normalizarTareas({ tareas = [], sitios = [] } = {}, ahora = new 
         entrega: t.entrega ?? null,
         cierra: t.cierra ?? null,
         entregada: Boolean(t.entregada),
-        url: t.contexto ? `${BASE_AULA}/portal/site/${t.contexto}` : BASE_AULA,
+        url: enlaceTarea(t),
       };
       return { ...tarea, estado: estadoDe(tarea, ahora) };
     })

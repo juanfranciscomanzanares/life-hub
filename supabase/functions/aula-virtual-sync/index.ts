@@ -185,6 +185,8 @@ Deno.serve(async (req) => {
           entregadas 126 de 129 tareas en vez de 62.
         */
         entregada: (a.submissions ?? []).some((s: any) => s.submitted && s.userSubmission),
+        // URL directa a la tarea; si la API no la trae, se arma con el id.
+        url: a.entityURL ?? (a.id ?? a.entityId ? `${BASE}/direct/assignment/${a.id ?? a.entityId}` : null),
       })),
     });
   } catch (e) {

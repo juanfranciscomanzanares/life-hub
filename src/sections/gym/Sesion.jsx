@@ -4,6 +4,7 @@ import { usePersisted } from "../../lib/store";
 import { removeWithUndo, toast } from "../../lib/toast";
 import { Card, todayISO } from "../../lib/ui";
 import { confeti } from "../../lib/confetti";
+import { CampoNumero } from "./CampoNumero";
 import {
   catalogo,
   grupoDe,
@@ -89,7 +90,9 @@ export default function Sesion({ fecha, setFecha, filas, setFilas, sesiones, set
       ? setsDe(anterior).map((s) => nuevaSerie(s.peso, s.reps))
       : [nuevaSerie(0, 10)];
 
-    setFilas([{ id: nuevoId(), fecha, ejercicio: nombre, nota: "", sets }, ...filas]);
+    // Al final de la lista: el ejercicio nuevo se queda debajo de los ya hechos,
+    // que es el orden en el que se entrena. Añadir arriba descolocaba la sesión.
+    setFilas([...filas, { id: nuevoId(), fecha, ejercicio: nombre, nota: "", sets }]);
     setSesiones(abrirSesion(sesiones, fecha));
     setAnadiendo(false);
   };
@@ -252,16 +255,13 @@ export default function Sesion({ fecha, setFecha, filas, setFilas, sesiones, set
                           <label className="sr-only" htmlFor={`peso-${s.id}`}>
                             Peso de la serie {i + 1} de {fila.ejercicio}
                           </label>
-                          <input
+                          <CampoNumero
                             id={`peso-${s.id}`}
                             name={`peso-${s.id}`}
-                            type="number"
-                            min="0"
-                            step="0.5"
-                            inputMode="decimal"
+                            decimales
                             value={s.peso}
                             disabled={terminada}
-                            onChange={(e) => cambiarSerie(fila, s.id, "peso", e.target.value)}
+                            onChange={(v) => cambiarSerie(fila, s.id, "peso", v)}
                             className={celda}
                           />
                         </td>
@@ -269,15 +269,12 @@ export default function Sesion({ fecha, setFecha, filas, setFilas, sesiones, set
                           <label className="sr-only" htmlFor={`reps-${s.id}`}>
                             Repeticiones de la serie {i + 1} de {fila.ejercicio}
                           </label>
-                          <input
+                          <CampoNumero
                             id={`reps-${s.id}`}
                             name={`reps-${s.id}`}
-                            type="number"
-                            min="0"
-                            inputMode="numeric"
                             value={s.reps}
                             disabled={terminada}
-                            onChange={(e) => cambiarSerie(fila, s.id, "reps", e.target.value)}
+                            onChange={(v) => cambiarSerie(fila, s.id, "reps", v)}
                             className={celda}
                           />
                         </td>

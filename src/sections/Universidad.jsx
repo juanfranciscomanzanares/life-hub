@@ -86,7 +86,15 @@ function Universidad() {
   const [contrasenaUMU, setContrasenaUMU] = useState("");
   const [sincronizando, setSincronizando] = useState(false);
   const [errorAula, setErrorAula] = useState("");
-  const [asignaturaAbierta, setAsignaturaAbierta] = useState(null);
+  // Varias asignaturas pueden estar desplegadas a la vez, no solo una.
+  const [asignaturasAbiertas, setAsignaturasAbiertas] = useState(() => new Set());
+  const alternarAsignatura = (asignatura) =>
+    setAsignaturasAbiertas((prev) => {
+      const siguiente = new Set(prev);
+      if (siguiente.has(asignatura)) siguiente.delete(asignatura);
+      else siguiente.add(asignatura);
+      return siguiente;
+    });
 
   const sincronizarAula = async () => {
     setSincronizando(true);
@@ -579,12 +587,12 @@ function Universidad() {
 
         <div className="space-y-2">
           {!sincronizando && aulaGrupos.map((grupo) => {
-            const abierta = asignaturaAbierta === grupo.asignatura;
+            const abierta = asignaturasAbiertas.has(grupo.asignatura);
             return (
               <div key={grupo.asignatura} className="rounded-xl border border-slate-800 bg-slate-800/40">
                 <div className="flex flex-wrap items-center gap-2 px-4 py-2.5">
                   <button
-                    onClick={() => setAsignaturaAbierta(abierta ? null : grupo.asignatura)}
+                    onClick={() => alternarAsignatura(grupo.asignatura)}
                     aria-expanded={abierta}
                     className="flex min-w-0 flex-1 items-center gap-2 text-left"
                   >
