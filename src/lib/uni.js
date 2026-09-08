@@ -122,19 +122,51 @@ export function eventosDelCalendario() {
   Las tareas del Aula Virtual que ya has pasado a las tuyas no se cuentan dos
   veces; se reconocen por `aulaId`.
 */
-export function urgenciasDeHoy({ tareasUni = [], tareasAula = [], eventos = [], hoy }) {
+export function urgenciasDeHoy({
+  tareasUni = [],
+  tareasAula = [],
+  eventos = [],
+  sesiones = [],
+  hoy,
+}) {
   const lista = [];
   const yaPuestas = new Set(tareasUni.map((t) => t.aulaId).filter(Boolean));
 
   tareasUni.forEach((t) => {
     if (t.done || dia(t.entrega) !== hoy) return;
-    lista.push({ id: `tarea-${t.id}`, tipo: "entrega", titulo: t.text, detalle: t.subject, fecha: hoy });
+    lista.push({
+      id: `tarea-${t.id}`,
+      tipo: "entrega",
+      titulo: t.text,
+      // Con hora, delante: es lo primero que quieres saber de algo que es hoy.
+      detalle: t.hora ? `${t.hora} · ${t.subject}` : t.subject,
+      fecha: hoy,
+      hora: t.hora || null,
+    });
   });
 
   tareasAula.forEach((t) => {
     if (yaPuestas.has(t.id)) return;
     if (dia(t.entrega ?? t.cierra) !== hoy) return;
     lista.push({ id: `aula-${t.id}`, tipo: "entrega", titulo: t.titulo, detalle: t.asignatura, fecha: hoy });
+  });
+
+  /*
+    Las sesiones de estudio que te has puesto para hoy. No son un plazo que
+    venza: son un rato que has reservado, y por eso salen con su tramo horario
+    y no con una fecha de entrega.
+  */
+  sesiones.forEach((s) => {
+    if (dia(s.fecha) !== hoy || !s.subject) return;
+    const tramo = s.desde && s.hasta ? `${s.desde}–${s.hasta}` : s.desde || "";
+    lista.push({
+      id: `estudio-${s.id}`,
+      tipo: "estudio",
+      titulo: s.nota ? `${s.subject}: ${s.nota}` : `Estudiar ${s.subject}`,
+      detalle: tramo || "Estudio",
+      fecha: hoy,
+      hora: s.desde || null,
+    });
   });
 
   eventos.forEach((e) => {
@@ -149,7 +181,16 @@ export function urgenciasDeHoy({ tareasUni = [], tareasAula = [], eventos = [], 
     });
   });
 
-  // Los exámenes primero: es lo que no se puede mover de sitio.
-  const orden = { examen: 0, entrega: 1, evento: 2 };
-  return lista.sort((a, b) => orden[a.tipo] - orden[b.tipo] || a.titulo.localeCompare(b.titulo));
+  /*
+    Los exámenes primero: es lo que no se puede mover de sitio. Dentro del mismo
+    tipo manda la hora, y lo que no tiene hora va al final: "a las 10:00" es más
+    urgente que "hoy, en algún momento".
+  */
+  const orden = { examen: 0, entrega: 1, estudio: 2, evento: 3 };
+  return lista.sort(
+    (a, b) =>
+      orden[a.tipo] - orden[b.tipo] ||
+      String(a.hora || "99:99").localeCompare(String(b.hora || "99:99")) ||
+      a.titulo.localeCompare(b.titulo)
+  );
 }

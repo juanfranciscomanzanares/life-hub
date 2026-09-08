@@ -179,12 +179,21 @@ export function agruparPorAsignatura(lista = []) {
 }
 
 /*
-  Convierte una tarea del Aula Virtual en una de las tuyas (`lh_uni_tasks`).
+  Pone una tarea del Aula Virtual en la forma que esperan el calendario y la
+  pantalla de Inicio: `{ id, text, subject, entrega, done }`.
 
-  Guarda `aulaId` para no volver a añadirla dos veces si sincronizas otra vez.
+  Antes esto servía para COPIAR la tarea a una lista propia (`lh_uni_tasks`) que
+  se mantenía a mano. Se quitó: las tareas de la carrera son las del Aula
+  Virtual, ya vienen con su fecha límite y se actualizan solas al sincronizar,
+  así que llevar una copia paralela solo era trabajo doble y una fuente de
+  desajustes en cuanto la de la UMU cambiaba de fecha.
+
   La asignatura se traduce a la de la app cuando se reconoce; si no (las del
   curso pasado, por ejemplo), se queda con su nombre del Aula Virtual, que es
   mejor etiqueta que meterla a la fuerza en una asignatura que no es.
+
+  `done` sale de si está ENTREGADA en la UMU, que es la única marca de "hecho"
+  que existe ahora y además es la de verdad.
 */
 export function aTareaDeApp(tarea, asignaturasApp = []) {
   return {
@@ -193,14 +202,10 @@ export function aTareaDeApp(tarea, asignaturasApp = []) {
     text: tarea.titulo,
     subject: asignaturaDeApp(tarea.asignatura, asignaturasApp) ?? tarea.asignatura,
     entrega: tarea.entrega ?? tarea.cierra ?? null,
-    done: false,
+    done: Boolean(tarea.entregada),
   };
 }
 
-export const yaAnadida = (misTareas = [], aulaId) =>
-  misTareas.some((t) => t.aulaId === aulaId);
-
-// Las que aún no están en tu lista, para el botón de "añadir todas".
-export function tareasQueFaltan(tareasAula = [], misTareas = []) {
-  return tareasAula.filter((t) => !yaAnadida(misTareas, t.id));
-}
+/* Todas las del Aula Virtual, listas para el calendario y para Inicio. */
+export const tareasParaLaApp = (tareasAula = [], asignaturasApp = []) =>
+  tareasAula.map((t) => aTareaDeApp(t, asignaturasApp));

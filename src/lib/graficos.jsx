@@ -12,6 +12,19 @@
   Lo que sí queda fijo son los colores de SERIE cuando se pasan a mano desde
   una sección (verde = ganado, rojo = perdido): ahí el color significa algo y
   tiene que decir lo mismo en los dos temas.
+
+  TIPOGRAFÍA: DENTRO DEL <svg> NO SE USAN LOS TOKENS DE LA ESCALA.
+
+  Este es el único archivo donde `text-[11px]` y compañía son lo correcto y no
+  un descuido. Dentro de un <svg> con `viewBox`, esos píxeles son unidades del
+  LIENZO: la etiqueta crece y mengua con la gráfica, que es justo lo que se
+  quiere cuando el mismo gráfico se pinta a 320 px en el móvil y al doble en el
+  ordenador. Los tokens de tailwind.config.js (`text-2xs`, `text-3xs`) van en
+  `rem`, que es una medida absoluta: al achicar el SVG el texto se quedaría
+  igual de grande y acabaría saliéndose o pisando la rejilla.
+
+  La regla práctica: si el elemento lleva una clase `fill-*`, es SVG y va con
+  píxeles a mano. Si lleva `text-*` de color, es HTML normal y va con la escala.
 */
 import { useState, useId } from "react";
 import { caminoSuave } from "./curva";
@@ -38,6 +51,15 @@ export function Anillo({ valor, total, etiqueta, color = "rgb(var(--c-emerald-40
           strokeLinecap="round"
           strokeDasharray={`${circunferencia * proporcion} ${circunferencia}`}
         />
+        {/*
+          El 26 se queda a mano, y NO es un descuido de la escala tipográfica.
+
+          Está dentro de un <svg> con viewBox de 130×130: aquí "26px" son
+          unidades del lienzo, no píxeles de pantalla, así que la cifra escala
+          con la gráfica pase lo que pase con el tamaño del SVG. Un token en
+          `rem` (text-2xs y compañía) es una medida absoluta y rompería
+          justamente eso: al achicar el donut, el porcentaje se saldría.
+        */}
         <text
           x="65"
           y="60"
@@ -214,7 +236,7 @@ export function Linea({ datos, valor, etiqueta, color = "rgb(var(--c-indigo-400)
             {valor(datos[activo])}
             {sufijo}
           </p>
-          <p className="text-[11px] text-slate-400">{etiqueta(datos[activo])}</p>
+          <p className="text-2xs text-slate-400">{etiqueta(datos[activo])}</p>
         </div>
       )}
     </div>
@@ -224,26 +246,59 @@ export function Linea({ datos, valor, etiqueta, color = "rgb(var(--c-indigo-400)
 /*
   Barras horizontales. Con etiquetas de texto (nombres, "Set 3", letras) se leen
   mucho mejor que en vertical, donde el texto se gira o se corta.
+
+  `anchoEtiqueta` sale fuera porque no todas las etiquetas miden lo mismo: "Set 3"
+  o una letra caben de sobra en w-16, pero un nombre de asignatura como
+  "Ciberseguridad" se sale y pisa la barra.
 */
-export function BarrasH({ datos, valor, etiqueta, detalle, color = "bg-indigo-500", sufijo = "%" }) {
+export function BarrasH({
+  datos,
+  valor,
+  etiqueta,
+  detalle,
+  color = "bg-indigo-500",
+  sufijo = "%",
+  anchoEtiqueta = "w-16",
+  formato = null,
+}) {
   const max = Math.max(...datos.map(valor), 1);
+  /*
+    `valor` tiene que seguir devolviendo un número, que es de donde sale el
+    ancho de la barra. `formato` solo cambia cómo se ESCRIBE: sin esto, media
+    hora salía como "3.5 h", con el punto decimal del inglés, en una app que
+    está entera en español.
+  */
+  const escribir = (v) =>
+    formato ? formato(v) : `${v}${sufijo}`;
   return (
     <div className="space-y-2">
       {datos.map((d, i) => {
         const v = valor(d);
+        const vacia = !(v > 0);
         return (
           <div key={i} className="flex items-center gap-3">
-            <span className="w-16 shrink-0 text-right text-xs text-slate-400">{etiqueta(d)}</span>
-            <div className="h-6 flex-1 overflow-hidden rounded-md bg-slate-800">
-              <div
-                className={`flex h-full items-center justify-end rounded-md ${color} px-2 transition-all`}
-                style={{ width: `${Math.max((v / max) * 100, v > 0 ? 8 : 0)}%` }}
-              >
-                <span className="text-[11px] font-semibold text-white">
-                  {v}
-                  {sufijo}
+            <span className={`${anchoEtiqueta} shrink-0 truncate text-right text-xs text-slate-400`} title={String(etiqueta(d))}>
+              {etiqueta(d)}
+            </span>
+            <div className="relative h-6 flex-1 overflow-hidden rounded-md bg-slate-800">
+              {/*
+                A cero no se pinta barra, y la cifra va fuera y apagada. Antes se
+                dibujaba igualmente un rectángulo de ancho 0 que, por el relleno
+                y el texto de dentro, se veía como un muñón de color: parecía que
+                esa asignatura tenía algo cuando marcaba justo lo contrario.
+              */}
+              {vacia ? (
+                <span className="absolute inset-y-0 left-2 flex items-center text-2xs font-medium text-slate-500">
+                  {escribir(v)}
                 </span>
-              </div>
+              ) : (
+                <div
+                  className={`flex h-full items-center justify-end rounded-md ${color} px-2 transition-all`}
+                  style={{ width: `${Math.max((v / max) * 100, 8)}%` }}
+                >
+                  <span className="text-2xs font-semibold text-white">{escribir(v)}</span>
+                </div>
+              )}
             </div>
             {detalle && <span className="w-14 shrink-0 text-xs text-slate-500">{detalle(d)}</span>}
           </div>
@@ -376,7 +431,7 @@ export function BarrasApiladas({ datos }) {
           className="pointer-events-none absolute z-10 -translate-x-1/2 rounded-lg border border-slate-700 bg-slate-900/95 px-2.5 py-1.5 shadow-lg"
           style={{ left: `${((pad.i + activo * paso + paso / 2) / W) * 100}%`, bottom: "22%" }}
         >
-          <p className="mb-1 text-[11px] text-slate-400">Jornada {datos[activo].jornada}</p>
+          <p className="mb-1 text-2xs text-slate-400">Jornada {datos[activo].jornada}</p>
           <p className="flex items-center gap-1.5 text-sm font-bold tabular-nums text-slate-100">
             <span className="h-2 w-2 rounded-sm" style={{ background: GANADO }} />
             {datos[activo].ganados} ganados
@@ -400,9 +455,127 @@ export function Medidor({ titulo, valor, sub, color = "bg-indigo-500" }) {
         <span className="text-sm font-bold text-slate-100">{valor}%</span>
       </div>
       <div className="h-2 overflow-hidden rounded-full bg-slate-800">
-        <div className={`h-full rounded-full ${color}`} style={{ width: `${valor}%` }} />
+        <div className={`lh-progreso h-full rounded-full ${color}`} style={{ width: `${valor}%` }} />
       </div>
-      {sub && <p className="mt-1 text-[11px] text-slate-500">{sub}</p>}
+      {sub && <p className="mt-1 text-2xs text-slate-500">{sub}</p>}
+    </div>
+  );
+}
+
+/*
+  Barras VERTICALES apiladas por serie.
+
+  Para "cuánto he estudiado cada día, y de qué". Una barra por tramo (un día de
+  la semana, un mes) y dentro un trozo por asignatura, cada una con su color
+  fijo. De un vistazo se ve el volumen del día Y su reparto, que con barras
+  horizontales de una sola tinta hacían falta dos gráficos.
+
+  Verticales porque el eje del tiempo se lee de izquierda a derecha; y en SVG,
+  no con divs de altura en porcentaje, por lo mismo que `BarrasApiladas`: un
+  porcentaje dentro de un contenedor sin altura definida no resuelve y las
+  barras salen a cero.
+
+  `colorDe(clave)` devuelve un color CSS por serie. El color va con la ENTIDAD y
+  no con su puesto en el ranking: si siguiera al orden, filtrar una asignatura
+  repintaría las demás y el gráfico diría una cosa distinta cada semana.
+*/
+export function BarrasVerticales({
+  datos = [],
+  colorDe,
+  formato = (v) => String(v),
+  etiquetaTramo = (d) => d.etiqueta,
+  // Los agregados de fechas.js llaman `horas` al total del tramo; se acepta
+  // `total` también para no obligar a renombrarlo antes de pintar.
+  valor = (d) => d.total ?? d.horas ?? 0,
+  alturaBarra = 150,
+}) {
+  const [activo, setActivo] = useState(null);
+
+  const max = Math.max(...datos.map(valor), 1);
+  const hayAlgo = datos.some((d) => valor(d) > 0);
+
+  return (
+    <div>
+      <div className="flex items-end gap-1 sm:gap-2" style={{ height: alturaBarra }}>
+        {datos.map((d, i) => {
+          const total = valor(d);
+          const esActivo = activo === i;
+          return (
+            <div
+              key={d.clave ?? d.etiqueta ?? i}
+              className="flex h-full min-w-0 flex-1 flex-col justify-end"
+              onMouseEnter={() => setActivo(i)}
+              onMouseLeave={() => setActivo(null)}
+              onFocus={() => setActivo(i)}
+              onBlur={() => setActivo(null)}
+              tabIndex={0}
+              /*
+                Cada barra es enfocable y se anuncia entera: sin esto, la única
+                forma de saber el reparto de un día sería pasar el ratón por
+                encima, que con teclado o lector de pantalla no existe.
+              */
+              aria-label={`${etiquetaTramo(d)}: ${formato(total)}${
+                d.partes?.length
+                  ? ". " + d.partes.map((p) => `${p.clave}, ${formato(p.valor)}`).join("; ")
+                  : ""
+              }`}
+            >
+              {/* La cifra solo en la barra que se está mirando y en las que
+                  tienen algo: un número sobre cada columna es ruido. */}
+              <span
+                className={`mb-1 text-center text-3xs font-semibold tabular-nums transition ${
+                  esActivo && total > 0 ? "text-slate-100" : "text-transparent"
+                }`}
+              >
+                {formato(total)}
+              </span>
+
+              {/*
+                Con un tope de ancho. A pantalla completa, siete columnas se
+                repartían 1.000 px y cada barra salía de 143: dejaban de leerse
+                como barras y parecían bloques de color. Centradas y con tope se
+                mantienen esbeltas en el escritorio y siguen llenando el hueco
+                en el móvil, que es donde el espacio falta.
+              */}
+              <div
+                className="mx-auto flex w-full max-w-14 flex-col justify-end overflow-hidden rounded-t"
+                style={{ height: `${(total / max) * 100}%` }}
+              >
+                {(d.partes || []).map((p) => (
+                  <div
+                    key={p.clave}
+                    title={`${etiquetaTramo(d)} · ${p.clave}: ${formato(p.valor)}`}
+                    style={{
+                      height: `${total ? (p.valor / total) * 100 : 0}%`,
+                      background: colorDe(p.clave),
+                      // Separación de 2px entre trozos: pegados, dos colores
+                      // parecidos se leen como una sola mancha.
+                      boxShadow: "0 -2px 0 0 rgb(var(--lh-fondo))",
+                    }}
+                  />
+                ))}
+              </div>
+
+              {/*
+                Alto de línea fijo: sin él, las etiquetas con tilde ("Mié",
+                "Sáb") crecen la caja de texto y se quedan unos píxeles más
+                abajo que las demás, con lo que la fila de días no cuadra.
+              */}
+              <span
+                className={`mt-1.5 block h-4 truncate text-center text-3xs leading-4 transition ${
+                  d.esHoy || esActivo ? "font-semibold text-slate-200" : "text-slate-500"
+                }`}
+              >
+                {etiquetaTramo(d)}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      {!hayAlgo && (
+        <p className="mt-2 text-center text-xs text-slate-500">Nada apuntado en este periodo.</p>
+      )}
     </div>
   );
 }

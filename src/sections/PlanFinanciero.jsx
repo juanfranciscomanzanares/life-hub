@@ -12,6 +12,7 @@ import {
 import { usePersisted } from "../lib/store";
 import { removeWithUndo } from "../lib/toast";
 import { Card, SectionTitle, fmtEuro } from "../lib/ui";
+import { nuevoId } from "../lib/id";
 import {
   transporteMensual,
   totalIngresos,
@@ -81,9 +82,8 @@ export default function PlanFinanciero() {
     setRegimenes(regimenes.map((r) => (r.id === id ? { ...r, ...cambios } : r)));
 
   const crearPlantilla = () => {
-    const base = Date.now();
-    const nuevos = PLANTILLA.map((p, i) => ({
-      id: base + i,
+    const nuevos = PLANTILLA.map((p) => ({
+      id: nuevoId(),
       nombre: p.nombre,
       ingresos: [],
       gastos: [],
@@ -95,7 +95,7 @@ export default function PlanFinanciero() {
 
   const añadirRegimen = () => {
     const nuevo = {
-      id: Date.now(),
+      id: nuevoId(),
       nombre: "Situación nueva",
       ingresos: [],
       gastos: [],
@@ -200,7 +200,6 @@ export default function PlanFinanciero() {
 
               <Transporte
                 transporte={activo.transporte}
-                mensual={cuentas.transporte}
                 onCambiar={(transporte) => actualizar(activo.id, { transporte })}
               />
 
@@ -326,7 +325,7 @@ function Listado({ titulo, vacio, filas = [], color, onCambiar }) {
 
   const añadir = () => {
     if (!form.concepto.trim()) return;
-    onCambiar([...filas, { id: Date.now(), concepto: form.concepto, monto: Number(form.monto) || 0 }]);
+    onCambiar([...filas, { id: nuevoId(), concepto: form.concepto, monto: Number(form.monto) || 0 }]);
     setForm({ concepto: "", monto: "" });
   };
 
@@ -409,7 +408,9 @@ function Listado({ titulo, vacio, filas = [], color, onCambiar }) {
   los días que vayas. Verlo como "cuánto me cuesta cada día que voy" es lo que
   deja decidir si compensa teletrabajar un día suelto.
 */
-function Transporte({ transporte = {}, mensual, onCambiar }) {
+// Sin prop `mensual`: se le pasaba desde fuera pero no se usaba, porque el
+// coste actual se recalcula aquí mismo unas líneas más abajo.
+function Transporte({ transporte = {}, onCambiar }) {
   const { costeDia = 0, diasPresenciales = 0 } = transporte;
   const cambiar = (campo, valor) => onCambiar({ ...transporte, [campo]: Number(valor) || 0 });
 

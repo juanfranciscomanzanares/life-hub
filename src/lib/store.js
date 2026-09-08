@@ -1,5 +1,13 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase, cloudEnabled } from "./supabase";
+import {
+  sellar,
+  fusionar,
+  podarTumbas,
+  metaVacia,
+  meterEnSobre,
+  abrirSobre,
+} from "./fusionar";
 
 /*
   Capa de datos unificada con:
@@ -7,13 +15,18 @@ import { supabase, cloudEnabled } from "./supabase";
   - Sincronización en la nube (tabla app_state) si Supabase está configurado.
   - Tiempo real (Supabase Realtime): los cambios aparecen al instante en otros
     dispositivos.
-  - Resolución de conflictos por marca de tiempo: si editas en dos sitios, gana
-    la versión más reciente (updated_at).
+  - FUSIÓN POR ELEMENTO al resolver conflictos (ver fusionar.js).
 
-  Cada clave guarda TODO su contenido en un único JSON, así que escribir es caro:
-  añadir una fila al gimnasio reescribe el array entero. Por eso las escrituras
-  van agrupadas (debounce) y las lecturas y suscripciones se comparten entre
-  componentes.
+  Sobre lo último, que es el cambio importante: antes competían los bloques
+  enteros y ganaba el más reciente, así que apuntar un gasto en el móvil y otro
+  en el PC hacía desaparecer uno de los dos. Ahora compiten los elementos: dos
+  gastos distintos se conservan los dos, y solo hay que decidir cuando se ha
+  tocado el MISMO elemento en dos sitios.
+
+  Cada clave sigue guardando todo su contenido en un único JSON, así que
+  escribir es caro: añadir una fila al gimnasio reescribe el array entero. Por
+  eso las escrituras van agrupadas (debounce) y las lecturas y suscripciones se
+  comparten entre componentes.
 */
 
 const metaKey = (key) => "lh_meta:" + key;
@@ -28,11 +41,45 @@ const setTs = (key, ts) => localStorage.setItem(metaKey(key), ts);
   reloj va atrasado, la comparación por fecha decidiría que lo remoto es más
   nuevo y tus cambios locales se perderían al reconectar. Con esta marca, un
   cambio local pendiente se sube siempre, sin depender de relojes.
+
+  Con la fusión por elemento esto solo hace falta ya para los valores SUELTOS
+  (un número, un texto): en las listas y los mapas manda la marca de cada
+  elemento, que no se pisan entre sí.
 */
 const pendienteKey = (key) => "lh_pend:" + key;
 const hayPendiente = (key) => localStorage.getItem(pendienteKey(key)) === "1";
 const marcarPendiente = (key) => localStorage.setItem(pendienteKey(key), "1");
 const limpiarPendiente = (key) => localStorage.removeItem(pendienteKey(key));
+
+/*
+  Las marcas por elemento viven en su propia clave, aparte del dato.
+
+  Podrían ir dentro del valor, pero el valor lo leen directamente otros sitios
+  (la paleta de comandos abre `lh_tasks` a pelo, las copias de seguridad
+  recorren todas las claves). Mezclando ambas cosas habría que tocar todo eso, y
+  una copia restaurada traería metadatos de otro dispositivo. Separadas, el
+  formato de `lh_*` no cambia y nada de fuera se entera.
+*/
+const sincKey = (key) => "lh_sync:" + key;
+
+function leerMeta(key) {
+  try {
+    const raw = localStorage.getItem(sincKey(key));
+    if (!raw) return metaVacia();
+    const m = JSON.parse(raw);
+    return { tocado: m?.tocado || {}, borrado: m?.borrado || {} };
+  } catch {
+    return metaVacia();
+  }
+}
+
+function guardarMeta(key, meta) {
+  try {
+    localStorage.setItem(sincKey(key), JSON.stringify(meta));
+  } catch {
+    /* almacenamiento lleno: se avisa al guardar el valor, no hace falta repetirlo */
+  }
+}
 
 function loadLocal(key, initial) {
   try {
@@ -98,7 +145,7 @@ export function loadCloudCompartido(key) {
   return promesa;
 }
 
-async function saveCloud(key, value) {
+async function saveCloud(key, value, meta) {
   /*
     getSession() en lugar de getUser(): getUser() consulta al servidor de auth,
     así que cada guardado eran DOS viajes de red. getSession() lee la sesión ya
@@ -114,10 +161,14 @@ async function saveCloud(key, value) {
     No mandamos updated_at: lo pone un trigger de Postgres y nos lo devolvemos
     con select(), para guardar en local la hora AUTORITATIVA del servidor. Así
     la comparación entre dispositivos no depende de que sus relojes coincidan.
+
+    Lo que sí viaja es el SOBRE: el valor más las marcas por elemento. Sin ellas
+    el otro dispositivo no podría saber cuál de dos versiones de una misma fila
+    es la nueva.
   */
   const { data, error } = await supabase
     .from("app_state")
-    .upsert({ key, value, user_id: user.id })
+    .upsert({ key, value: meterEnSobre(value, meta || metaVacia()), user_id: user.id })
     .select("updated_at")
     .single();
 
@@ -139,24 +190,24 @@ async function saveCloud(key, value) {
 export const RETARDO_GUARDADO = 600;
 const guardadosPendientes = new Map();
 
-export function guardarEnNubeConRetraso(key, valor) {
+export function guardarEnNubeConRetraso(key, valor, meta) {
   const previo = guardadosPendientes.get(key);
   if (previo) clearTimeout(previo.temporizador);
 
   const temporizador = setTimeout(() => {
     const pendiente = guardadosPendientes.get(key);
     guardadosPendientes.delete(key);
-    if (pendiente) saveCloud(key, pendiente.valor);
+    if (pendiente) saveCloud(key, pendiente.valor, pendiente.meta);
   }, RETARDO_GUARDADO);
 
-  guardadosPendientes.set(key, { valor, temporizador });
+  guardadosPendientes.set(key, { valor, meta, temporizador });
 }
 
 // Sube ya lo que esté esperando. Se llama al cerrar u ocultar la pestaña.
 export function vaciarGuardadosPendientes() {
   for (const [key, pendiente] of guardadosPendientes) {
     clearTimeout(pendiente.temporizador);
-    saveCloud(key, pendiente.valor);
+    saveCloud(key, pendiente.valor, pendiente.meta);
   }
   guardadosPendientes.clear();
 }
@@ -222,10 +273,60 @@ export function suscribirClave(key, oyente) {
   };
 }
 
+/*
+  Avisos DENTRO de la pestaña, entre componentes que comparten clave.
+
+  Sin esto la fusión se volvía peligrosa. Ejemplo real: tienes Finanzas abierta
+  (su usePersisted tiene la lista en memoria) y añades un gasto con el botón +,
+  que es otro componente con la MISMA clave. El de Finanzas no se entera y sigue
+  con la lista de antes. En cuanto edites algo allí, guardaría su lista vieja y
+  la comparación vería que al gasto nuevo "le han quitado" → tumba → borrado
+  para siempre y en todos los dispositivos.
+
+  Antes de fusionar, ese mismo escenario también perdía el gasto, pero solo en
+  local y hasta la siguiente recarga. Con tumbas pasaría a ser definitivo, así
+  que aquí se corta: quien escribe avisa al resto de instancias de su clave.
+*/
+const oyentesLocales = new Map();
+
+function avisarEnLaPestana(key, valor, meta, emisor) {
+  const oyentes = oyentesLocales.get(key);
+  if (!oyentes) return;
+  for (const oyente of oyentes) if (oyente !== emisor) oyente(valor, meta);
+}
+
+function escucharEnLaPestana(key, oyente) {
+  let oyentes = oyentesLocales.get(key);
+  if (!oyentes) {
+    oyentes = new Set();
+    oyentesLocales.set(key, oyentes);
+  }
+  oyentes.add(oyente);
+  return () => {
+    oyentes.delete(oyente);
+    if (oyentes.size === 0) oyentesLocales.delete(key);
+  };
+}
+
 export function usePersisted(key, initial) {
   const [value, setValue] = useState(() => loadLocal(key, initial));
   const hydrated = useRef(false);
   const serialized = useRef(JSON.stringify(loadLocal(key, initial)));
+  const meta = useRef(leerMeta(key));
+  // Marca los cambios que llegan de fuera (fusión o aviso de la pestaña) para
+  // que el efecto de guardado no los vuelva a sellar como si fueran tuyos.
+  const deFuera = useRef(false);
+
+  // Aplica un valor que viene de fuera sin re-sellarlo ni resubirlo.
+  const aplicarDeFuera = useCallback((valor, metaNueva) => {
+    deFuera.current = true;
+    serialized.current = JSON.stringify(valor);
+    meta.current = metaNueva;
+    setValue(valor);
+  }, []);
+
+  // Otros componentes de esta misma pestaña que usan la misma clave.
+  useEffect(() => escucharEnLaPestana(key, aplicarDeFuera), [key, aplicarDeFuera]);
 
   useEffect(() => {
     let active = true;
@@ -234,23 +335,64 @@ export function usePersisted(key, initial) {
       return;
     }
 
-    // Al cargar: decidir entre lo local y lo remoto.
-    loadCloudCompartido(key)
-      .then((remote) => {
-        if (!active) return;
-        const localTs = getTs(key);
+    /*
+      Junta lo de este dispositivo con lo del servidor. Se usa igual al cargar
+      y al recibir un cambio en tiempo real.
 
-        if (hayPendiente(key)) {
-          /*
-            Hay un cambio local sin confirmar (se hizo sin conexión, o la subida
-            no llegó a salir). Se sube sin mirar fechas: su marca es provisional
-            y del reloj del dispositivo, así que compararla no es fiable.
-          */
-          guardarEnNubeConRetraso(key, JSON.parse(serialized.current));
-        } else if (remote && (!localTs || remote.updated_at > localTs)) {
-          serialized.current = JSON.stringify(remote.value);
-          setTs(key, remote.updated_at);
-          setValue(remote.value);
+      Devuelve si el resultado aporta algo que al servidor le falta; en ese caso
+      hay que volver a subirlo. Eso es lo que cierra la carrera de "los dos
+      dispositivos escriben a la vez": el que se entera segundo publica la unión
+      y los dos acaban igual.
+    */
+    const juntarCon = (guardadoRemoto, selloRemoto) => {
+      const remoto = abrirSobre(guardadoRemoto);
+      const local = {
+        valor: JSON.parse(serialized.current),
+        meta: meta.current,
+        sello: getTs(key),
+      };
+      const resultado = fusionar(local, { ...remoto, sello: selloRemoto });
+
+      /*
+        Los valores sueltos (un número, un texto) no tienen elementos que casar
+        y se deciden por fecha. Si aquí hay un cambio sin confirmar, la fecha
+        local es del reloj de este dispositivo y no es de fiar: se conserva lo
+        local y ya se subirá.
+      */
+      if (resultado.forma === "suelto" && hayPendiente(key)) return true;
+
+      const fusionado = JSON.stringify(resultado.valor);
+      if (fusionado !== serialized.current) {
+        aplicarDeFuera(resultado.valor, resultado.meta);
+        saveLocal(key, resultado.valor);
+        guardarMeta(key, resultado.meta);
+        avisarEnLaPestana(key, resultado.valor, resultado.meta, aplicarDeFuera);
+      } else {
+        meta.current = resultado.meta;
+        guardarMeta(key, resultado.meta);
+      }
+
+      return fusionado !== JSON.stringify(remoto.valor);
+    };
+
+    loadCloudCompartido(key)
+      .then((remoto) => {
+        if (!active) return;
+
+        if (!remoto) {
+          // Nada en la nube todavía: si aquí hay algo, que suba.
+          if (hayPendiente(key)) {
+            guardarEnNubeConRetraso(key, JSON.parse(serialized.current), meta.current);
+          }
+          hydrated.current = true;
+          return;
+        }
+
+        if (juntarCon(remoto.value, remoto.updated_at)) {
+          guardarEnNubeConRetraso(key, JSON.parse(serialized.current), meta.current);
+        } else {
+          setTs(key, remoto.updated_at);
+          limpiarPendiente(key);
         }
         hydrated.current = true;
       })
@@ -264,10 +406,11 @@ export function usePersisted(key, initial) {
     const desuscribir = suscribirClave(key, (payload) => {
       const row = payload.new;
       if (!row || row.value === undefined) return;
-      if (row.updated_at && row.updated_at > getTs(key)) {
-        serialized.current = JSON.stringify(row.value);
+      if (juntarCon(row.value, row.updated_at)) {
+        // Traíamos algo que al servidor le faltaba: se publica la unión.
+        guardarEnNubeConRetraso(key, JSON.parse(serialized.current), meta.current);
+      } else {
         setTs(key, row.updated_at);
-        setValue(row.value);
       }
     });
 
@@ -282,18 +425,61 @@ export function usePersisted(key, initial) {
     // Local va siempre inmediato: es síncrono y es la red de seguridad si se
     // cierra la pestaña antes de que salga la subida.
     saveLocal(key, value);
+
     const s = JSON.stringify(value);
-    if (s !== serialized.current) {
+
+    /*
+      La bandera se consume SIEMPRE, antes de cualquier salida.
+
+      Es sutil y costó un fallo real: `aplicarDeFuera` ya deja `serialized`
+      igual al valor nuevo, así que este efecto sale por la comparación de
+      abajo. Si la bandera se limpiara después de esa comparación, se quedaría
+      en `true` para siempre, y el SIGUIENTE cambio de verdad del usuario se
+      tomaría por venido de fuera: se guardaría en el navegador pero sin marca
+      de tiempo, y por tanto no subiría nunca a la nube.
+    */
+    /*
+      La bandera se consume SIEMPRE, antes de cualquier salida.
+
+      Es sutil y costó un fallo real: `aplicarDeFuera` ya deja `serialized`
+      igual al valor nuevo, así que este efecto sale por la comparación de
+      abajo. Si la bandera se limpiara después de esa comparación, se quedaría
+      en `true` para siempre, y el SIGUIENTE cambio de verdad del usuario se
+      tomaría por venido de fuera: se guardaría en el navegador pero sin marca
+      de tiempo, y por tanto no subiría nunca a la nube.
+    */
+    const venidoDeFuera = deFuera.current;
+    deFuera.current = false;
+
+    if (s === serialized.current) return;
+
+    // Cambio venido de fuera: ya está sellado y guardado, no hay que tocarlo.
+    if (venidoDeFuera) {
       serialized.current = s;
-      // Marca provisional del reloj local: solo sirve para saber que hay algo
-      // más nuevo que lo remoto. La definitiva la pone el servidor al subir.
-      setTs(key, new Date().toISOString());
-      if (cloudEnabled && hydrated.current) {
-        marcarPendiente(key);
-        guardarEnNubeConRetraso(key, value);
-      }
+      return;
     }
-  }, [key, value]);
+
+    /*
+      Cambio del usuario en este dispositivo: se compara con lo que había para
+      anotar QUÉ elemento ha cambiado y cuál se ha quitado. Esa marca por
+      elemento es lo que permite fusionar en vez de pisar.
+    */
+    const anterior = JSON.parse(serialized.current);
+    meta.current = podarTumbas(sellar(anterior, value, meta.current));
+    guardarMeta(key, meta.current);
+    serialized.current = s;
+
+    // Marca provisional del reloj local: solo sirve para saber que hay algo
+    // más nuevo que lo remoto. La definitiva la pone el servidor al subir.
+    setTs(key, new Date().toISOString());
+
+    avisarEnLaPestana(key, value, meta.current, aplicarDeFuera);
+
+    if (cloudEnabled && hydrated.current) {
+      marcarPendiente(key);
+      guardarEnNubeConRetraso(key, value, meta.current);
+    }
+  }, [key, value, aplicarDeFuera]);
 
   return [value, setValue];
 }

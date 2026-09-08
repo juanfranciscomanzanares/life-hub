@@ -12,18 +12,111 @@ npm run dev        # servidor de desarrollo (Vite)
 npm run build      # build de producción
 npm test           # tests (vitest, una pasada)
 npm run test:watch # tests en modo watch
+npm run lint       # eslint (lo importante: no-undef y react-hooks)
 ```
 
-Ejecuta `npm test` y `npm run build` antes de dar por terminado un cambio.
+Ejecuta `npm run lint`, `npm test` y `npm run build` antes de dar por terminado
+un cambio. El lint no es cosmético: `no-undef` es lo único que detecta un import
+que se queda atrás al mover código entre archivos, porque eso **no rompe el
+build** y solo revienta al abrir esa pantalla en el navegador.
 
 ## Arquitectura
 
-- [src/main.jsx](src/main.jsx) → [src/App.jsx](src/App.jsx) (auth/candado) → [src/LifeDashboard.jsx](src/LifeDashboard.jsx), que contiene el shell (cabecera superior con navegación agrupada) y algunas secciones inline (Inicio, Universidad, Finanzas, Hábitos, Trabajo, Segundo Cerebro).
-- Las demás secciones viven en `src/sections/` y se cargan con `lazy()` desde `LifeDashboard.jsx` para no engordar el bundle inicial.
-- La navegación se define en `NAV_GROUPS` (grupos con desplegable) dentro de `LifeDashboard.jsx`; `NAV` (lista plana) se deriva de ahí y alimenta la paleta de comandos (Ctrl+K).
+- [src/main.jsx](src/main.jsx) → [src/App.jsx](src/App.jsx) (auth/candado) → [src/LifeDashboard.jsx](src/LifeDashboard.jsx), que es **solo el shell** (cabecera con navegación agrupada, barra inferior del móvil) más la sección Inicio, que se carga de inmediato por ser la primera que se ve.
+- **Todas** las demás secciones viven en `src/sections/` y se cargan con `lazy()` desde `LifeDashboard.jsx`. No vuelvas a escribir una sección dentro del shell: seis de ellas estaban ahí y su código entraba en el trozo inicial aunque nunca las abrieras.
+- La navegación se define en `NAV_GROUPS` (grupos con desplegable) dentro de `LifeDashboard.jsx`; `NAV` (lista plana) se deriva de ahí, alimenta la paleta de comandos (Ctrl+K) y da la lista de ids válidos para la ruta.
+- **La sección abierta va en la URL** (`#/gimnasio`), con el hook `useRuta` de [src/lib/ruta.js](src/lib/ruta.js). Es lo que hace que el botón "atrás" del móvil vuelva a la sección anterior en vez de cerrar la app, y que recargar te deje donde estabas. Se usa hash y no rutas normales para no tener que configurar reescrituras en Vercel ni en el service worker.
 - Estado persistente: hook `usePersisted(clave, inicial)` de [src/lib/store.js](src/lib/store.js). Las claves siempre con prefijo `lh_` (p. ej. `lh_habits`). Ese mismo store sincroniza con Supabase si hay sesión.
-- Lógica pura testeable en `src/lib/*.js` con su `*.test.js` al lado (vitest).
+- Lógica pura testeable en `src/lib/*.js` con su `*.test.js` al lado (vitest). Los tests que necesitan montar componentes llevan `// @vitest-environment jsdom` en la primera línea; el resto corre en `node`, que es mucho más rápido.
+
+### Perfiles (Quico y Carmen)
+
+La app la usan **dos personas con cuentas distintas**, y no ve lo mismo cada
+una. Todo lo que distingue a un perfil está en [src/lib/perfiles.js](src/lib/perfiles.js),
+que es una tabla y funciones puras: sin estado ni efectos, para poder probarlo
+en `node`.
+
+- **El perfil se decide por el CORREO de la sesión**, no por un ajuste guardado.
+  `lh_perfil` existe como escape (modo local sin nube, y para probar el otro
+  perfil desde Ajustes) pero **manda menos que el correo**: el ajuste vive en el
+  navegador, así que en un dispositivo compartido se quedaría pegado y la
+  siguiente persona entraría con la app de la anterior.
+- Un perfil define cuatro cosas: `sinSecciones`, `acento`, `tema` y `saludo`.
+  Una sección nueva la ven todos salvo que se añada a `sinSecciones`.
+- **`NAV_GROUPS` sigue siendo la lista completa**; el shell la filtra con
+  `navDelPerfil()`. Los ids resultantes son los que recibe `useRuta`: sin eso,
+  escribir `#/tenis` a mano abría una sección que ese perfil no tiene y de la
+  que no había forma de salir, porque tampoco estaba en su menú.
+- **`useRuta` ya no puede suponer que la lista de ids es constante.** Lo era
+  cuando se derivaba de `NAV_GROUPS`; ahora depende de quién ha entrado y puede
+  llegar tarde. La lista viaja en una ref (para no reenganchar los listeners del
+  historial en cada render) y hay un efecto que te saca de la sección si deja de
+  existir. Además el hook **normaliza la URL**: un hash que no lleva a ningún
+  sitio se reescribe al de la sección que se está viendo de verdad, porque si no
+  guardar la página en favoritos abría algo distinto de lo que ponía la barra.
+- **Tercera capa de color**, en `html[data-perfil]` (ver `index.css`). Las otras
+  dos —acento global y color de sección— siguen igual; esta redefine la escala
+  neutra `--c-slate-*` entera, que es de donde salen fondo, tarjetas, bordes y
+  todos los tonos de texto. Por eso el mundo rosa no obliga a tocar ni un
+  componente. Los valores están elegidos midiendo contraste contra el fondo
+  real de cada tema, no a ojo: si tocas uno, recalcula.
+- **El acento que impone un perfil no se escribe en `lh_accent`.** Esa clave es
+  del dispositivo: si se guardara, al volver el otro perfil se encontraría su
+  color cambiado.
+- **`lh_settings` la escriben tres pantallas** (Inicio, Ajustes y Salud) y su
+  valor inicial sale de `ajustesIniciales()`, una sola función. Cada una
+  declaraba el suyo con distintas claves y, en una cuenta nueva, la primera
+  pantalla que abrieras decidía qué campos existían: las metas de agua y de
+  sueño salían vacías.
+- **PENDIENTE**: el bloque `uni` por perfil. El horario, las asignaturas y los
+  exámenes de [src/lib/datosUni.js](src/lib/datosUni.js) y [src/lib/uni.js](src/lib/uni.js)
+  siguen siendo constantes con la carrera de Quico. Carmen ve esas secciones con
+  datos que no son suyos hasta que se parametricen.
+
+### Sincronización entre dispositivos
+
+Los conflictos se resuelven **elemento a elemento**, no por bloques (ver [src/lib/fusionar.js](src/lib/fusionar.js)). Antes ganaba el bloque con la fecha más nueva, así que apuntar un gasto en el móvil y otro en el PC hacía desaparecer uno de los dos. Lo que hay que saber al tocar esto:
+
+- **Cada elemento necesita `id`, y ese id lo da `nuevoId()` de [src/lib/id.js](src/lib/id.js).** Nunca `Date.now()`: dos dispositivos en el mismo milisegundo darían el mismo id, la fusión los tomaría por el mismo elemento y perdería uno. `nuevoId()` lleva parte aleatoria justo para eso.
+- **La fusión se decide por la FORMA del dato, no por una lista de claves.** Array de objetos con `id` → por elemento; objeto llano → por clave de primer nivel; lo demás (números, textos, arrays sin id como los partidos de tenis) → gana el más reciente, como antes. Una sección nueva hereda la fusión sola si sus elementos llevan `id`.
+- **Borrar deja una tumba** con su fecha, que se poda a los 90 días. Sin tumba, el otro dispositivo "aportaría" el elemento borrado y este resucitaría.
+- **En localStorage el valor se guarda pelado**, igual que siempre; las marcas van aparte en `lh_sync:<clave>`. Lo que viaja a Supabase es un sobre `{_lh, datos, meta}`. Si alguna vez metes las marcas dentro del valor, rompes la paleta de comandos y las copias de seguridad, que leen esas claves directamente.
+- **Cuidado con varios componentes que escriben la misma clave** (`lh_finance` la tocan Finanzas y el añadido rápido, por ejemplo). El store los mantiene en sincronía dentro de la pestaña; sin eso, el que tuviera la lista vieja enterraría lo que acaba de añadir el otro, y con tumbas ese borrado sería definitivo y en todos los dispositivos. Los tests de [src/lib/store.sync.test.jsx](src/lib/store.sync.test.jsx) vigilan justo eso.
+- **Horas de estudio: una sola fuente, `lh_study_log`** (registro con fecha). El contador `lh_study_hours` está muerto: no se lee ni se escribe. Tener lo mismo en dos sitios acabó enseñando "29h totales" con todas las asignaturas a 0, porque la cabecera sumaba el objeto entero —incluidas asignaturas de cursos anteriores— y la lista solo pintaba las de `SUBJECTS`. Los cálculos van por [src/lib/estudio.js](src/lib/estudio.js), y `totalHoras` recibe a propósito la lista de asignaturas a contar: si sumas más de las que se ven, vuelve el fantasma.
+- Las tareas de la carrera llevan `entrega` (fecha) y `hora`, y salen en el Calendario (tipo `Tarea`, con su color, distinto del de las clases) y en "lo de hoy" de Inicio. **Vienen de `lh_aula_tareas`** (el Aula Virtual), no de `lh_uni_tasks`: esa lista propia dejó de existir y hoy no la escribe nadie. La clave sigue en `ALL_KEYS` para que una copia antigua se restaure entera, pero ya no se exporta a CSV porque el archivo salía siempre vacío. Al darlas por terminadas se ofrece apuntar las horas dedicadas, que van al mismo `lh_study_log` con el id de la tarea en el campo `tarea`.
+- `lh_uni_convalidadas` marca las asignaturas convalidadas (el caso es Prácticas Externas). Una convalidada no cuenta horas ni sale en el gráfico: dejarla a 0 para siempre solo estropea la comparación.
 - Los registros de trabajo (`lh_work_log`) llevan `modalidad` (`"oficina"` / `"teletrabajo"`, ausente en los antiguos) y, opcionalmente, `km`. Los kilómetros se cuentan **por día presencial**, no por registro: ver `diasEnOficina` en [src/lib/trabajo.js](src/lib/trabajo.js). La distancia habitual vive aparte, en `lh_trabajo_km_trayecto`.
+
+### APIs externas sin credenciales
+
+El banco, el Aula Virtual y la bolsa van por Edge Function porque llevan
+secretos. **Estas dos no**, y por eso llaman directamente desde el navegador:
+meter un salto por Supabase solo añadiría latencia y otra pieza que romper.
+
+- **Tiempo** ([src/lib/tiempo.js](src/lib/tiempo.js)): [Open-Meteo](https://open-meteo.com),
+  sin clave, 10.000 peticiones al día en el plan no comercial. Se usa en Inicio
+  y en el Calendario. `timezone=auto` no es opcional: sin él las horas vienen en
+  UTC y "el sábado a las 10" serían las 8.
+- **Festivos** ([src/lib/festivos.js](src/lib/festivos.js)): [Nager.Date](https://date.nager.at),
+  sin clave ni límite. Se filtran por `ES-MC` (Región de Murcia) mirando el campo
+  `counties`; sin ese filtro el calendario diría que el Día de Andalucía es fiesta
+  aquí. **No sustituye a `FESTIVOS_UMU`**: ese es el calendario de la Facultad
+  (lleva la Romería y San Alberto Magno, que ninguna API conoce) y manda cuando
+  los dos tienen algo que decir del mismo día. Nager cubre el hueco de fuera del
+  curso, donde `queHayEl` no sabe nada.
+
+**Las dos cachés (`lh_cache_tiempo`, `lh_cache_festivos`) van a `localStorage` a
+pelo, NO por `usePersisted`.** Es deliberado: todo lo que pasa por el store se
+sincroniza con Supabase, y esto es dato derivado que se regenera solo. Subirlo
+gastaría escrituras para nada y, peor, dos dispositivos en sitios distintos se
+pisarían la previsión el uno al otro. Tampoco entran en las copias de seguridad,
+que llevan una lista explícita de claves.
+
+La lógica pura (montar la URL, leer la respuesta, decidir si la caché sirve) está
+separada del hook y tiene sus tests. El icono del tiempo vive en
+[src/lib/tiempoUi.jsx](src/lib/tiempoUi.jsx) porque lo usan dos pantallas:
+`tiempo.js` devuelve un **nombre** de icono, no un componente, para seguir
+probándose en `node` sin arrastrar JSX.
 
 ## Convenciones de UI
 
@@ -35,10 +128,19 @@ Ejecuta `npm test` y `npm run build` antes de dar por terminado un cambio.
   - *Acento global* (`indigo-*` → `--c-indigo-*`, redefinidas por `html[data-accent]`, ver `ACENTOS` en [src/lib/useTheme.js](src/lib/useTheme.js)): botones, enlaces y foco. Lo elige el usuario en Ajustes.
   - *Color de sección* (`seccion-*` → `--c-seccion-*`, redefinidas por `data-seccion` que pone el shell): título de sección, resplandor superior y detalles propios del área. Gimnasio acero, tenis rojo, dinero verde, etc.
 - Gráficas nuevas: la curva suave sale de `caminoSuave` ([src/lib/curva.js](src/lib/curva.js)), que es una spline **monótona**. No la cambies por una Bézier normal: esa se inventa valles y picos entre puntos, y con kg o euros eso es mentir.
-- **Tipografía**: `font-sans` (Inter) para texto y `font-display` (Space Grotesk) para títulos y cifras grandes. Las cifras, con `tabular-nums` o con el componente `Cifra` de [src/lib/animar.jsx](src/lib/animar.jsx), que además las anima al aparecer.
+- **Nada de degradados índigo→fucsia.** Era el del logo y el de las auroras del fondo, y es el tópico visual más reconocible del software generado por IA. Ahora todo el degradado es de un solo tono (500→600 del acento). Vive en cuatro sitios que van juntos: el componente `Logo`, [public/icon.svg](public/icon.svg), la pantalla de carga de [index.html](index.html) y las auroras de `body::before`.
+- **Grano**: `body::after` lleva una capa de ruido SVG incrustado al 3,5% (2% en claro). Es lo que evita que los fondos se lean como sintéticos y de paso disimula el bandeado de los degradados grandes. No lo subas: el grano que se nota conscientemente es suciedad.
+- **Tipografía**: `font-sans` (**Geist**) para texto y `font-display` (Space Grotesk) para títulos y cifras grandes. Geist y no Inter a propósito: Inter es la que sale por defecto cuando nadie elige y no dice nada de la app. Inter se queda instalada solo como respaldo con métricas parecidas.
+- **Cifras grandes**: componente `Metrica` de [src/lib/ui.jsx](src/lib/ui.jsx), no maquetado a mano. La etiqueta va **arriba** en versalitas y el número debajo, que es el orden en el que se pregunta. Las cifras, con `tabular-nums` o con el componente `Cifra` de [src/lib/animar.jsx](src/lib/animar.jsx), que además las anima al aparecer.
+- **Escala tipográfica: nada de `text-[Npx]`.** Por debajo de `text-xs` hay dos peldaños declarados en [tailwind.config.js](tailwind.config.js), con su interletrado: `text-2xs` (11px) para pistas, etiquetas y metadatos, y `text-3xs` (10px) **solo** donde 11 no cabe (ejes de gráficas, rejilla del calendario, barra inferior). No hay nada por debajo de 10px. Había 52 tamaños sueltos inventados por las pantallas —9, 10, 11 y 12px usados sin criterio— porque la escala no existía. **Única excepción: dentro de un `<svg>` con `viewBox`** (o sea, [src/lib/graficos.jsx](src/lib/graficos.jsx)), donde los píxeles son unidades del lienzo y escalan con la gráfica; ahí los tokens en `rem` romperían el dibujo. La pista para distinguirlo: si el elemento lleva `fill-*`, es SVG.
+- **Una sola curva: `var(--lh-ease)`** (`cubic-bezier(0.22, 1, 0.36, 1)`, un `ease-out` fuerte), declarada en `index.css`. Estaba copiada literal en nueve sitios y ya se habían colado dos variantes casi idénticas. `ease-in` no se usa nunca: empieza lento justo cuando se está mirando. Los fundidos de opacidad pura sí van con `ease` a secas, que es lo correcto para un cambio de color.
+- **Cuanto más se repite una animación, más corta.** Cambiar de sección pasa decenas de veces al día (y con Ctrl+K es acción de teclado), así que `.section-fade` se asienta en 0,38 s y no en los 0,55 s que tenía. Lo que se ve una vez al día puede permitirse medio segundo; lo que se ve treinta, no.
+- **El velo de lo que se pone por encima es `.lh-velo`**, una sola clase para el menú del móvil, la paleta, el añadido rápido, el onboarding y el saludo. Usa `--c-slate-950`, no negro: así sigue el mundo del perfil en vez de apagarlo a gris. Antes había tres opacidades distintas elegidas cada una por su lado.
 - **Cristal**: el aspecto de las tarjetas vive en la clase `.lh-card` de `index.css`, no en clases sueltas. El desenfoque solo se aplica desde 640px por rendimiento en el móvil. Cuidado: `backdrop-filter` crea bloque contenedor, así que nada con `position: fixed` puede ir dentro de una tarjeta.
 - Animaciones definidas en `index.css` (`section-fade`, `lh-card`, `lh-barra`, `lh-skeleton`...): siempre con su variante en `@media (prefers-reduced-motion: reduce)`. El confeti de [src/lib/confetti.js](src/lib/confetti.js) se calla solo en ese caso.
 - Registros iniciales vacíos (nada de datos de ejemplo): un dispositivo nuevo podría subirlos a Supabase como si fueran reales. Los catálogos (asignaturas, categorías) sí pueden ir rellenos.
+- **Ventanas flotantes**: cualquier modal usa el hook `useDialogo` de [src/lib/useDialogo.js](src/lib/useDialogo.js) y lleva `role="dialog"`, `aria-modal="true"` y un nombre (`aria-label` o `aria-labelledby`). El hook atrapa el tabulador dentro, cierra con Escape y devuelve el foco a quien abrió. Sin él, tabulando se sale del modal hacia botones tapados por el velo y el foco parece perdido.
+- Los iconos decorativos van con `aria-hidden="true"`, y todo botón que solo lleve icono necesita `aria-label`. Ojo con los botones cuyo texto se oculta en móvil (`hidden sm:block`): ahí el nombre accesible desaparece con él.
 
 ## Skills y agentes disponibles
 

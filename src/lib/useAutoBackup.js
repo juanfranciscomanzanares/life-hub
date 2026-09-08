@@ -8,14 +8,36 @@ import { useEffect } from "react";
   faltaban las seis claves `lh_tenis_*` que sí se usan ahora, las rutinas y
   ejercicios del gimnasio y los ajustes. Una copia a la que le faltan claves
   parece completa hasta el día que la necesitas.
+
+  Y volvió a quedarse atrás. Faltaban CINCO ajustes que la app sí guarda:
+
+    lh_uni_convalidadas    qué asignaturas tienes convalidadas
+    lh_trabajo_km_trayecto la distancia de un día en oficina
+    lh_trabajo_modalidad   si por defecto vas a oficina o teletrabajas
+    lh_tiempo_lugar        de qué sitio quieres la previsión
+    lh_perfil              el perfil elegido a mano
+
+  Ninguna es un registro, y por eso pasaban desapercibidas: no se pierden
+  entradas, se pierde la CONFIGURACIÓN. Al restaurar, las convalidadas volvían a
+  contar y estropeaban el gráfico de horas, y los kilómetros se calculaban con
+  una distancia que ya no era la tuya.
+
+  CÓMO NO VOLVER A OLVIDARSE: esta lista se puede contrastar con la realidad.
+  Saca las claves que usa la app y réstale esta lista; lo que quede debería ser
+  solo lo del dispositivo (tema, acento, bloqueo, si viste el tour) y las cachés
+  de tiempo y festivos, que se excluyen a propósito porque son dato derivado.
+
+    grep -rhoE '"lh_[a-z_0-9]+"' src --include=*.js --include=*.jsx | sort -u
 */
 export const ALL_KEYS = [
   // Generales
   "lh_tasks", "lh_settings", "lh_events", "lh_routine", "lh_reminders", "lh_goals", "lh_notes",
+  "lh_perfil", "lh_tiempo_lugar",
   // Universidad
   "lh_uni_tasks", "lh_study_hours", "lh_study_log", "lh_aula_tareas", "lh_aula_usuario",
+  "lh_uni_convalidadas",
   // Trabajo
-  "lh_work_log", "lh_runbooks",
+  "lh_work_log", "lh_runbooks", "lh_trabajo_km_trayecto", "lh_trabajo_modalidad",
   // Gimnasio
   "lh_gym", "lh_gym_sesiones", "lh_gym_rutinas", "lh_gym_ejercicios",
   // Tenis de mesa

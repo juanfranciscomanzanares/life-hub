@@ -10,8 +10,7 @@ import {
   normalizarTareas,
   agruparPorAsignatura,
   aTareaDeApp,
-  yaAnadida,
-  tareasQueFaltan,
+  tareasParaLaApp,
 } from "./aula";
 
 // Las asignaturas de la app van abreviadas; las del Aula Virtual, completas.
@@ -187,16 +186,13 @@ describe("pasar una tarea del Aula Virtual a las tuyas", () => {
     expect(aTareaDeApp(otra, SUBJECTS).subject).toBe("Procesamiento de Imagen");
   });
 
-  it("no se añade dos veces al volver a sincronizar", () => {
-    const mias = [aTareaDeApp(tarea, SUBJECTS)];
-    expect(yaAnadida(mias, "a1")).toBe(true);
-    expect(tareasQueFaltan([tarea], mias)).toEqual([]);
+  it("marca como hecha la que ya está entregada en la UMU", () => {
+    // Es la única marca de "hecho" que hay ahora, y además es la de verdad.
+    expect(aTareaDeApp({ ...tarea, entregada: true }, SUBJECTS).done).toBe(true);
   });
 
-  it("una tarea tuya de siempre no estorba", () => {
-    // Las que escribes a mano no tienen aulaId y no deben contar como puestas.
-    const mias = [{ id: 1, text: "Repasar apuntes", subject: "Deep Learning", done: false }];
-    expect(yaAnadida(mias, "a1")).toBe(false);
-    expect(tareasQueFaltan([tarea], mias)).toHaveLength(1);
+  it("tareasParaLaApp convierte la lista entera", () => {
+    const r = tareasParaLaApp([tarea, { ...tarea, id: "a2" }], SUBJECTS);
+    expect(r.map((x) => x.aulaId)).toEqual(["a1", "a2"]);
   });
 });

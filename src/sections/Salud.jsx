@@ -2,18 +2,27 @@ import { useState } from "react";
 import { HeartPulse, Plus, Trash2, Moon, Footprints, Droplet, Scale, Watch } from "lucide-react";
 import { usePersisted } from "../lib/store";
 import { removeWithUndo } from "../lib/toast";
-import { Card, SectionTitle, todayISO } from "../lib/ui";
+import { Card, SectionTitle, Metrica, todayISO } from "../lib/ui";
 
+import { nuevoId } from "../lib/id";
+import { ajustesIniciales } from "../lib/perfiles";
 // Vacío a propósito: estos cuatro días eran de ejemplo y se guardaban como
 // reales. Además falseaban el patrón de sueño frente a gimnasio de Analítica.
 const INITIAL_HEALTH = [];
 
 const empty = { fecha: "", peso: "", sueno: "", pasos: "", fc: "", agua: "" };
 
-export default function Salud() {
+/* `perfilApp` es el perfil de la app (Quico / Carmen); el `perfil` de más abajo
+   son los datos corporales, que no tienen nada que ver. */
+export default function Salud({ perfilApp = null }) {
   const [log, setLog] = usePersisted("lh_health", INITIAL_HEALTH);
   const [perfil, setPerfil] = usePersisted("lh_salud_perfil", { altura: 175, objetivo: 72 });
-  const [ajustes] = usePersisted("lh_settings", { metaAgua: 2 });
+  /*
+    El valor inicial es el mismo que usan Inicio y Ajustes. Declarar aquí solo
+    `{metaAgua}` hacía que, si Salud era la primera pantalla que se abría en una
+    cuenta nueva, se guardara un `lh_settings` sin nombre ni meta de sueño.
+  */
+  const [ajustes] = usePersisted("lh_settings", ajustesIniciales(perfilApp));
   const metaAgua = Number(ajustes.metaAgua) || 2;
   const [form, setForm] = useState(empty);
 
@@ -31,7 +40,7 @@ export default function Salud() {
     if (!form.peso && !form.sueno && !form.pasos && !form.fc && !form.agua) return;
     setLog([
       {
-        id: Date.now(),
+        id: nuevoId(),
         fecha: form.fecha || todayISO(),
         peso: Number(form.peso) || 0,
         sueno: Number(form.sueno) || 0,
@@ -47,11 +56,16 @@ export default function Salud() {
   const inputCls =
     "rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none";
 
+  /*
+    La media de 7 días iba metida en la etiqueta ("Sueño (media 7d)"). Con la
+    ficha nueva la etiqueta va en versalitas y arriba, y un paréntesis ahí se
+    lee fatal: el matiz baja a `detalle`, que es su sitio.
+  */
   const kpis = [
-    { label: "Peso", value: last.peso ? `${last.peso} kg` : "—", icon: Scale, color: "text-indigo-400 bg-indigo-500/15" },
-    { label: "Sueño (media 7d)", value: `${avg("sueno")} h`, icon: Moon, color: "text-sky-400 bg-sky-500/15" },
-    { label: "Pasos (media 7d)", value: avg("pasos").toLocaleString("es-ES"), icon: Footprints, color: "text-emerald-400 bg-emerald-500/15" },
-    { label: "FC reposo", value: last.fc ? `${last.fc} ppm` : "—", icon: HeartPulse, color: "text-rose-400 bg-rose-500/15" },
+    { label: "Peso", value: last.peso ? `${last.peso} kg` : "—", detalle: "última medida", icon: Scale, color: "text-indigo-400 bg-indigo-500/15" },
+    { label: "Sueño", value: `${avg("sueno")} h`, detalle: "media de 7 días", icon: Moon, color: "text-sky-400 bg-sky-500/15" },
+    { label: "Pasos", value: avg("pasos").toLocaleString("es-ES"), detalle: "media de 7 días", icon: Footprints, color: "text-emerald-400 bg-emerald-500/15" },
+    { label: "FC reposo", value: last.fc ? `${last.fc} ppm` : "—", detalle: "última medida", icon: HeartPulse, color: "text-rose-400 bg-rose-500/15" },
   ];
 
   return (
@@ -67,33 +81,26 @@ export default function Salud() {
         </p>
       </div>
 
-      {/* KPIs */}
+      {/* KPIs. Misma ficha que Inicio: ver `Metrica` en src/lib/ui.jsx. */}
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {kpis.map((k) => {
-          const Icon = k.icon;
-          return (
-            <Card key={k.label} className="flex items-center gap-3">
-              <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${k.color}`}><Icon size={20} /></div>
-              <div>
-                <p className="text-xl font-bold text-slate-100">{k.value}</p>
-                <p className="text-xs text-slate-400">{k.label}</p>
-              </div>
-            </Card>
-          );
-        })}
+        {kpis.map((k) => (
+          <Metrica key={k.label} icono={k.icon} etiqueta={k.label} valor={k.value} detalle={k.detalle} color={k.color} />
+        ))}
       </div>
 
       {/* IMC, objetivo e hidratación */}
       <Card className="mb-6">
         <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-slate-100"><Scale size={18} className="text-indigo-400" /> IMC y objetivo</h2>
         <div className="mb-4 flex flex-wrap items-end gap-4">
+          {/* `htmlFor` + `id`: sin eso el <label> es solo texto al lado y el
+              campo se anuncia sin nombre. */}
           <div>
-            <label className="mb-1 block text-xs text-slate-400">Altura (cm)</label>
-            <input type="number" value={perfil.altura} onChange={(e) => setPerfil({ ...perfil, altura: Number(e.target.value) || 0 })} className="w-24 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none" />
+            <label htmlFor="salud-altura" className="mb-1 block text-xs text-slate-400">Altura (cm)</label>
+            <input id="salud-altura" type="number" value={perfil.altura} onChange={(e) => setPerfil({ ...perfil, altura: Number(e.target.value) || 0 })} className="w-24 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none" />
           </div>
           <div>
-            <label className="mb-1 block text-xs text-slate-400">Peso objetivo (kg)</label>
-            <input type="number" step="0.1" value={perfil.objetivo} onChange={(e) => setPerfil({ ...perfil, objetivo: Number(e.target.value) || 0 })} className="w-24 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none" />
+            <label htmlFor="salud-objetivo" className="mb-1 block text-xs text-slate-400">Peso objetivo (kg)</label>
+            <input id="salud-objetivo" type="number" step="0.1" value={perfil.objetivo} onChange={(e) => setPerfil({ ...perfil, objetivo: Number(e.target.value) || 0 })} className="w-24 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none" />
           </div>
           {(() => {
             const imc = last.peso && perfil.altura ? last.peso / Math.pow(perfil.altura / 100, 2) : 0;
@@ -115,7 +122,7 @@ export default function Salud() {
               <span>Meta: {perfil.objetivo} kg</span>
             </div>
             <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-800">
-              <div className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-emerald-500" style={{ width: `${Math.min(100, (perfil.objetivo / last.peso) * 100)}%` }} />
+              <div className="lh-progreso h-full rounded-full bg-gradient-to-r from-indigo-500 to-emerald-500" style={{ width: `${Math.min(100, (perfil.objetivo / last.peso) * 100)}%` }} />
             </div>
           </div>
         )}
@@ -125,7 +132,7 @@ export default function Salud() {
             <span className="text-slate-300">{last.agua || 0} / {metaAgua} L</span>
           </div>
           <div className="h-2 w-full overflow-hidden rounded-full bg-slate-800">
-            <div className="h-full rounded-full bg-sky-400" style={{ width: `${Math.min(100, ((last.agua || 0) / metaAgua) * 100)}%` }} />
+            <div className="lh-progreso h-full rounded-full bg-sky-400" style={{ width: `${Math.min(100, ((last.agua || 0) / metaAgua) * 100)}%` }} />
           </div>
         </div>
       </Card>
@@ -139,11 +146,11 @@ export default function Salud() {
           <div className="flex h-40 items-end justify-between gap-2">
             {pesos.map((p) => (
               <div key={p.id} className="flex flex-1 flex-col items-center gap-2">
-                <span className="text-[10px] text-slate-400">{p.peso}</span>
+                <span className="text-3xs text-slate-400">{p.peso}</span>
                 <div className="flex w-full flex-1 items-end">
                   <div className="w-full rounded-t-lg bg-gradient-to-t from-indigo-600 to-indigo-400" style={{ height: `${20 + ((p.peso - minP) / range) * 80}%` }} title={`${p.fecha}: ${p.peso} kg`} />
                 </div>
-                <span className="text-[10px] text-slate-500">{p.fecha.slice(5)}</span>
+                <span className="text-3xs text-slate-500">{p.fecha.slice(5)}</span>
               </div>
             ))}
           </div>
@@ -154,7 +161,7 @@ export default function Salud() {
       <Card className="mb-4">
         <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-slate-100"><Droplet size={18} className="text-sky-400" /> Registrar día</h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-6">
-          <input type="date" value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} className={inputCls} />
+          <input type="date" aria-label="Fecha del registro" value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} className={inputCls} />
           <input type="number" step="0.1" placeholder="Peso kg" value={form.peso} onChange={(e) => setForm({ ...form, peso: e.target.value })} className={inputCls} />
           <input type="number" step="0.1" placeholder="Sueño h" value={form.sueno} onChange={(e) => setForm({ ...form, sueno: e.target.value })} className={inputCls} />
           <input type="number" placeholder="Pasos" value={form.pasos} onChange={(e) => setForm({ ...form, pasos: e.target.value })} className={inputCls} />
@@ -189,7 +196,7 @@ export default function Salud() {
                 <td className="px-5 py-3 text-slate-300">{r.pasos ? r.pasos.toLocaleString("es-ES") : "—"}</td>
                 <td className="px-5 py-3 text-slate-300">{r.fc || "—"}</td>
                 <td className="px-5 py-3 text-slate-300">{r.agua || "—"}{r.agua ? " L" : ""}</td>
-                <td className="px-5 py-3 text-right"><button onClick={() => removeWithUndo(log, setLog, r.id, "Registro")} className="text-slate-500 transition hover:text-rose-400"><Trash2 size={15} /></button></td>
+                <td className="px-5 py-3 text-right"><button onClick={() => removeWithUndo(log, setLog, r.id, "Registro")} aria-label={`Borrar el registro del ${r.fecha}`} className="text-slate-500 transition hover:text-rose-400"><Trash2 size={15} aria-hidden="true" /></button></td>
               </tr>
             ))}
           </tbody>

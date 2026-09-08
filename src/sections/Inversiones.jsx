@@ -2,8 +2,9 @@ import { useState } from "react";
 import { LineChart, Coins, Wallet, TrendingUp, TrendingDown, BarChart3, PiggyBank, Plus, Trash2, RefreshCw } from "lucide-react";
 import { usePersisted } from "../lib/store";
 import { removeWithUndo } from "../lib/toast";
-import { Card, SectionTitle, fmtEuro, todayISO } from "../lib/ui";
+import { Card, SectionTitle, Metrica, fmtEuro, todayISO } from "../lib/ui";
 
+import { nuevoId } from "../lib/id";
 const INVEST_TYPES = ["Fondo indexado", "ETF", "Acciones", "Cripto", "Plan de pensiones", "Cuenta remunerada", "Otro"];
 /*
   Vacío a propósito. Estas tres carteras y tres aportaciones eran de ejemplo, y
@@ -105,7 +106,7 @@ export default function Inversiones() {
   const addHolding = () => {
     if (!form.nombre.trim()) return;
     const amount = Number(form.aportado) || 0;
-    const h = { id: Date.now(), nombre: form.nombre, tipo: form.tipo, aportado: amount, valorActual: amount };
+    const h = { id: nuevoId(), nombre: form.nombre, tipo: form.tipo, aportado: amount, valorActual: amount };
     if (form.tipo === "Cripto") {
       if (form.coingeckoId) h.coingeckoId = form.coingeckoId.trim().toLowerCase();
       if (form.cantidad) h.cantidad = Number(form.cantidad);
@@ -116,7 +117,7 @@ export default function Inversiones() {
     }
     setHoldings([...holdings, h]);
     if (amount > 0)
-      setContribs([{ id: Date.now() + 1, fecha: todayISO(), monto: amount, destino: form.nombre }, ...contribs]);
+      setContribs([{ id: nuevoId(), fecha: todayISO(), monto: amount, destino: form.nombre }, ...contribs]);
     setForm({ nombre: "", tipo: INVEST_TYPES[0], aportado: "", coingeckoId: "", cantidad: "", ticker: "" });
   };
 
@@ -124,7 +125,7 @@ export default function Inversiones() {
     const amount = Number(aporte[h.id]) || 0;
     if (amount <= 0) return;
     setHoldings(holdings.map((x) => (x.id === h.id ? { ...x, aportado: x.aportado + amount, valorActual: x.valorActual + amount } : x)));
-    setContribs([{ id: Date.now(), fecha: todayISO(), monto: amount, destino: h.nombre }, ...contribs]);
+    setContribs([{ id: nuevoId(), fecha: todayISO(), monto: amount, destino: h.nombre }, ...contribs]);
     setAporte({ ...aporte, [h.id]: "" });
   };
 
@@ -134,39 +135,44 @@ export default function Inversiones() {
     <div>
       <SectionTitle icon={LineChart} title="Inversiones" subtitle="Aporta desde tu sueldo y sigue tu cartera" />
 
-      {/* Resumen */}
+      {/* Resumen, con la ficha compartida (ver `Metrica` en src/lib/ui.jsx).
+          Aquí la cifra sí va teñida: en ganancia y pérdida el color significa
+          algo y tiene que decir lo mismo en los dos temas. */}
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Card className="flex items-center gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-500/15 text-indigo-400"><Coins size={24} /></div>
-          <div>
-            <p className="text-2xl font-bold text-slate-100">{fmtEuro(totalAportado)}</p>
-            <p className="text-sm text-slate-400">Aportado</p>
-          </div>
-        </Card>
-        <Card className="flex items-center gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-400"><Wallet size={24} /></div>
-          <div>
-            <p className="text-2xl font-bold text-slate-100">{fmtEuro(totalActual)}</p>
-            <p className="text-sm text-slate-400">Valor actual</p>
-          </div>
-        </Card>
-        <Card className="flex items-center gap-4">
-          <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${pl >= 0 ? "bg-emerald-500/15 text-emerald-400" : "bg-rose-500/15 text-rose-400"}`}>
-            {pl >= 0 ? <TrendingUp size={24} /> : <TrendingDown size={24} />}
-          </div>
-          <div>
-            <p className={`text-2xl font-bold ${pl >= 0 ? "text-emerald-400" : "text-rose-400"}`}>{pl >= 0 ? "+" : ""}{fmtEuro(pl)}</p>
-            <p className="text-sm text-slate-400">Ganancia / pérdida</p>
-          </div>
-        </Card>
-        <Card className="flex items-center gap-4">
-          <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${plPct >= 0 ? "bg-emerald-500/15 text-emerald-400" : "bg-rose-500/15 text-rose-400"}`}><BarChart3 size={24} /></div>
-          <div>
-            <p className={`text-2xl font-bold ${plPct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>{plPct >= 0 ? "+" : ""}{plPct.toFixed(1)}%</p>
-            <p className="text-sm text-slate-400">Rentabilidad</p>
-            {totalDiv > 0 && <p className="text-[10px] text-emerald-400">Con dividendos: {rentTotal >= 0 ? "+" : ""}{rentTotal.toFixed(1)}%</p>}
-          </div>
-        </Card>
+        <Metrica
+          icono={Coins}
+          color="bg-indigo-500/15 text-indigo-400"
+          etiqueta="Aportado"
+          valor={fmtEuro(totalAportado)}
+          detalle="de tu bolsillo"
+        />
+        <Metrica
+          icono={Wallet}
+          color="bg-emerald-500/15 text-emerald-400"
+          etiqueta="Valor actual"
+          valor={fmtEuro(totalActual)}
+          detalle="lo que vale hoy"
+        />
+        <Metrica
+          icono={pl >= 0 ? TrendingUp : TrendingDown}
+          color={pl >= 0 ? "bg-emerald-500/15 text-emerald-400" : "bg-rose-500/15 text-rose-400"}
+          tono={pl >= 0 ? "text-emerald-400" : "text-rose-400"}
+          etiqueta={pl >= 0 ? "Ganancia" : "Pérdida"}
+          valor={`${pl >= 0 ? "+" : ""}${fmtEuro(pl)}`}
+          detalle="sobre lo aportado"
+        />
+        <Metrica
+          icono={BarChart3}
+          color={plPct >= 0 ? "bg-emerald-500/15 text-emerald-400" : "bg-rose-500/15 text-rose-400"}
+          tono={plPct >= 0 ? "text-emerald-400" : "text-rose-400"}
+          etiqueta="Rentabilidad"
+          valor={`${plPct >= 0 ? "+" : ""}${plPct.toFixed(1)}%`}
+          detalle={
+            totalDiv > 0
+              ? `${rentTotal >= 0 ? "+" : ""}${rentTotal.toFixed(1)}% con dividendos`
+              : "sin contar dividendos"
+          }
+        />
       </div>
 
       {/* Objetivo mensual */}
@@ -175,12 +181,12 @@ export default function Inversiones() {
           <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100"><PiggyBank size={18} className="text-fuchsia-400" /> Aportación de este mes</h2>
           <div className="flex items-center gap-2 text-sm text-slate-400">
             <span>Objetivo mensual:</span>
-            <input type="number" value={goal} onChange={(e) => setGoal(Number(e.target.value) || 0)} className={`w-20 ${inputCls}`} />
+            <input type="number" aria-label="Objetivo mensual de inversión en euros" value={goal} onChange={(e) => setGoal(Number(e.target.value) || 0)} className={`w-20 ${inputCls}`} />
             <span>€</span>
           </div>
         </div>
         <div className="h-3 w-full overflow-hidden rounded-full bg-slate-800">
-          <div className="h-full rounded-full bg-gradient-to-r from-fuchsia-500 to-indigo-500" style={{ width: `${goalPct}%` }} />
+          <div className="lh-progreso h-full rounded-full bg-gradient-to-r from-fuchsia-500 to-indigo-500" style={{ width: `${goalPct}%` }} />
         </div>
         <p className="mt-2 text-xs text-slate-500">Llevas {fmtEuro(investedThisMonth)} invertidos este mes de un objetivo de {fmtEuro(goal)}.</p>
       </Card>
@@ -190,7 +196,7 @@ export default function Inversiones() {
         <h2 className="mb-3 text-lg font-semibold text-slate-100">Añadir inversión</h2>
         <div className="flex flex-wrap items-end gap-3">
           <input placeholder="Nombre (p. ej. Fondo Amundi World)" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} className={`flex-1 ${inputCls}`} />
-          <select value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value })} className={inputCls}>
+          <select aria-label="Tipo de inversión" value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value })} className={inputCls}>
             {INVEST_TYPES.map((t) => <option key={t}>{t}</option>)}
           </select>
           <input type="number" placeholder="Importe inicial €" value={form.aportado} onChange={(e) => setForm({ ...form, aportado: e.target.value })} className={`w-32 ${inputCls}`} />
@@ -246,7 +252,7 @@ export default function Inversiones() {
                   <span className={`mt-1 inline-block rounded-md px-2 py-0.5 text-xs font-medium ${typeColor(h.tipo)}`}>{h.tipo}</span>
                   {h.coingeckoId && <span className="ml-2 text-xs text-slate-500">{h.cantidad} ud · {h.coingeckoId}</span>}
                 </div>
-                <button onClick={() => removeWithUndo(holdings, setHoldings, h.id, "Inversión")} className="text-slate-500 transition hover:text-rose-400"><Trash2 size={16} /></button>
+                <button onClick={() => removeWithUndo(holdings, setHoldings, h.id, "Inversión")} aria-label={`Borrar ${h.nombre}`} className="text-slate-500 transition hover:text-rose-400"><Trash2 size={16} aria-hidden="true" /></button>
               </div>
               <div className="mb-3 grid grid-cols-3 gap-2 text-sm">
                 <div>
@@ -270,7 +276,7 @@ export default function Inversiones() {
               ) : null}
               <div className="mb-3">
                 <div className="mb-1 flex justify-between text-xs text-slate-500"><span>Peso en la cartera</span><span>{weight.toFixed(0)}%</span></div>
-                <div className="h-2 w-full overflow-hidden rounded-full bg-slate-800"><div className="h-full rounded-full bg-indigo-500" style={{ width: `${weight}%` }} /></div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-slate-800"><div className="lh-progreso h-full rounded-full bg-indigo-500" style={{ width: `${weight}%` }} /></div>
               </div>
               <div className="flex gap-2">
                 <input type="number" placeholder="Aportar €" value={aporte[h.id] || ""} onChange={(e) => setAporte({ ...aporte, [h.id]: e.target.value })} className={`flex-1 ${inputCls}`} />
@@ -306,7 +312,7 @@ export default function Inversiones() {
                 <td className="px-5 py-3 text-slate-400">{c.fecha}</td>
                 <td className="px-5 py-3 text-slate-200">{c.destino}</td>
                 <td className="px-5 py-3 text-right font-semibold text-emerald-400">+{fmtEuro(c.monto)}</td>
-                <td className="px-5 py-3 text-right"><button onClick={() => removeWithUndo(contribs, setContribs, c.id, "Aportación")} className="text-slate-500 transition hover:text-rose-400"><Trash2 size={15} /></button></td>
+                <td className="px-5 py-3 text-right"><button onClick={() => removeWithUndo(contribs, setContribs, c.id, "Aportación")} aria-label={`Borrar la aportación a ${c.destino} del ${c.fecha}`} className="text-slate-500 transition hover:text-rose-400"><Trash2 size={15} aria-hidden="true" /></button></td>
               </tr>
             ))}
           </tbody>

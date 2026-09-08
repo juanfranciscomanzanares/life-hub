@@ -17,7 +17,26 @@ const ATAJOS = [
   { id: "finanzas", label: "Dinero", icon: Wallet },
 ];
 
-export default function BarraInferior({ active, onNavigate, onAbrirMenu, menuAbierto }) {
+/*
+  `sinSecciones` viene del perfil. Hoy ninguno oculta ninguno de estos cuatro
+  atajos, pero dejar la lista fija es el mismo fallo que se acaba de arreglar en
+  la navegación de arriba: en cuanto un perfil esconda gimnasio o finanzas, aquí
+  saldría un botón que `useRuta` rechaza y que al pulsarlo no hace nada.
+*/
+export default function BarraInferior({ active, onNavigate, onAbrirMenu, menuAbierto, sinSecciones = [] }) {
+  const atajos = ATAJOS.filter((a) => !sinSecciones.includes(a.id));
+
+  /*
+    Si estás en una sección que no es ninguno de los cuatro atajos —Salud,
+    Metas, Calendario, Analítica...— antes no se encendía NADA en la barra: los
+    cuatro apagados y "Más" apagado también. Te quedabas sin saber dónde estás,
+    que es justo lo único que una barra de navegación tiene que decirte siempre.
+
+    Ahora en ese caso se marca "Más", que es literalmente por donde has llegado.
+  */
+  const enOtraSeccion = !menuAbierto && !atajos.some((a) => a.id === active);
+  const masDestacado = menuAbierto || enOtraSeccion;
+
   return (
     <nav
       aria-label="Navegación principal"
@@ -29,14 +48,14 @@ export default function BarraInferior({ active, onNavigate, onAbrirMenu, menuAbi
       className="fixed bottom-0 left-0 right-0 z-40 border-t border-slate-800 bg-slate-950/90 backdrop-blur-md lg:hidden"
     >
       <ul className="flex items-stretch">
-        {ATAJOS.map(({ id, label, icon: Icono }) => {
+        {atajos.map(({ id, label, icon: Icono }) => {
           const activo = active === id && !menuAbierto;
           return (
             <li key={id} className="flex-1">
               <button
                 onClick={() => onNavigate(id)}
                 aria-current={activo ? "page" : undefined}
-                className={`flex w-full flex-col items-center gap-0.5 py-2 text-[10px] font-medium transition ${
+                className={`flex w-full flex-col items-center gap-0.5 py-2 text-3xs font-medium transition ${
                   activo ? "text-seccion-400" : "text-slate-500"
                 }`}
               >
@@ -47,7 +66,7 @@ export default function BarraInferior({ active, onNavigate, onAbrirMenu, menuAbi
                     activo ? "bg-seccion-500/20" : ""
                   }`}
                 >
-                  <Icono size={19} />
+                  <Icono size={19} aria-hidden="true" />
                 </span>
                 {label}
               </button>
@@ -58,16 +77,17 @@ export default function BarraInferior({ active, onNavigate, onAbrirMenu, menuAbi
           <button
             onClick={onAbrirMenu}
             aria-expanded={menuAbierto}
-            className={`flex w-full flex-col items-center gap-0.5 py-2 text-[10px] font-medium transition ${
-              menuAbierto ? "text-indigo-400" : "text-slate-500"
+            aria-controls="menu-movil"
+            className={`flex w-full flex-col items-center gap-0.5 py-2 text-3xs font-medium transition ${
+              masDestacado ? "text-indigo-400" : "text-slate-500"
             }`}
           >
             <span
               className={`flex h-7 w-12 items-center justify-center rounded-full transition ${
-                menuAbierto ? "bg-indigo-500/20" : ""
+                masDestacado ? "bg-indigo-500/20" : ""
               }`}
             >
-              <Menu size={19} />
+              <Menu size={19} aria-hidden="true" />
             </span>
             Más
           </button>

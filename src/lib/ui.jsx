@@ -34,18 +34,96 @@ export function Card({ children, className = "", padding = "p-5", ...resto }) {
 }
 
 /*
+  Ficha de métrica: las cifras grandes de la parte de arriba de una sección.
+
+  Estaba maquetada a mano y distinta en cada sitio (Inicio con el icono al lado
+  del número, Salud con otro tamaño de icono), así que dos pantallas que
+  enseñaban lo mismo no se parecían.
+
+  La composición no es la obvia, y es a propósito:
+
+  - LA ETIQUETA VA ARRIBA, en versalitas pequeñas y con el interletrado
+    abierto. Con la etiqueta debajo del número, la vista tiene que leer la
+    cifra, bajar y volver para saber de qué era. Arriba se lee "PARA HOY → 2",
+    que es el orden en el que se pregunta.
+  - EL NÚMERO MANDA, en la tipografía de display y a 3xl. Es el único dato de
+    la tarjeta que importa a un metro de distancia.
+  - EL ICONO SE APARTA a una esquina y se hace pequeño. Antes competía en peso
+    con la cifra estando al lado; aquí solo sirve para reconocer la tarjeta de
+    un vistazo, que es todo lo que se le pide.
+
+  `tabular-nums` para que al cambiar de 9 a 10 no bailen las columnas.
+*/
+/*
+  `tono` tiñe la CIFRA, no el icono, y solo debe usarse cuando el color
+  significa algo: verde si ganas, rojo si pierdes. Para lo demás se queda el
+  gris claro de siempre, porque si todas las cifras van de colores ninguna
+  destaca y el verde deja de querer decir nada.
+*/
+export function Metrica({ icono: Icono, etiqueta, valor, detalle = null, color = "bg-indigo-500/15 text-indigo-400", tono = "text-slate-100", fila = false }) {
+  const chip = (
+    <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${color}`}>
+      {Icono ? <Icono size={16} aria-hidden="true" /> : null}
+    </div>
+  );
+
+  /*
+    Variante en fila, para cuando las métricas van en una columna estrecha al
+    lado de algo más importante. Cuatro fichas altas apiladas en un lateral
+    ocupan más que el contenido principal y le roban el protagonismo; en fila
+    ocupan un tercio y siguen leyéndose de un vistazo.
+  */
+  if (fila) {
+    return (
+      <Card padding="p-4" className="flex items-center gap-3">
+        {chip}
+        <div className="min-w-0 flex-1">
+          <p className="text-2xs font-semibold uppercase tracking-[0.08em] text-slate-500">{etiqueta}</p>
+          {detalle && <p className="truncate text-xs text-slate-500">{detalle}</p>}
+        </div>
+        <p className={`font-display text-2xl font-bold tabular-nums leading-none ${tono}`}>{valor}</p>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <div className="mb-3 flex items-start justify-between gap-2">
+        <p className="text-2xs font-semibold uppercase tracking-[0.08em] text-slate-500">{etiqueta}</p>
+        {chip}
+      </div>
+      {/* 2xl en el móvil y 3xl a partir de tablet: hay pantallas que ponen tres
+          fichas por fila (Finanzas), y ahí un importe como "1.420€" a 30px se
+          sale de la tarjeta. */}
+      <p className={`font-display text-2xl font-bold tabular-nums leading-none sm:text-3xl ${tono}`}>{valor}</p>
+      {detalle && <p className="mt-1.5 text-xs text-slate-500">{detalle}</p>}
+    </Card>
+  );
+}
+
+/*
   El icono va con el color de la SECCIÓN (`seccion-*`), no con el acento global:
   es lo que hace que cada área se reconozca de un vistazo. Los tonos salen de
   `data-seccion`, que pone el shell (ver src/index.css).
 */
 export function SectionTitle({ icon: Icon, title, subtitle }) {
   return (
-    <div className="mb-6 flex items-center gap-3">
-      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-seccion-500/15 text-seccion-400 ring-1 ring-inset ring-seccion-500/25">
-        {Icon ? <Icon size={22} /> : null}
+    /*
+      El título crece a 3xl en escritorio y baja a 2xl en el móvil. Antes era
+      2xl siempre: en una pantalla grande se quedaba del mismo tamaño que los
+      encabezados de las tarjetas de debajo, y la jerarquía se aplanaba justo
+      donde había sitio de sobra para marcarla.
+
+      `-tracking-[0.01em]` es cosa de la tipografía de display: Space Grotesk
+      viene bastante suelta y a tamaños grandes se abre demasiado. Apretarla un
+      pelo es lo que hace que un titular parezca compuesto y no escrito.
+    */
+    <div className="mb-6 flex items-center gap-3.5">
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-seccion-500/15 text-seccion-400 ring-1 ring-inset ring-seccion-500/25 sm:h-12 sm:w-12">
+        {Icon ? <Icon size={22} aria-hidden="true" /> : null}
       </div>
-      <div>
-        <h1 className="font-display text-2xl font-bold tracking-tight text-slate-100">{title}</h1>
+      <div className="min-w-0">
+        <h1 className="font-display text-2xl font-bold -tracking-[0.01em] text-slate-100 sm:text-3xl">{title}</h1>
         {subtitle && <p className="text-sm text-slate-400">{subtitle}</p>}
       </div>
     </div>
@@ -63,8 +141,21 @@ export function SectionTitle({ icon: Icon, title, subtitle }) {
 */
 export function Logo({ size = 36, className = "" }) {
   return (
+    /*
+      Un solo tono, no un degradado a fucsia.
+
+      Era `from-indigo-500 to-fuchsia-500`, que es EL tópico visual del software
+      generado: el degradado morado-azulado que llevan miles de productos que se
+      parecen entre sí. Ahora va del 500 al 600 del propio acento —el color que
+      elijas en Ajustes— así que sigue teniendo volumen pero es tu color, no el
+      de todos. El `ring` interior hace el resto: le da canto sin necesidad de
+      un segundo tono.
+
+      Ojo: public/icon.svg (el de la PWA) lleva el degradado fijo y hay que
+      cambiarlo aparte, como avisa CLAUDE.md.
+    */
     <div
-      className={`flex shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-fuchsia-500 ${className}`}
+      className={`flex shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 shadow-lg shadow-indigo-500/25 ring-1 ring-inset ring-white/15 ${className}`}
       style={{ width: size, height: size }}
     >
       <svg viewBox="0 0 512 512" width={size * 0.78} height={size * 0.78} aria-hidden="true" focusable="false">

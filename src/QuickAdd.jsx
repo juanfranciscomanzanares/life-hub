@@ -1,27 +1,70 @@
-import { useState } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Plus, X } from "lucide-react";
 import { usePersisted } from "./lib/store";
 import { todayISO } from "./lib/ui";
 import { nuevoId, nuevaSerie } from "./lib/gym";
+import { useDialogo } from "./lib/useDialogo";
 
 const TIPOS = ["Gasto", "Gym", "Tarea", "Peso"];
 
-export default function QuickAdd() {
+/*
+  Cuánto hay que desplazarse para que el botón reaccione.
+
+  Sin umbral, el temblor del dedo al leer ya lo hacía aparecer y desaparecer.
+  24px es más que ese ruido y menos que un gesto de scroll de verdad.
+*/
+const UMBRAL_SCROLL = 24;
+
+/* `tapado`: quien nos monta puede pedir que el botón se aparte porque hay algo
+   suyo por debajo que no debe quedar cubierto (el menú del móvil). */
+export default function QuickAdd({ tapado = false }) {
   const [open, setOpen] = useState(false);
   const [tipo, setTipo] = useState("Gasto");
   const [v, setV] = useState({});
+
+  // Se aparta al bajar y vuelve al subir (ver el comentario del botón).
+  const [oculto, setOculto] = useState(false);
+  const ultimoY = useRef(0);
+
+  useEffect(() => {
+    ultimoY.current = window.scrollY;
+
+    const alDesplazar = () => {
+      const y = window.scrollY;
+      const dy = y - ultimoY.current;
+      if (Math.abs(dy) < UMBRAL_SCROLL) return;
+      ultimoY.current = y;
+      // Arriba del todo siempre visible: ahí no tapa nada y es donde se empieza.
+      setOculto(dy > 0 && y > 120);
+    };
+
+    // `passive`: le dice al navegador que no vamos a bloquear el gesto, y así
+    // el desplazamiento no espera a este manejador para pintar.
+    window.addEventListener("scroll", alDesplazar, { passive: true });
+    return () => window.removeEventListener("scroll", alDesplazar);
+  }, []);
+
+  // Con el diálogo abierto el botón no debe estar escondido: al cerrarlo, el
+  // foco vuelve a él y tiene que estar donde el usuario lo dejó.
+  useEffect(() => {
+    if (open) setOculto(false);
+  }, [open]);
 
   const [finance, setFinance] = usePersisted("lh_finance", []);
   const [gym, setGym] = usePersisted("lh_gym", []);
   const [tasks, setTasks] = usePersisted("lh_tasks", []);
   const [health, setHealth] = usePersisted("lh_health", []);
 
+  // Escape, foco atrapado y foco de vuelta al botón + al cerrar.
+  const cerrar = useCallback(() => setOpen(false), []);
+  const refDialogo = useDialogo(open, cerrar);
+
   const inputCls =
     "w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none";
 
   const guardar = () => {
     if (tipo === "Gasto" && v.concepto) {
-      setFinance([{ id: Date.now(), fecha: todayISO(), concepto: v.concepto, categoria: "Ocio", monto: -Math.abs(Number(v.monto) || 0), etiqueta: v.etiqueta || "" }, ...finance]);
+      setFinance([{ id: nuevoId(), fecha: todayISO(), concepto: v.concepto, categoria: "Ocio", monto: -Math.abs(Number(v.monto) || 0), etiqueta: v.etiqueta || "" }, ...finance]);
     } else if (tipo === "Gym" && v.ejercicio) {
       // Formato nuevo: una entrada por serie, todas iguales al añadir rápido.
       // Luego se afinan una a una desde la sección de Gimnasio.
@@ -37,9 +80,9 @@ export default function QuickAdd() {
         ...gym,
       ]);
     } else if (tipo === "Tarea" && v.text) {
-      setTasks([...tasks, { id: Date.now(), text: v.text, done: false, urgent: true, hour: "", etiqueta: v.etiqueta || "" }]);
+      setTasks([...tasks, { id: nuevoId(), text: v.text, done: false, urgent: true, hour: "", etiqueta: v.etiqueta || "" }]);
     } else if (tipo === "Peso" && v.peso) {
-      setHealth([{ id: Date.now(), fecha: todayISO(), peso: Number(v.peso), sueno: 0, pasos: 0, fc: 0, agua: 0 }, ...health]);
+      setHealth([{ id: nuevoId(), fecha: todayISO(), peso: Number(v.peso), sueno: 0, pasos: 0, fc: 0, agua: 0 }, ...health]);
     } else {
       return;
     }
@@ -49,28 +92,59 @@ export default function QuickAdd() {
 
   return (
     <>
+      {/*
+        Se aparta al bajar y vuelve al subir.
+
+        Es un botón flotante de 56px anclado a la esquina, así que siempre tapa
+        un trozo de lo que hay debajo; en el móvil llegaba a ocultar una cifra
+        entera de las tarjetas. Pero esconderlo del todo tampoco vale: es el
+        atajo para apuntar algo al vuelo y tiene que estar a mano.
+
+        El compromiso es el de las apps de mensajería: si estás BAJANDO, estás
+        leyendo, así que se quita de en medio; en cuanto subes un poco —que es
+        el gesto de quien busca algo o va a actuar— vuelve. Se desplaza en vez
+        de desaparecer, para que no dé el respingo de aparecer de la nada.
+
+        `translate-y` y no `display`: se anima en la GPU y el botón nunca deja
+        de existir para un lector de pantalla ni para el tabulador.
+      */}
       <button
         onClick={() => setOpen(true)}
         aria-label="Añadido rápido"
+        aria-haspopup="dialog"
+        aria-expanded={open}
         // En movil sube para no quedar debajo de la barra inferior de navegacion.
-        className="fixed bottom-20 right-4 z-40 lg:bottom-6 lg:right-6 flex h-14 w-14 items-center justify-center rounded-full bg-indigo-500 text-white shadow-xl transition hover:bg-indigo-400"
+        className={`fixed bottom-20 right-4 z-40 lg:bottom-6 lg:right-6 flex h-14 w-14 items-center justify-center rounded-full bg-indigo-500 text-white shadow-xl transition duration-300 hover:bg-indigo-400 ${
+          tapado
+            ? "pointer-events-none translate-y-24 opacity-0"
+            : oculto
+              ? "pointer-events-none translate-y-24 opacity-0 lg:translate-y-0 lg:opacity-100 lg:pointer-events-auto"
+              : ""
+        }`}
       >
-        <Plus size={26} />
+        <Plus size={26} aria-hidden="true" />
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 sm:items-center" onClick={() => setOpen(false)}>
+        <div className="lh-velo fixed inset-0 z-50 flex items-end justify-center p-4 sm:items-center" onClick={cerrar}>
           {/* Con el teclado abierto el alto útil se queda en nada: sin límite y
               sin scroll propio, el botón de guardar quedaba fuera de la pantalla. */}
-          <div className="lh-modal w-full max-w-sm overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div
+            ref={refDialogo}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="qa-titulo"
+            className="lh-modal w-full max-w-sm overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-slate-100">Añadido rápido</h2>
-              <button onClick={() => setOpen(false)} className="text-slate-400 hover:text-slate-200"><X size={20} /></button>
+              <h2 id="qa-titulo" className="text-lg font-bold text-slate-100">Añadido rápido</h2>
+              <button onClick={cerrar} aria-label="Cerrar" className="text-slate-400 hover:text-slate-200"><X size={20} /></button>
             </div>
 
             <div className="mb-4 flex gap-2">
               {TIPOS.map((t) => (
-                <button key={t} onClick={() => { setTipo(t); setV({}); }} className={`flex-1 rounded-lg px-2 py-1.5 text-xs font-medium transition ${tipo === t ? "bg-indigo-500 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700"}`}>
+                <button key={t} onClick={() => { setTipo(t); setV({}); }} aria-pressed={tipo === t} className={`flex-1 rounded-lg px-2 py-1.5 text-xs font-medium transition ${tipo === t ? "bg-indigo-500 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700"}`}>
                   {t}
                 </button>
               ))}

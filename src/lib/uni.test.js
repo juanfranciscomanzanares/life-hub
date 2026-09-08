@@ -147,6 +147,89 @@ describe("urgencias de hoy", () => {
   it("sin nada, no hay urgencias", () => {
     expect(urgenciasDeHoy({ hoy: HOY })).toEqual([]);
   });
+
+  describe("hora de la tarea", () => {
+    it("la pone delante de la asignatura", () => {
+      const [u] = urgenciasDeHoy({
+        tareasUni: [
+          { id: 1, text: "Entregar práctica", subject: "Deep Learning", entrega: HOY, hora: "18:30", done: false },
+        ],
+        hoy: HOY,
+      });
+      expect(u.detalle).toBe("18:30 · Deep Learning");
+      expect(u.hora).toBe("18:30");
+    });
+
+    it("sin hora, se comporta como antes", () => {
+      const [u] = urgenciasDeHoy({
+        tareasUni: [{ id: 1, text: "Práctica", subject: "TFG", entrega: HOY, done: false }],
+        hoy: HOY,
+      });
+      expect(u.detalle).toBe("TFG");
+      expect(u.hora).toBe(null);
+    });
+
+    it("ordena por hora, y lo que no la tiene va al final", () => {
+      // "A las 10:00" es más urgente que "hoy, en algún momento".
+      const orden = urgenciasDeHoy({
+        tareasUni: [
+          { id: 1, text: "Sin hora", subject: "TFG", entrega: HOY, done: false },
+          { id: 2, text: "Tarde", subject: "TFG", entrega: HOY, hora: "18:00", done: false },
+          { id: 3, text: "Pronto", subject: "TFG", entrega: HOY, hora: "09:00", done: false },
+        ],
+        hoy: HOY,
+      });
+      expect(orden.map((u) => u.titulo)).toEqual(["Pronto", "Tarde", "Sin hora"]);
+    });
+
+    it("las sesiones de estudio de hoy salen con su tramo", () => {
+      const [u] = urgenciasDeHoy({
+        sesiones: [
+          { id: "s1", fecha: HOY, subject: "Deep Learning", desde: "16:00", hasta: "18:00" },
+        ],
+        hoy: HOY,
+      });
+      expect(u.tipo).toBe("estudio");
+      expect(u.titulo).toBe("Estudiar Deep Learning");
+      expect(u.detalle).toBe("16:00–18:00");
+    });
+
+    it("si la sesión lleva nota, es lo que se anuncia", () => {
+      const [u] = urgenciasDeHoy({
+        sesiones: [{ id: "s1", fecha: HOY, subject: "TFG", desde: "10:00", hasta: "12:00", nota: "Capítulo 2" }],
+        hoy: HOY,
+      });
+      expect(u.titulo).toBe("TFG: Capítulo 2");
+    });
+
+    it("las sesiones de otros días no salen", () => {
+      expect(
+        urgenciasDeHoy({
+          sesiones: [{ id: "s1", fecha: "2026-11-11", subject: "TFG", desde: "10:00", hasta: "12:00" }],
+          hoy: HOY,
+        })
+      ).toEqual([]);
+    });
+
+    it("un examen manda sobre una entrega, y esta sobre una sesión de estudio", () => {
+      const orden = urgenciasDeHoy({
+        tareasUni: [{ id: 1, text: "Práctica", subject: "TFG", entrega: HOY, hora: "23:00", done: false }],
+        sesiones: [{ id: "s1", fecha: HOY, subject: "TFG", desde: "08:00", hasta: "09:00" }],
+        eventos: [{ id: 9, fecha: HOY, titulo: "Examen: Ciberseguridad" }],
+        hoy: HOY,
+      });
+      expect(orden.map((u) => u.tipo)).toEqual(["examen", "entrega", "estudio"]);
+    });
+
+    it("los exámenes siguen mandando sobre las tareas con hora", () => {
+      const orden = urgenciasDeHoy({
+        tareasUni: [{ id: 1, text: "Práctica", subject: "TFG", entrega: HOY, hora: "08:00", done: false }],
+        eventos: [{ id: 9, fecha: HOY, titulo: "Examen: Ciberseguridad" }],
+        hoy: HOY,
+      });
+      expect(orden[0].tipo).toBe("examen");
+    });
+  });
 });
 
 describe("asignaturas", () => {

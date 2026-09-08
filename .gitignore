@@ -3,3 +3,6 @@ dist
 .env
 .DS_Store
 *.local
+
+# Rastros del navegador de Playwright MCP (capturas y logs de sesion)
+.playwright-mcp

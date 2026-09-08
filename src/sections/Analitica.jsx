@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { BarChart3, ChevronLeft, ChevronRight, Flag, Lightbulb } from "lucide-react";
 import { usePersisted } from "../lib/store";
-import { Card, SectionTitle, fmtEuro, todayISO } from "../lib/ui";
+import { Card, SectionTitle, todayISO } from "../lib/ui";
 import { Cifra } from "../lib/animar";
 import {
   PERIODOS,
@@ -156,8 +156,15 @@ export default function Analitica() {
               // tarjetas; la activa se distingue por el borde de acento.
               className={`lh-card p-4 text-left ${activa ? "!border-indigo-500" : ""}`}
             >
-              <p className="text-xs text-slate-400">{m.nombre}</p>
-              <p className={`font-display text-2xl font-bold ${m.color}`}>
+              {/*
+                Mismo tratamiento tipográfico que la ficha `Metrica` del resto
+                de la app —etiqueta en versalitas arriba, cifra grande debajo—
+                pero SIN usar el componente: estas no son fichas pasivas, son
+                botones que cambian la gráfica de abajo, y meter `Metrica` aquí
+                habría convertido un control en un adorno.
+              */}
+              <p className="text-2xs font-semibold uppercase tracking-[0.08em] text-slate-500">{m.nombre}</p>
+              <p className={`mt-1.5 font-display text-2xl font-bold tabular-nums leading-none ${m.color}`}>
                 <Cifra
                   valor={valor}
                   decimales={valor % 1 ? 1 : 0}
@@ -165,7 +172,7 @@ export default function Analitica() {
                 />
               </p>
               <p
-                className={`text-xs ${
+                className={`mt-1.5 text-xs ${
                   dif === null ? "text-slate-500" : dif >= 0 ? "text-emerald-400" : "text-rose-400"
                 }`}
               >
@@ -212,7 +219,7 @@ export default function Analitica() {
                 />
               </div>
               {/* Con 28-31 barras no caben todas las etiquetas: se pone una de cada tres. */}
-              <span className="truncate text-[9px] text-slate-500">
+              <span className="truncate text-3xs text-slate-500">
                 {barras.length > 12 && i % 3 !== 0 ? "" : b.etiqueta}
               </span>
             </div>
@@ -227,7 +234,7 @@ export default function Analitica() {
                 {barras[barra].valor.toLocaleString("es-ES")}
                 {metricaGrafica.dinero ? "€" : metricaGrafica.unidad}
               </p>
-              <p className="text-[11px] text-slate-400">{barras[barra].etiqueta}</p>
+              <p className="text-2xs text-slate-400">{barras[barra].etiqueta}</p>
             </div>
           )}
         </div>

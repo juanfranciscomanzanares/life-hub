@@ -9,6 +9,17 @@ import { encryptJSON, decryptJSON } from "../lib/crypto";
 import { restoreSnapshot, ALL_KEYS } from "../lib/useAutoBackup";
 import { contarEjemplos, limpiarEjemplos } from "../lib/limpiarEjemplo";
 
+import { nuevoId } from "../lib/id";
+/*
+  Ya no está "Tareas de universidad" (`lh_uni_tasks`).
+
+  Esa lista propia de tareas dejó de existir: las de la carrera son ahora las
+  del Aula Virtual, que vienen con su plazo (ver el comentario de
+  src/lib/aula.js). Nadie escribe esa clave desde entonces, así que el botón
+  descargaba un CSV vacío y en silencio. La clave se queda en la lista de la
+  copia de seguridad a propósito, para que una copia antigua siga
+  restaurándose entera.
+*/
 const DATASETS = [
   { key: "lh_gym", file: "gimnasio.csv", label: "Gimnasio" },
   { key: "lh_work_log", file: "trabajo_agrosana.csv", label: "Trabajo (Agrosana)" },
@@ -18,7 +29,6 @@ const DATASETS = [
   { key: "lh_tt_sesiones", file: "tenis_entrenos.csv", label: "Entrenos de tenis" },
   { key: "lh_tenis_partidos", file: "tenis_partidos.csv", label: "Partidos de tenis" },
   { key: "lh_study_log", file: "estudio.csv", label: "Horas de estudio" },
-  { key: "lh_uni_tasks", file: "tareas_universidad.csv", label: "Tareas de universidad" },
   { key: "lh_health", file: "salud.csv", label: "Salud" },
 ];
 
@@ -108,7 +118,7 @@ export default function Datos() {
 
   const addReminder = () => {
     if (!form.cuando || !form.titulo.trim()) return;
-    setReminders([...reminders, { id: Date.now(), cuando: form.cuando, titulo: form.titulo, avisado: false, repetir: form.repetir }]);
+    setReminders([...reminders, { id: nuevoId(), cuando: form.cuando, titulo: form.titulo, avisado: false, repetir: form.repetir }]);
     setForm({ cuando: "", titulo: "", repetir: form.repetir });
   };
 
@@ -313,9 +323,9 @@ export default function Datos() {
         </div>
 
         <div className="mb-4 flex flex-wrap items-end gap-2">
-          <input type="datetime-local" value={form.cuando} onChange={(e) => setForm({ ...form, cuando: e.target.value })} className={inputCls} />
+          <input type="datetime-local" aria-label="Cuándo avisar" value={form.cuando} onChange={(e) => setForm({ ...form, cuando: e.target.value })} className={inputCls} />
           <input placeholder="Recordatorio (entregar práctica, aportar al fondo...)" value={form.titulo} onChange={(e) => setForm({ ...form, titulo: e.target.value })} className={`flex-1 ${inputCls}`} />
-          <select value={form.repetir} onChange={(e) => setForm({ ...form, repetir: e.target.value })} className={inputCls}>
+          <select aria-label="Cada cuánto se repite" value={form.repetir} onChange={(e) => setForm({ ...form, repetir: e.target.value })} className={inputCls}>
             <option value="una vez">Una vez</option>
             <option value="diario">Cada día</option>
             <option value="semanal">Cada semana</option>
@@ -334,9 +344,9 @@ export default function Datos() {
               <li key={r.id} className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-800/40 px-3 py-2 text-sm">
                 <span className={r.avisado ? "text-slate-500" : "text-slate-200"}>
                   <span className="text-slate-500">{r.cuando.replace("T", " ")}</span> · {r.titulo}
-                  {r.avisado && <span className="ml-2 text-[10px] text-emerald-400">avisado</span>}
+                  {r.avisado && <span className="ml-2 text-3xs text-emerald-400">avisado</span>}
                 </span>
-                <button onClick={() => setReminders(reminders.filter((x) => x.id !== r.id))} className="text-slate-500 hover:text-rose-400">
+                <button onClick={() => setReminders(reminders.filter((x) => x.id !== r.id))} aria-label={`Borrar el recordatorio ${r.titulo}`} className="text-slate-500 hover:text-rose-400">
                   <Trash2 size={15} />
                 </button>
               </li>
@@ -352,16 +362,30 @@ export default function Datos() {
         <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-slate-100">
           <FileSpreadsheet size={18} className="text-emerald-400" /> Exportar a Excel (CSV)
         </h2>
+        {/*
+          Cada botón dice CUÁNTAS filas se va a llevar, y si no hay ninguna se
+          desactiva. Antes todos se veían igual tuvieras datos o no: pulsabas,
+          se descargaba un CSV vacío y no había forma de saber si el fallo era
+          de la exportación o es que de verdad no habías apuntado nada.
+        */}
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-          {DATASETS.map((d) => (
-            <button
-              key={d.key}
-              onClick={() => exportarCSV(d.key, d.file)}
-              className="flex items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-slate-200 transition hover:border-indigo-500 hover:bg-slate-700"
-            >
-              <Download size={15} /> {d.label}
-            </button>
-          ))}
+          {DATASETS.map((d) => {
+            const filas = readKey(d.key, []);
+            const n = Array.isArray(filas) ? filas.length : 0;
+            return (
+              <button
+                key={d.key}
+                onClick={() => exportarCSV(d.key, d.file)}
+                disabled={n === 0}
+                title={n === 0 ? `Todavía no has apuntado nada en ${d.label}` : `Descargar ${n} filas`}
+                className="flex items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-slate-200 transition hover:border-indigo-500 hover:bg-slate-700 disabled:cursor-not-allowed disabled:border-slate-800 disabled:bg-slate-900/40 disabled:text-slate-600 disabled:hover:border-slate-800"
+              >
+                <Download size={15} aria-hidden="true" />
+                <span className="min-w-0 truncate">{d.label}</span>
+                <span className="shrink-0 tabular-nums text-2xs text-slate-500">{n}</span>
+              </button>
+            );
+          })}
         </div>
       </Card>
 
@@ -424,7 +448,7 @@ export default function Datos() {
           <FileText size={18} className="text-amber-400" /> Informe mensual (PDF)
         </h2>
         <div className="flex flex-wrap items-end gap-3">
-          <input type="month" value={mes} onChange={(e) => setMes(e.target.value)} className={inputCls} />
+          <input type="month" aria-label="Mes del informe" value={mes} onChange={(e) => setMes(e.target.value)} className={inputCls} />
           <button onClick={informe} className="flex items-center gap-2 rounded-lg bg-indigo-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-400">
             <FileText size={16} /> Generar informe
           </button>

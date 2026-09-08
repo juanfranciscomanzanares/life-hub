@@ -3,6 +3,22 @@
   Space Grotesk para títulos y cifras grandes. Variables, así que un solo
   archivo por familia cubre todos los pesos.
 */
+/*
+  Geist para el texto, no Inter.
+
+  Inter es una fuente excelente y por eso está en absolutamente todas partes:
+  es la que sale por defecto cuando nadie elige, y una interfaz hecha con ella
+  no dice nada de sí misma. Geist tiene el mismo esqueleto de grotesca —igual
+  de legible a 11px, que es lo que no se podía perder— pero con detalles
+  propios: terminaciones más rectas, la "a" y la "g" con más carácter, y unas
+  cifras tabulares mejores, que en una app que es toda números importa más que
+  el estilo.
+
+  Inter se queda instalada como respaldo: si Geist tardara en cargar, el texto
+  cae en algo casi idéntico en métricas en vez de saltar a la fuente del
+  sistema, que sí se notaría.
+*/
+@import "@fontsource-variable/geist";
 @import "@fontsource-variable/inter";
 @import "@fontsource-variable/space-grotesk";
 
@@ -31,6 +47,27 @@
   botones sólidos con texto blanco y funcionan igual sobre claro y sobre oscuro.
 */
 :root {
+  /*
+    LA curva de la app. Una sola, y con nombre.
+
+    Es un `ease-out` fuerte: arranca rápido y frena al final. Se usa para todo
+    lo que entra o cambia de sitio, que aquí es prácticamente todo. Las curvas
+    de serie de CSS (`ease`, `ease-out`) son demasiado flojas y dejan el
+    movimiento sin intención; `ease-in` está descartado a propósito, porque
+    empieza lento justo en el instante en el que se está mirando y hace que la
+    app entera parezca pesada.
+
+    Por qué es una variable y no un valor copiado: estaba escrita a mano en
+    NUEVE sitios, y ya se habían colado dos versiones distintas
+    —(0.22, 1, 0.36, 1) y (0.23, 1, 0.32, 1)— que a ojo son la misma pero que
+    dejan el movimiento sutilmente descoordinado. Con la copia y pega, la
+    siguiente animación habría traído una tercera.
+
+    Excepción: los fundidos de opacidad pura (sin desplazamiento) siguen con
+    `ease` a secas. Un cambio de color no tiene inercia que simular.
+  */
+  --lh-ease: cubic-bezier(0.22, 1, 0.36, 1);
+
   /* slate */
   --c-slate-100: 241 245 249;
   --c-slate-200: 226 232 240;
@@ -86,6 +123,47 @@
   /* teal */
   --c-teal-300: 94 234 212;
   --c-teal-500: 20 184 166;
+  /*
+    orange — la etiqueta "Estudio" de Inicio y del Calendario.
+
+    Se usaba `bg-orange-500/15 text-orange-300` sin que orange estuviera
+    declarado en ninguna parte, así que caía en el naranja de fábrica de
+    Tailwind: un color fijo que ni se invierte en el tema claro ni se tiñe en el
+    mundo del perfil. Era literalmente el único parche de la interfaz que no
+    seguía a la paleta.
+  */
+  --c-orange-300: 253 186 116;
+  --c-orange-400: 251 146 60;
+  --c-orange-500: 249 115 22;
+
+  /*
+    --- Colores de SERIE, para las gráficas ---
+
+    Estos ocho no son decoración: identifican una entidad (una asignatura) y
+    tienen que distinguirse entre sí cuando van pegados en una barra apilada.
+
+    No valía la paleta que usaban las etiquetas de asignatura. Al pasarla por el
+    validador salieron dos problemas de verdad: violeta y fucsia daban ΔE 1,3 en
+    protanopia (indistinguibles para quien no separa rojo y verde) y ΔE 14,1
+    incluso con visión normal, por debajo del mínimo de 15. Dos asignaturas
+    pegadas en la misma barra eran la misma mancha.
+
+    Este orden sí pasa las cinco comprobaciones en los dos temas: banda de
+    luminosidad, croma, separación con daltonismo (peor par ΔE 8,4 oscuro / 9,1
+    claro), suelo de visión normal (19,3 / 19,6) y contraste con el fondo.
+
+    El orden es FIJO: la asignatura 3 siempre lleva el color 3, filtres lo que
+    filtres. Si el color siguiera al puesto en el ranking, quitar una asignatura
+    repintaría las demás y el gráfico mentiría de una semana a otra.
+  */
+  --c-serie-1: 57 135 229;
+  --c-serie-2: 217 89 38;
+  --c-serie-3: 25 158 112;
+  --c-serie-4: 201 133 0;
+  --c-serie-5: 213 81 129;
+  --c-serie-6: 0 131 0;
+  --c-serie-7: 144 133 233;
+  --c-serie-8: 230 103 103;
 
   --lh-fondo: 2 6 23;
 }
@@ -146,6 +224,25 @@ html[data-theme="light"] {
   /* teal */
   --c-teal-300: 15 118 110;
   --c-teal-500: 20 184 166;
+  /* orange — el 300 se oscurece para que la etiqueta "Estudio" se lea sobre
+     blanco; el 500 solo hace de fondo al 15 % y se queda igual. */
+  --c-orange-300: 154 52 18;
+  --c-orange-400: 194 65 12;
+  --c-orange-500: 249 115 22;
+
+  /*
+    Los mismos ocho tonos, pisados para el fondo claro. No es un volteo
+    automático del tema oscuro: cada paso se eligió y se validó contra ESTA
+    superficie, que es lo que hace que sigan distinguiéndose.
+  */
+  --c-serie-1: 42 120 214;
+  --c-serie-2: 235 104 52;
+  --c-serie-3: 27 175 122;
+  --c-serie-4: 237 161 0;
+  --c-serie-5: 232 123 164;
+  --c-serie-6: 0 131 0;
+  --c-serie-7: 74 58 167;
+  --c-serie-8: 227 73 72;
 
   --lh-fondo: 248 250 252;
   color-scheme: light;
@@ -157,16 +254,63 @@ body,
   height: 100%;
 }
 
+/*
+  `text-wrap: pretty` evita las viudas: esa última línea con UNA palabra suelta
+  que deja los párrafos cojos. El navegador reparte las líneas para que la
+  última nunca quede huérfana. Los títulos van con `balance` (más abajo), que
+  reparte para que las líneas queden parejas.
+
+  Es de esas cosas que nadie ve y que hacen que un texto parezca compuesto en
+  vez de volcado. Donde no está soportado no pasa nada: se ignora.
+*/
+/*
+  `clip` y no `hidden`, y la diferencia importa mucho aquí.
+
+  `overflow-x: hidden` en el <body> se propaga a la ventana, pero al hacerlo la
+  convierte en un CONTENEDOR DE DESPLAZAMIENTO en los dos ejes: por
+  especificación, ocultar un eje obliga al otro a `auto`. El resultado en el
+  móvil es que el contenido queda recortado pero la ventana sigue siendo
+  arrastrable de lado, y el dedo unas veces mueve la página y otras el
+  contenedor. Eso es lo que se sentía como que "se quedaba pillado".
+
+  `clip` recorta sin crear contenedor de desplazamiento y sin tocar el otro
+  eje, que es exactamente lo que hace falta. Va en el <html> además de en el
+  <body> porque es el elemento del que la ventana toma su comportamiento.
+
+  Ojo: esto es una RED DE SEGURIDAD, no el arreglo. Lo que sobresalía era el
+  resplandor de sección (ver `.lh-seccion::before`), y eso ya está corregido en
+  su origen. Si algún día vuelve a aparecer scroll lateral, hay algo nuevo
+  desbordando y hay que buscarlo, no subir más el recorte.
+*/
+/*
+  Las dos declaraciones van en este orden a propósito: es la técnica clásica de
+  respaldo en CSS. Un navegador que no entienda `clip` descarta esa línea y se
+  queda con `hidden`, que recorta igual aunque tenga el efecto secundario del
+  contenedor de desplazamiento. `clip` llegó en Safari 16, así que un iPhone sin
+  actualizar cae en `hidden` en vez de quedarse sin recorte ninguno.
+*/
+html {
+  overflow-x: hidden;
+  overflow-x: clip;
+}
 body {
   margin: 0;
   background: rgb(var(--lh-fondo));
-  /*
-    El recorte horizontal va aquí y no en un contenedor interno: en el <body>
-    se propaga a la ventana, así que la página sigue teniendo un único
-    desplazamiento vertical. Puesto en un <div>, ese div se convertiría en un
-    segundo contenedor de scroll y el móvil se vuelve errático.
-  */
+  text-wrap: pretty;
   overflow-x: hidden;
+  overflow-x: clip;
+  /* Sin rebote horizontal: en iOS el arrastre lateral daba goma aunque no
+     hubiera nada que desplazar. */
+  overscroll-behavior-x: none;
+}
+
+/* En los títulos, `balance`: reparte las líneas para que queden parejas en vez
+   de dejar una larga y una de dos palabras. Solo hasta 6 líneas, que es donde
+   los navegadores lo aplican. */
+h1,
+h2,
+h3 {
+  text-wrap: balance;
 }
 
 /*
@@ -185,16 +329,45 @@ body::before {
   z-index: -1;
   pointer-events: none;
   background:
-    radial-gradient(42rem circle at 12% -5%, rgb(var(--c-indigo-500) / 0.16), transparent 60%),
-    radial-gradient(48rem circle at 90% 15%, rgb(var(--c-fuchsia-500) / 0.09), transparent 65%),
-    radial-gradient(52rem circle at 50% 110%, rgb(var(--c-sky-500) / 0.08), transparent 60%);
+    radial-gradient(52rem circle at 8% -10%, rgb(var(--c-indigo-500) / 0.15), transparent 62%),
+    radial-gradient(38rem circle at 88% 8%, rgb(var(--c-indigo-400) / 0.07), transparent 68%);
 }
 /* En claro las auroras bajan de intensidad: sobre blanco tiñen enseguida. */
 html[data-theme="light"] body::before {
   background:
-    radial-gradient(42rem circle at 12% -5%, rgb(var(--c-indigo-500) / 0.1), transparent 60%),
-    radial-gradient(48rem circle at 90% 15%, rgb(var(--c-fuchsia-500) / 0.06), transparent 65%),
-    radial-gradient(52rem circle at 50% 110%, rgb(var(--c-sky-500) / 0.05), transparent 60%);
+    radial-gradient(52rem circle at 8% -10%, rgb(var(--c-indigo-500) / 0.09), transparent 62%),
+    radial-gradient(38rem circle at 88% 8%, rgb(var(--c-indigo-400) / 0.05), transparent 68%);
+}
+
+/*
+  --- Grano ---
+
+  Una capa de ruido finísima sobre toda la página. Es lo que quita el aspecto
+  de "renderizado en un ordenador y nada más": los degradados digitales puros
+  no existen en la naturaleza, y un fondo perfectamente liso se lee como
+  sintético aunque no sepas decir por qué. El grano rompe esa uniformidad y de
+  paso disimula el bandeado de los degradados grandes, que en pantallas de 8
+  bits se ve a franjas.
+
+  Es un SVG de ruido incrustado (feTurbulence), no una imagen: pesa unos 200
+  bytes, no es otra petición de red y escala a cualquier resolución.
+
+  `pointer-events: none` y z-index bajo: está por encima del fondo pero por
+  debajo de todo lo que se toca. Y opacidad muy baja a propósito, porque el
+  grano que se nota conscientemente es suciedad, no textura.
+*/
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+/* En claro el grano se ve mucho más sobre blanco: la mitad de intensidad. */
+html[data-theme="light"] body::after {
+  opacity: 0.02;
 }
 
 /*
@@ -208,21 +381,45 @@ html[data-theme="light"] body::before {
   ratón. Solo aparece con hover real (ratón): en táctil no existe y ahorrarse
   el listener es gratis.
 */
+/*
+  EL FILO DE LUZ (`inset 0 1px 0`).
+
+  Es el detalle que más separa una tarjeta oscura cualquiera de una tarjeta
+  cuidada, y casi nadie lo ve conscientemente: una línea de luz de 1px en el
+  borde de ARRIBA, como si hubiera una fuente de luz por encima de la pantalla.
+  Sin ella la tarjeta es un rectángulo pegado al fondo; con ella tiene canto, y
+  parece un objeto apoyado encima.
+
+  Va en `box-shadow` y no en `border-top` a propósito: un borde distinto arriba
+  desplazaría el contenido 1px y rompería la alineación con las tarjetas
+  vecinas.
+
+  La sombra tampoco es negro puro. Un negro neutro sobre un fondo con color
+  (azul noche, o ciruela en el perfil rosa) lo desatura y ensucia; tintándola
+  del propio --c-slate-950 la tarjeta se levanta sin apagar lo que hay debajo.
+*/
 .lh-card {
   position: relative;
-  border-radius: 1rem;
+  border-radius: 1.125rem;
   border: 1px solid rgb(var(--c-slate-800) / 0.9);
   background: rgb(var(--c-slate-900) / 0.62);
   box-shadow:
-    0 1px 2px rgb(0 0 0 / 0.25),
-    0 12px 32px -16px rgb(0 0 0 / 0.45);
-  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.2s, box-shadow 0.2s;
+    inset 0 1px 0 rgb(255 255 255 / 0.055),
+    0 1px 2px rgb(var(--c-slate-950) / 0.5),
+    0 12px 32px -16px rgb(var(--c-slate-950) / 0.75);
+  transition: transform 0.2s var(--lh-ease), border-color 0.2s, box-shadow 0.2s;
 }
+/*
+  En claro el filo se invierte: la luz ya viene del fondo blanco, así que una
+  línea blanca no se vería. Lo que da canto aquí es una sombra interior muy
+  suave en el borde de ABAJO, que es donde se apoyaría la tarjeta.
+*/
 html[data-theme="light"] .lh-card {
   background: rgb(var(--c-slate-900) / 0.78);
   box-shadow:
-    0 1px 2px rgb(15 23 42 / 0.06),
-    0 12px 32px -16px rgb(15 23 42 / 0.14);
+    inset 0 -1px 0 rgb(15 23 42 / 0.04),
+    0 1px 2px rgb(15 23 42 / 0.05),
+    0 12px 32px -16px rgb(15 23 42 / 0.16);
 }
 
 /*
@@ -258,12 +455,21 @@ html[data-theme="light"] .lh-card {
   pointer-events: none;
 }
 @media (hover: hover) {
+  /* Al levantarse, el filo de luz sube también: si se quedara igual, la tarjeta
+     se movería pero seguiría pareciendo plana. */
   .lh-card:hover {
     transform: translateY(-2px);
     border-color: rgb(var(--c-slate-700));
     box-shadow:
-      0 2px 4px rgb(0 0 0 / 0.25),
-      0 18px 44px -16px rgb(0 0 0 / 0.55);
+      inset 0 1px 0 rgb(255 255 255 / 0.085),
+      0 2px 4px rgb(var(--c-slate-950) / 0.5),
+      0 18px 44px -16px rgb(var(--c-slate-950) / 0.85);
+  }
+  html[data-theme="light"] .lh-card:hover {
+    box-shadow:
+      inset 0 -1px 0 rgb(15 23 42 / 0.05),
+      0 2px 4px rgb(15 23 42 / 0.06),
+      0 18px 44px -16px rgb(15 23 42 / 0.2);
   }
   .lh-card:hover::before {
     opacity: 1;
@@ -393,7 +599,10 @@ html[data-theme="light"][data-accent="violeta"] {
   --c-seccion-400: 251 113 133;
   --c-seccion-500: 244 63 94;
 }
+/* Plan financiero va con las de dinero: se quedó fuera al añadirla y salía con
+   el indigo por defecto, como si fuera de otra área. */
 [data-seccion="finanzas"],
+[data-seccion="plan"],
 [data-seccion="inversiones"] {
   --c-seccion-300: 110 231 183;
   --c-seccion-400: 52 211 153;
@@ -457,6 +666,7 @@ html[data-theme="light"] [data-seccion="tenis-notas"] {
   --c-seccion-400: 225 29 72;
 }
 html[data-theme="light"] [data-seccion="finanzas"],
+html[data-theme="light"] [data-seccion="plan"],
 html[data-theme="light"] [data-seccion="inversiones"] {
   --c-seccion-300: 4 120 87;
   --c-seccion-400: 5 150 105;
@@ -485,6 +695,22 @@ html[data-theme="light"] [data-seccion="proximos"] {
 .lh-seccion {
   position: relative;
 }
+/*
+  El 100% de ancho es importante, y antes era `120%`.
+
+  En escritorio daba igual: el `min()` se quedaba con los 60rem porque son
+  menos que el contenedor. Pero en el móvil ganaba el 120%, y como esto va
+  centrado con `left:50%` + `translateX(-50%)`, sobresalía un 10% por CADA
+  lado: unos 39px en un teléfono de 390px.
+
+  Eso era el desplazamiento lateral de la app. Se podía arrastrar la pantalla
+  a los lados y lo que aparecía era el fondo a secas, porque el degradado ya se
+  ha desvanecido en sus bordes. `z-index: -1` lo pone detrás de todo pero NO
+  evita que cuente para el ancho de la página.
+
+  Al 100% el resplandor se ve igual —se apaga mucho antes de llegar al borde—
+  y deja de empujar la página.
+*/
 .lh-seccion::before {
   content: "";
   position: absolute;
@@ -492,7 +718,7 @@ html[data-theme="light"] [data-seccion="proximos"] {
   left: 50%;
   z-index: -1;
   height: 22rem;
-  width: min(60rem, 120%);
+  width: min(60rem, 100%);
   transform: translateX(-50%);
   pointer-events: none;
   background: radial-gradient(50% 50% at 50% 0%, rgb(var(--c-seccion-500) / 0.16), transparent 70%);
@@ -509,11 +735,11 @@ html[data-theme="light"] .lh-seccion::before {
 */
 .lh-barra {
   transform-origin: left;
-  animation: lh-crecer 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+  animation: lh-crecer 0.7s var(--lh-ease);
 }
 .lh-barra-v {
   transform-origin: bottom;
-  animation: lh-crecer-v 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+  animation: lh-crecer-v 0.7s var(--lh-ease);
 }
 @keyframes lh-crecer {
   from { transform: scaleX(0); }
@@ -576,7 +802,7 @@ html[data-theme="light"] .lh-seccion::before {
 
 /* --- Transición suave al cambiar de sección --- */
 .section-fade {
-  animation: lh-fade 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  animation: lh-fade 0.3s var(--lh-ease);
 }
 @keyframes lh-fade {
   from {
@@ -593,18 +819,34 @@ html[data-theme="light"] .lh-seccion::before {
   Entrada escalonada: los primeros bloques de cada sección aparecen con un
   pequeño retardo en cascada. Solo los 5 primeros hijos; a partir de ahí ya
   suelen quedar por debajo del pliegue y el retardo se notaría como lentitud.
+
+  RECORTADO, y por un motivo concreto. Estaba en 0,35 s de animación más hasta
+  0,2 s de retardo: la sección tardaba 0,55 s en terminar de asentarse. Eso
+  para una animación que se ve DECENAS DE VECES AL DÍA —cambiar de sección es
+  de lo más frecuente que se hace aquí, y con Ctrl+K es una acción de teclado—
+  deja de ser un detalle bonito y se convierte en una espera.
+
+  La regla: cuanto más se repite algo, menos debe animarse. Lo que se ve una
+  vez al día puede permitirse medio segundo; lo que se ve treinta veces, no.
+  Ahora se asienta en 0,38 s, y el escalonado sigue leyéndose como cascada
+  porque lo que la hace legible es el ORDEN, no la longitud del retardo.
+
+  El `both` es imprescindible: sin él los hijos con retardo parpadearían a
+  opacidad 1 antes de empezar. Con él esperan invisibles, y por eso los
+  retardos tienen que ser cortos: cada milisegundo de retardo es un
+  milisegundo de contenido en blanco.
 */
 .section-fade > * {
-  animation: lh-fade 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: lh-fade 0.26s var(--lh-ease) both;
 }
-.section-fade > *:nth-child(2) { animation-delay: 0.05s; }
-.section-fade > *:nth-child(3) { animation-delay: 0.1s; }
-.section-fade > *:nth-child(4) { animation-delay: 0.15s; }
-.section-fade > *:nth-child(5) { animation-delay: 0.2s; }
+.section-fade > *:nth-child(2) { animation-delay: 0.03s; }
+.section-fade > *:nth-child(3) { animation-delay: 0.06s; }
+.section-fade > *:nth-child(4) { animation-delay: 0.09s; }
+.section-fade > *:nth-child(5) { animation-delay: 0.12s; }
 
 /* --- Desplegables de la barra de navegación --- */
 .dropdown-pop {
-  animation: lh-pop 0.16s cubic-bezier(0.22, 1, 0.36, 1);
+  animation: lh-pop 0.16s var(--lh-ease);
   transform-origin: top left;
 }
 @keyframes lh-pop {
@@ -620,7 +862,7 @@ html[data-theme="light"] .lh-seccion::before {
 
 /* --- Panel de navegación móvil --- */
 .mobile-panel {
-  animation: lh-slide 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+  animation: lh-slide 0.22s var(--lh-ease);
 }
 @keyframes lh-slide {
   from {
@@ -649,7 +891,7 @@ html[data-theme="light"] .lh-seccion::before {
   width: 0;
   border-radius: 2px;
   background: rgb(var(--c-indigo-400));
-  transition: width 0.25s cubic-bezier(0.22, 1, 0.36, 1), left 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: width 0.25s var(--lh-ease), left 0.25s var(--lh-ease);
 }
 .nav-link.is-active::after {
   left: 12px;
@@ -723,6 +965,19 @@ html[data-theme="light"] .lh-seccion::before {
     transition: none;
   }
   /*
+    Al pulsar, el botón deja de encogerse: un cambio de escala es movimiento, y
+    es lo que se ha pedido quitar. El estado sigue siendo perceptible por el
+    cambio de color de :active, que no se toca.
+  */
+  button:not(:disabled):active,
+  [role="button"]:not([aria-disabled="true"]):active {
+    transform: none;
+  }
+  /* La barra llega a su valor nuevo sin recorrido, pero llega. */
+  .lh-progreso {
+    transition: none;
+  }
+  /*
     El skeleton conserva el bloque gris (sigue diciendo "esto está cargando")
     pero sin el barrido, que es lo que molesta.
   */
@@ -733,5 +988,437 @@ html[data-theme="light"] .lh-seccion::before {
   .lh-card,
   .lh-card:hover {
     transform: none;
+  }
+}
+
+/*
+  ==================================================================
+  MUNDO DE COLOR POR PERFIL  ·  html[data-perfil="rosa"]
+  ==================================================================
+
+  Tercera capa de color, distinta de las dos que ya habia:
+
+    - acento global (--c-indigo-*)    -> botones, enlaces, foco. Lo elige el usuario.
+    - color de seccion (--c-seccion-*) -> titulo y detalles del area.
+    - MUNDO DEL PERFIL (esto)         -> el fondo, las tarjetas y los bordes.
+
+  Se redefine la escala neutra entera (--c-slate-*), que es de donde salen
+  fondo, tarjetas, bordes y todos los tonos de texto. Por eso no hace falta
+  tocar ni un componente: `text-slate-400` sigue siendo `text-slate-400` y
+  aqui pasa a ser un rosa apagado en vez de un gris azulado.
+
+  Los valores NO estan elegidos a ojo. Cada paso mantiene el contraste que
+  tenia su equivalente gris, medido sobre el fondo real del tema:
+
+    oscuro  slate-100 sobre slate-950 -> 16,7:1   (antes 17,9:1)
+    oscuro  slate-400 sobre slate-950 ->  7,3:1   (antes  7,0:1)
+    oscuro  slate-500 sobre slate-950 ->  4,8:1   (antes  4,4:1)
+    claro   slate-100 sobre slate-950 -> 15,9:1   (antes 16,1:1)
+    claro   slate-500 sobre slate-950 ->  5,0:1   (antes  4,5:1)
+
+  Es rosa de verdad pero neutro: si se subiera la saturacion de los pasos
+  oscuros, el texto secundario empezaria a competir con el acento y la app
+  perderia el unico color que debe destacar, que es el de los botones.
+*/
+html[data-perfil="rosa"] {
+  --c-slate-100: 250 240 245;
+  --c-slate-200: 238 216 225;
+  --c-slate-300: 222 190 203;
+  --c-slate-400: 190 148 165;
+  --c-slate-500: 156 116 133;
+  --c-slate-600: 116 72 90;
+  --c-slate-700: 82 44 61;
+  --c-slate-800: 56 28 41;
+  --c-slate-900: 38 18 27;
+  --c-slate-950: 24 10 16;
+}
+
+/*
+  En claro la escala se INVIERTE, igual que hace el tema claro normal: el 100
+  pasa a ser el texto oscuro y el 950 el fondo casi blanco. El 500 es el pivote
+  y por eso es el unico que necesita un valor propio en cada tema: el rosa medio
+  que se lee bien sobre negro se queda corto sobre blanco (3,8:1), asi que aqui
+  baja de luminosidad hasta 5,0:1.
+*/
+html[data-perfil="rosa"][data-theme="light"] {
+  --c-slate-100: 46 20 32;
+  --c-slate-200: 66 32 47;
+  --c-slate-300: 92 52 70;
+  --c-slate-400: 124 82 100;
+  --c-slate-500: 134 96 112;
+  --c-slate-600: 190 156 170;
+  --c-slate-700: 226 200 211;
+  --c-slate-800: 242 226 233;
+  --c-slate-900: 255 255 255;
+  --c-slate-950: 253 246 248;
+}
+
+/*
+  Las auroras del fondo. Las de serie son indigo, fucsia y celeste: sobre el
+  fondo ciruela el celeste se ve sucio, como una mancha verdosa. Aqui van tres
+  rosas separados en tono (frambuesa, coral y lila) para que el degradado tenga
+  profundidad sin salirse de la familia.
+*/
+html[data-perfil="rosa"] body::before {
+  background:
+    radial-gradient(42rem circle at 12% -5%, rgb(244 63 94 / 0.18), transparent 60%),
+    radial-gradient(48rem circle at 90% 15%, rgb(251 113 133 / 0.11), transparent 65%),
+    radial-gradient(52rem circle at 50% 110%, rgb(192 132 252 / 0.1), transparent 60%);
+}
+html[data-perfil="rosa"][data-theme="light"] body::before {
+  background:
+    radial-gradient(42rem circle at 12% -5%, rgb(244 63 94 / 0.09), transparent 60%),
+    radial-gradient(48rem circle at 90% 15%, rgb(251 113 133 / 0.07), transparent 65%),
+    radial-gradient(52rem circle at 50% 110%, rgb(192 132 252 / 0.06), transparent 60%);
+}
+
+/*
+  La sombra de las tarjetas deja de ser negra pura. Una sombra neutra sobre un
+  fondo calido lo apaga y hace que la tarjeta parezca sucia; con la sombra
+  tenida del mismo ciruela, la tarjeta se levanta sin ensuciar nada.
+*/
+html[data-perfil="rosa"] .lh-card {
+  box-shadow:
+    0 1px 2px rgb(24 10 16 / 0.3),
+    0 12px 32px -16px rgb(24 10 16 / 0.5);
+}
+html[data-perfil="rosa"][data-theme="light"] .lh-card {
+  box-shadow:
+    0 1px 2px rgb(76 29 49 / 0.06),
+    0 12px 32px -16px rgb(76 29 49 / 0.16);
+}
+
+/*
+  Colores de seccion dentro del mundo rosa.
+
+  El cian de Universidad o el acero del Gimnasio sobre fondo ciruela se ven como
+  un error de impresion: son frios y el mundo es calido. Se sustituyen por una
+  familia entera de calidos que sigue distinguiendo las areas -que es para lo
+  que existe esta capa- pero dentro del mismo mundo.
+
+  Se conserva la SEPARACION de tono entre secciones vecinas, asi que dos areas
+  contiguas siguen sin confundirse, y los pasos 300/400/500 mantienen la misma
+  relacion de luminosidad que en el tema normal: el texto que se apoya en ellos
+  sigue cumpliendo sin repasar pantalla por pantalla.
+*/
+/*
+  DOS TRAMPAS DE CASCADA, las dos aprendidas rompiéndolas:
+
+  1. `inicio` y `analitica` NO heredan. El bloque base declara sus tonos
+     directamente sobre el elemento que lleva `data-seccion` (`:root,
+     [data-seccion="inicio"], ...`), y una declaración directa gana siempre a un
+     valor heredado, sin importar la especificidad. Poner el valor por defecto
+     solo en `html[data-perfil="rosa"]` dejaba Inicio en índigo: justo la
+     primera pantalla que se ve.
+  2. Hace falta la variante de tema claro. `html[data-perfil="rosa"]
+     [data-seccion="x"]` y `html[data-theme="light"] [data-seccion="x"]` tienen
+     LA MISMA especificidad (0,2,1), así que gana el que va después en el
+     archivo, que es este. Sin la variante, en claro se quedaban los pasteles
+     pensados para fondo oscuro: el texto de la pestaña activa de la barra
+     inferior se iba a 1,8:1 sobre blanco.
+
+  Los tonos se han separado a propósito del acento rosa del perfil (350°). Con
+  la primera versión, Salud y Universidad caían tan cerca del acento que
+  `text-seccion-400` y `text-indigo-400` eran el mismo color en pantalla, y se
+  perdía justo lo que estas dos capas existen para separar.
+*/
+html[data-perfil="rosa"],
+html[data-perfil="rosa"] [data-seccion="inicio"],
+html[data-perfil="rosa"] [data-seccion="analitica"] {
+  --c-seccion-300: 245 190 240;
+  --c-seccion-400: 234 145 226;
+  --c-seccion-500: 216 92 204;
+}
+html[data-perfil="rosa"] [data-seccion="universidad"] {
+  --c-seccion-300: 205 200 252;
+  --c-seccion-400: 168 158 248;
+  --c-seccion-500: 130 112 240;
+}
+html[data-perfil="rosa"] [data-seccion="trabajo"],
+html[data-perfil="rosa"] [data-seccion="foco"],
+html[data-perfil="rosa"] [data-seccion="cerebro"] {
+  --c-seccion-300: 228 196 253;
+  --c-seccion-400: 205 148 250;
+  --c-seccion-500: 178 96 242;
+}
+html[data-perfil="rosa"] [data-seccion="gimnasio"],
+html[data-perfil="rosa"] [data-seccion="datos"],
+html[data-perfil="rosa"] [data-seccion="ajustes"] {
+  --c-seccion-300: 232 208 218;
+  --c-seccion-400: 206 170 186;
+  --c-seccion-500: 174 130 150;
+}
+html[data-perfil="rosa"] [data-seccion="finanzas"],
+html[data-perfil="rosa"] [data-seccion="plan"],
+html[data-perfil="rosa"] [data-seccion="inversiones"] {
+  --c-seccion-300: 253 202 176;
+  --c-seccion-400: 250 166 124;
+  --c-seccion-500: 240 124 68;
+}
+html[data-perfil="rosa"] [data-seccion="salud"] {
+  --c-seccion-300: 250 190 226;
+  --c-seccion-400: 245 145 206;
+  --c-seccion-500: 232 92 178;
+}
+html[data-perfil="rosa"] [data-seccion="habitos"],
+html[data-perfil="rosa"] [data-seccion="metas"] {
+  --c-seccion-300: 252 216 168;
+  --c-seccion-400: 249 188 110;
+  --c-seccion-500: 238 152 48;
+}
+html[data-perfil="rosa"] [data-seccion="calendario"],
+html[data-perfil="rosa"] [data-seccion="proximos"] {
+  --c-seccion-300: 216 198 253;
+  --c-seccion-400: 186 158 250;
+  --c-seccion-500: 150 110 242;
+}
+/* Hoy ningún perfil rosa tiene tenis, pero el bloque base sí lo declara: sin
+   esto, el día que un perfil rosa lo tenga saldría con el rojo del tema normal
+   dentro del mundo ciruela. */
+html[data-perfil="rosa"] [data-seccion="tenis"],
+html[data-perfil="rosa"] [data-seccion="tenis-notas"] {
+  --c-seccion-300: 253 190 200;
+  --c-seccion-400: 250 145 162;
+  --c-seccion-500: 244 85 110;
+}
+
+/*
+  Tema claro del mundo rosa. Igual que en el bloque base, solo se oscurecen los
+  pasos 300 y 400: son los que se usan como TEXTO (el título de sección, la
+  pestaña activa de la barra inferior) y sobre un fondo casi blanco los pasteles
+  no se leen. El 500 se queda porque solo se usa como relleno o resplandor.
+
+  Comprobado sobre el fondo real del tema (253 246 248): el paso 400 de cada
+  sección queda entre 4,7:1 y 6,0:1.
+*/
+html[data-perfil="rosa"][data-theme="light"],
+html[data-perfil="rosa"][data-theme="light"] [data-seccion="inicio"],
+html[data-perfil="rosa"][data-theme="light"] [data-seccion="analitica"] {
+  --c-seccion-300: 150 30 140;
+  --c-seccion-400: 172 40 160;
+}
+html[data-perfil="rosa"][data-theme="light"] [data-seccion="universidad"] {
+  --c-seccion-300: 76 60 180;
+  --c-seccion-400: 90 74 198;
+}
+html[data-perfil="rosa"][data-theme="light"] [data-seccion="trabajo"],
+html[data-perfil="rosa"][data-theme="light"] [data-seccion="foco"],
+html[data-perfil="rosa"][data-theme="light"] [data-seccion="cerebro"] {
+  --c-seccion-300: 118 44 186;
+  --c-seccion-400: 134 56 202;
+}
+html[data-perfil="rosa"][data-theme="light"] [data-seccion="gimnasio"],
+html[data-perfil="rosa"][data-theme="light"] [data-seccion="datos"],
+html[data-perfil="rosa"][data-theme="light"] [data-seccion="ajustes"] {
+  --c-seccion-300: 104 66 82;
+  --c-seccion-400: 124 84 100;
+}
+html[data-perfil="rosa"][data-theme="light"] [data-seccion="finanzas"],
+html[data-perfil="rosa"][data-theme="light"] [data-seccion="plan"],
+html[data-perfil="rosa"][data-theme="light"] [data-seccion="inversiones"] {
+  --c-seccion-300: 152 66 16;
+  --c-seccion-400: 172 76 20;
+}
+html[data-perfil="rosa"][data-theme="light"] [data-seccion="salud"] {
+  --c-seccion-300: 166 30 118;
+  --c-seccion-400: 188 40 136;
+}
+html[data-perfil="rosa"][data-theme="light"] [data-seccion="habitos"],
+html[data-perfil="rosa"][data-theme="light"] [data-seccion="metas"] {
+  --c-seccion-300: 144 82 8;
+  --c-seccion-400: 162 94 10;
+}
+html[data-perfil="rosa"][data-theme="light"] [data-seccion="calendario"],
+html[data-perfil="rosa"][data-theme="light"] [data-seccion="proximos"] {
+  --c-seccion-300: 94 52 190;
+  --c-seccion-400: 110 66 206;
+}
+html[data-perfil="rosa"][data-theme="light"] [data-seccion="tenis"],
+html[data-perfil="rosa"][data-theme="light"] [data-seccion="tenis-notas"] {
+  --c-seccion-300: 176 24 62;
+  --c-seccion-400: 198 32 76;
+}
+
+/*
+  ==================================================================
+  SALUDO DE ENTRADA DEL PERFIL
+  ==================================================================
+
+  Se ve UNA VEZ por sesion, no en cada navegacion (ver src/Saludo.jsx). Es la
+  diferencia entre un detalle bonito y algo que estorba treinta veces al dia.
+
+  Curvas y tiempos, con criterio y no a ojo:
+
+  - Entrada con `ease-out` fuerte y propio. Las curvas de serie de CSS no tienen
+    fuerza, y `ease-in` esta descartado: empieza lento justo en el instante en
+    el que se esta mirando, y hace que todo parezca pesado.
+  - La salida (200ms) es MAS RAPIDA que la entrada (300ms). Al aparecer, el
+    saludo es el protagonista; al irse, solo estorba entre ella y su panel.
+  - Nada arranca de `scale(0)`: en el mundo real nada aparece de la nada. Sale
+    de 0,96 con opacidad, que es lo que hace que parezca que ya estaba ahi.
+  - Se anima solo `opacity` y `transform`, que no pasan por maquetacion ni
+    pintado y van en la GPU.
+*/
+/*
+  --- Respuesta al pulsar ---
+
+  La app NO TENÍA NINGUNA. Ni un solo botón de las 18 secciones reaccionaba a
+  que lo pulsaras: había estados de hover (que en el móvil no existen) y nada
+  más. Pulsabas y la interfaz se quedaba quieta hasta que terminaba de pasar lo
+  que fuera.
+
+  Es lo que hace que una app parezca muerta al tacto, y se nota especialmente
+  en el teléfono, que es donde esta se usa instalada: sin cursor no hay ninguna
+  otra señal de que el toque ha entrado.
+
+  El 0,97 es deliberadamente pequeño. Lo suficiente para sentirlo, no tanto
+  como para verlo: si lo notas conscientemente, te está distrayendo. Y 140 ms,
+  que es el tramo de la respuesta al pulsar (100-160 ms); más lento y el botón
+  parece que va con retraso respecto al dedo.
+
+  `scale` arrastra a los hijos, que aquí es justo lo que se quiere: el icono y
+  el texto de dentro se encogen con el botón, como un objeto de verdad.
+
+  El :not(:disabled) importa: un botón desactivado que se hunde al pulsarlo
+  está diciendo que ha aceptado algo que en realidad ha ignorado.
+*/
+button,
+[role="button"] {
+  transition: transform 140ms var(--lh-ease);
+}
+button:not(:disabled):active,
+[role="button"]:not([aria-disabled="true"]):active {
+  transform: scale(0.97);
+}
+
+/*
+  --- Barras de progreso ---
+
+  Cambiaban de ancho de golpe. Apuntabas un vaso de agua y la barra de
+  hidratación aparecía ya en su sitio nuevo, sin recorrido: te perdías
+  exactamente la parte que da la satisfacción de haberlo apuntado.
+
+  450 ms, más que los 300 de una animación de interfaz corriente, y a propósito:
+  esto no es un menú que abres para seguir trabajando, es el resultado de lo que
+  acabas de hacer, y quieres verlo avanzar. Sigue siendo `ease-out`, así que la
+  mayor parte del recorrido pasa en el primer tercio del tiempo.
+
+  Solo `width`, que no es de las baratas, pero son barras de unos pocos píxeles
+  de alto y nunca hay muchas a la vez en pantalla.
+*/
+.lh-progreso {
+  transition: width 450ms var(--lh-ease);
+}
+
+/*
+  --- El velo de todo lo que se pone por encima ---
+
+  Una sola clase para los cinco: menú del móvil, paleta de comandos, añadido
+  rápido, onboarding y el saludo del perfil.
+
+  Antes había tres opacidades distintas (`bg-black/50`, `/60`, `/70`) elegidas
+  cada una por su lado, así que abrir el menú y abrir la paleta oscurecían la
+  pantalla de forma distinta sin ningún motivo. Y las tres eran NEGRO PURO: sobre
+  el fondo ciruela del perfil rosa lo apagaban a gris, que es justo lo que un
+  mundo de color propio no debe permitir.
+
+  Con --c-slate-950 el velo es del color del fondo de cada mundo, solo que más
+  denso. El 0,72 es el punto donde el contenido de detrás deja de leerse pero
+  todavía se intuye dónde estabas.
+*/
+.lh-velo {
+  background: rgb(var(--c-slate-950) / 0.72);
+}
+
+/*
+  El 65 no es un número al azar. La pila es: barra inferior 40, paleta de
+  comandos 50, onboarding 60, avisos 70. El saludo tiene que ir POR ENCIMA del
+  onboarding: en una cuenta nueva salen los dos a la vez y, empatados a 60,
+  ganaba el que va después en el DOM (el onboarding), así que el saludo se
+  pintaba detrás —invisible— pero igualmente gastaba su marca de sesión y no se
+  volvía a ver. Y por debajo de los avisos, que nunca deben quedar tapados.
+*/
+.lh-saludo {
+  position: fixed;
+  inset: 0;
+  z-index: 65;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  opacity: 0;
+  transition: opacity 200ms ease-out;
+}
+/*
+  Aquí el desenfoque sí va en móvil, al revés que en `.lh-card`. Allí se limita
+  a ≥640px porque son MUCHAS tarjetas y encima con scroll; esto es un solo
+  elemento, quieto y durante dos segundos.
+
+  Con prefijo -webkit-: Safari por debajo de la 18 no entiende la propiedad sin
+  él, y ahí es donde vive la app instalada en el iPhone.
+*/
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .lh-saludo {
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+  }
+}
+.lh-saludo[data-visible="true"] {
+  opacity: 1;
+  transition: opacity 300ms var(--lh-ease);
+}
+
+.lh-saludo-texto {
+  font-size: clamp(2.25rem, 11vw, 4.5rem);
+  line-height: 1.05;
+  text-align: center;
+  color: rgb(var(--c-slate-100));
+  /* De 0,96 y no de 0: ver arriba. */
+  transform: scale(0.96) translateY(0.5rem);
+  opacity: 0;
+  transition:
+    transform 200ms ease-out,
+    opacity 200ms ease-out;
+}
+.lh-saludo[data-visible="true"] .lh-saludo-texto {
+  transform: scale(1) translateY(0);
+  opacity: 1;
+  /*
+    40ms despues del velo. El escalonado es lo que hace que se lea como "se abre
+    el telon y luego aparece el mensaje" en vez de como dos cosas sueltas a la
+    vez.
+  */
+  transition:
+    transform 300ms var(--lh-ease) 40ms,
+    opacity 300ms var(--lh-ease) 40ms;
+}
+
+/* La pista de "toca para seguir" entra la ultima y muy tenue: si compitiera con
+   el saludo, la vista iria a ella y no al mensaje. */
+.lh-saludo-pista {
+  margin-top: 1.25rem;
+  text-align: center;
+  font-size: 0.75rem;
+  color: rgb(var(--c-slate-400));
+  opacity: 0;
+  transition: opacity 150ms ease-out;
+}
+.lh-saludo[data-visible="true"] .lh-saludo-pista {
+  opacity: 1;
+  transition: opacity 300ms var(--lh-ease) 220ms;
+}
+
+/*
+  Con movimiento reducido se queda el fundido y desaparece el desplazamiento: la
+  regla es "menos movimiento", no "ninguna animacion". Quitar tambien el fundido
+  haria que el saludo apareciera de golpe, que es justo lo que molesta.
+*/
+@media (prefers-reduced-motion: reduce) {
+  .lh-saludo-texto,
+  .lh-saludo[data-visible="true"] .lh-saludo-texto {
+    transform: none;
+  }
+  .lh-saludo[data-visible="true"] .lh-saludo-texto,
+  .lh-saludo[data-visible="true"] .lh-saludo-pista {
+    transition: opacity 200ms ease-out;
   }
 }

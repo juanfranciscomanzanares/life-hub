@@ -2,9 +2,11 @@ import { useState } from "react";
 import { Flag, Plus, Trash2, TrendingUp, Dumbbell, Briefcase, Coins, GraduationCap, LineChart } from "lucide-react";
 import { usePersisted } from "../lib/store";
 import { removeWithUndo } from "../lib/toast";
-import { Card, SectionTitle, fmtEuro, monthKey, monthLabel } from "../lib/ui";
+import { Card, SectionTitle, Metrica, fmtEuro, monthKey, monthLabel } from "../lib/ui";
 import { confeti } from "../lib/confetti";
+import { totalHoras } from "../lib/estudio";
 
+import { nuevoId } from "../lib/id";
 // Vacío a propósito: estas metas eran de ejemplo y se guardaban como reales,
 // contando además en las "metas conseguidas" de Analítica.
 const INITIAL_GOALS = [];
@@ -18,14 +20,16 @@ export default function Metas() {
   const [gym] = usePersisted("lh_gym", []);
   const [work] = usePersisted("lh_work_log", []);
   const [contribs] = usePersisted("lh_contribs", []);
-  const [study] = usePersisted("lh_study_hours", {});
+  // Del registro fechado, no del contador antiguo: ese sumaba también
+  // asignaturas de cursos pasados (ver src/lib/estudio.js).
+  const [studyLog] = usePersisted("lh_study_log", []);
   const [investments] = usePersisted("lh_investments", []);
 
   const thisMonth = new Date().toISOString().slice(0, 7);
   const gymThisMonth = gym.filter((g) => monthKey(g.fecha) === thisMonth).length;
   const workHoursMonth = work.filter((w) => monthKey(w.fecha) === thisMonth).reduce((a, b) => a + Number(b.horas || 0), 0);
   const investedMonth = contribs.filter((c) => monthKey(c.fecha) === thisMonth).reduce((a, b) => a + Number(b.monto || 0), 0);
-  const studyTotal = Object.values(study).reduce((a, b) => a + Number(b || 0), 0);
+  const studyTotal = totalHoras(studyLog);
 
   const totalActual = investments.reduce((a, b) => a + Number(b.valorActual || 0), 0);
   const totalAportado = investments.reduce((a, b) => a + Number(b.aportado || 0), 0);
@@ -40,7 +44,7 @@ export default function Metas() {
 
   const addGoal = () => {
     if (!form.titulo.trim() || !form.objetivo) return;
-    setGoals([...goals, { id: Date.now(), titulo: form.titulo, objetivo: Number(form.objetivo), actual: 0, unidad: form.unidad }]);
+    setGoals([...goals, { id: nuevoId(), titulo: form.titulo, objetivo: Number(form.objetivo), actual: 0, unidad: form.unidad }]);
     setForm({ titulo: "", objetivo: "", unidad: "€" });
   };
 
@@ -63,33 +67,27 @@ export default function Metas() {
   const inputCls =
     "rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none";
 
+  /*
+    El "este mes" sale de la etiqueta y baja a `detalle`: la etiqueta va en
+    versalitas y cuanto más corta, mejor se lee. Además el campo `sub` ya
+    existía y no lo pintaba nadie; ahora es el que se ve.
+  */
   const kpis = [
-    { label: "Gym este mes", value: `${gymThisMonth}`, sub: "sesiones", icon: Dumbbell, color: "text-emerald-400 bg-emerald-500/15" },
-    { label: "Trabajo este mes", value: `${workHoursMonth}h`, sub: "Agrosana", icon: Briefcase, color: "text-indigo-400 bg-indigo-500/15" },
-    { label: "Invertido este mes", value: fmtEuro(investedMonth), sub: "aportado", icon: Coins, color: "text-amber-400 bg-amber-500/15" },
-    { label: "Horas de estudio", value: `${studyTotal}h`, sub: "acumuladas", icon: GraduationCap, color: "text-fuchsia-400 bg-fuchsia-500/15" },
+    { label: "Gym", value: `${gymThisMonth}`, detalle: "sesiones este mes", icon: Dumbbell, color: "text-emerald-400 bg-emerald-500/15" },
+    { label: "Trabajo", value: `${workHoursMonth}h`, detalle: "este mes en Agrosana", icon: Briefcase, color: "text-indigo-400 bg-indigo-500/15" },
+    { label: "Invertido", value: fmtEuro(investedMonth), detalle: "aportado este mes", icon: Coins, color: "text-amber-400 bg-amber-500/15" },
+    { label: "Estudio", value: `${studyTotal}h`, detalle: "acumuladas", icon: GraduationCap, color: "text-fuchsia-400 bg-fuchsia-500/15" },
   ];
 
   return (
     <div>
       <SectionTitle icon={Flag} title="Metas y progreso" subtitle="Tus objetivos y el pulso de cada área" />
 
-      {/* KPIs automáticos */}
+      {/* KPIs automáticos, con la ficha compartida (`Metrica` en src/lib/ui.jsx). */}
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {kpis.map((k) => {
-          const Icon = k.icon;
-          return (
-            <Card key={k.label} className="flex items-center gap-3">
-              <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${k.color}`}>
-                <Icon size={20} />
-              </div>
-              <div>
-                <p className="text-xl font-bold text-slate-100">{k.value}</p>
-                <p className="text-xs text-slate-400">{k.label}</p>
-              </div>
-            </Card>
-          );
-        })}
+        {kpis.map((k) => (
+          <Metrica key={k.label} icono={k.icon} etiqueta={k.label} valor={k.value} detalle={k.detalle} color={k.color} />
+        ))}
       </div>
 
       {/* Objetivos manuales */}
@@ -116,18 +114,20 @@ export default function Metas() {
                 <div className="mb-1 flex items-center justify-between text-sm">
                   <span className="font-medium text-slate-200">{g.titulo}</span>
                   <div className="flex items-center gap-2">
-                    <button onClick={() => bump(g.id, -1)} className="flex h-6 w-6 items-center justify-center rounded bg-slate-700 text-slate-200 hover:bg-slate-600">−</button>
+                    {/* "−" y "+" a secas no dicen nada leídos en voz alta: un
+                        lector anuncia "menos, botón" sin saber de qué meta. */}
+                    <button onClick={() => bump(g.id, -1)} aria-label={`Restar uno a ${g.titulo}`} className="flex h-6 w-6 items-center justify-center rounded bg-slate-700 text-slate-200 hover:bg-slate-600">−</button>
                     <span className="w-24 text-right text-slate-400">
                       {g.actual} / {g.objetivo} {g.unidad}
                     </span>
-                    <button onClick={() => bump(g.id, 1)} className="flex h-6 w-6 items-center justify-center rounded bg-indigo-500 text-white hover:bg-indigo-400">+</button>
-                    <button onClick={() => removeWithUndo(goals, setGoals, g.id, "Objetivo")} className="text-slate-500 hover:text-rose-400">
-                      <Trash2 size={15} />
+                    <button onClick={() => bump(g.id, 1)} aria-label={`Sumar uno a ${g.titulo}`} className="flex h-6 w-6 items-center justify-center rounded bg-indigo-500 text-white hover:bg-indigo-400">+</button>
+                    <button onClick={() => removeWithUndo(goals, setGoals, g.id, "Objetivo")} aria-label={`Borrar ${g.titulo}`} className="text-slate-500 hover:text-rose-400">
+                      <Trash2 size={15} aria-hidden="true" />
                     </button>
                   </div>
                 </div>
                 <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-800">
-                  <div className={`h-full rounded-full ${done ? "bg-emerald-500" : "bg-indigo-500"}`} style={{ width: `${pct}%` }} />
+                  <div className={`lh-progreso h-full rounded-full ${done ? "bg-emerald-500" : "bg-indigo-500"}`} style={{ width: `${pct}%` }} />
                 </div>
               </div>
             );
@@ -154,7 +154,7 @@ export default function Metas() {
           <div className="flex h-48 items-end justify-between gap-2">
             {shownHistory.map((h) => (
               <div key={h.month} className="flex flex-1 flex-col items-center gap-2">
-                <span className="text-[10px] font-medium text-slate-400">{fmtEuro(h.valor)}</span>
+                <span className="text-3xs font-medium text-slate-400">{fmtEuro(h.valor)}</span>
                 <div className="flex w-full flex-1 items-end">
                   <div
                     className="w-full rounded-t-lg bg-gradient-to-t from-emerald-600 to-emerald-400"
@@ -162,7 +162,7 @@ export default function Metas() {
                     title={`${monthLabel(h.month)}: ${fmtEuro(h.valor)}`}
                   />
                 </div>
-                <span className="text-[10px] text-slate-500">{monthLabel(h.month)}</span>
+                <span className="text-3xs text-slate-500">{monthLabel(h.month)}</span>
               </div>
             ))}
           </div>

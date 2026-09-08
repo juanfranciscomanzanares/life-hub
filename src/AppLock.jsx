@@ -10,6 +10,13 @@ export default function AppLock({ children }) {
   const [locked, setLocked] = useState(isLockEnabled());
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
+  /*
+    Comprobar el PIN ya no es instantáneo: se deriva con PBKDF2 y 200.000
+    iteraciones (ver src/lib/lock.js), que en un móvil son unas décimas. Sin
+    avisar, ese silencio parece que el botón no ha respondido y se pulsa otra
+    vez.
+  */
+  const [comprobando, setComprobando] = useState(false);
 
   const bio = hasBiometric();
 
@@ -28,12 +35,21 @@ export default function AppLock({ children }) {
   }, []);
 
   const submitPin = async () => {
-    if (await verifyPin(pin)) {
-      setLocked(false);
-      setPin("");
-    } else {
-      setError("PIN incorrecto.");
-      setPin("");
+    // Sin este cortafuegos, mantener pulsado Enter lanza una derivación por
+    // repetición de tecla y el móvil se queda pillado.
+    if (comprobando || !pin) return;
+    setComprobando(true);
+    setError("");
+    try {
+      if (await verifyPin(pin)) {
+        setLocked(false);
+        setPin("");
+      } else {
+        setError("PIN incorrecto.");
+        setPin("");
+      }
+    } finally {
+      setComprobando(false);
     }
   };
 
@@ -55,20 +71,28 @@ export default function AppLock({ children }) {
           onChange={(e) => setPin(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && submitPin()}
           placeholder="PIN"
-          className="mb-3 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-center text-lg tracking-widest text-slate-100 focus:border-indigo-500 focus:outline-none"
+          aria-label="PIN"
+          disabled={comprobando}
+          className="mb-3 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-center text-lg tracking-widest text-slate-100 focus:border-indigo-500 focus:outline-none disabled:opacity-60"
           autoFocus
         />
-        <button onClick={submitPin} className="mb-3 w-full rounded-lg bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400">
-          Desbloquear
+        <button
+          onClick={submitPin}
+          disabled={comprobando}
+          className="mb-3 w-full rounded-lg bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400 disabled:opacity-70"
+        >
+          {comprobando ? "Comprobando…" : "Desbloquear"}
         </button>
 
         {bio && (
           <button onClick={tryBiometric} className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm font-semibold text-slate-200 transition hover:border-indigo-500">
-            <Fingerprint size={16} /> Usar Face ID / huella
+            <Fingerprint size={16} aria-hidden="true" /> Usar Face ID / huella
           </button>
         )}
 
-        {error && <p className="mt-3 text-xs text-rose-400">{error}</p>}
+        {/* role=alert para que un lector de pantalla lo anuncie: el mensaje
+            aparece sin que el foco se mueva a ningún sitio. */}
+        {error && <p role="alert" className="mt-3 text-xs text-rose-400">{error}</p>}
       </div>
     </div>
   );

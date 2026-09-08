@@ -5,6 +5,7 @@ import { removeWithUndo } from "../lib/toast";
 import { Card, SectionTitle, todayISO } from "../lib/ui";
 import { Linea } from "../lib/graficos.jsx";
 
+import { nuevoId } from "../lib/id";
 /*
   Entrenamientos de tenis de mesa.
 
@@ -94,7 +95,7 @@ export default function TenisEntrenos() {
   const anadirSesion = () => {
     const horas = Number(form.horas);
     if (!form.fecha || !horas) return;
-    setSesiones([{ id: Date.now(), ...form, horas }, ...sesiones]);
+    setSesiones([{ id: nuevoId(), ...form, horas }, ...sesiones]);
     setForm({ fecha: form.fecha, horas: "", tipo: form.tipo, nota: "" });
     setSemanaVista(lunesDe(form.fecha));
   };
@@ -105,7 +106,7 @@ export default function TenisEntrenos() {
   const anadirMejora = () => {
     const texto = mejoraNueva.trim();
     if (!texto) return;
-    setMejoras([{ id: Date.now(), texto, creado: todayISO(), resuelto: false }, ...mejoras]);
+    setMejoras([{ id: nuevoId(), texto, creado: todayISO(), resuelto: false }, ...mejoras]);
     setMejoraNueva("");
   };
 

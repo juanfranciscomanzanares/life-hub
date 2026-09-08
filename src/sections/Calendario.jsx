@@ -3,8 +3,14 @@ import { CalendarDays, ChevronLeft, ChevronRight, Plus, Trash2, Repeat } from "l
 import { usePersisted } from "../lib/store";
 import { removeWithUndo } from "../lib/toast";
 import { Card, SectionTitle, MONTHS, todayISO } from "../lib/ui";
-import { CURSO, eventosDelCalendario, queHayEl, esLectivo } from "../lib/uni";
+import { CURSO, SUBJECTS, eventosDelCalendario, queHayEl, esLectivo } from "../lib/uni";
+import { clasesSemanales } from "../lib/datosUni";
+import { normalizarTareas, tareasParaLaApp } from "../lib/aula";
+import { LUGAR_POR_DEFECTO, useTiempo, diaDe } from "../lib/tiempo";
+import { useFestivos, festivoDe, aniosNecesarios } from "../lib/festivos";
+import { IconoTiempo, fmtTemp } from "../lib/tiempoUi";
 
+import { nuevoId } from "../lib/id";
 // Fondo del día según el calendario académico. Suave a propósito: es contexto,
 // no un evento, y no debe competir con lo que haya escrito en la casilla.
 const FONDO_ACADEMICO = {
@@ -27,6 +33,13 @@ const TYPE_STYLE = {
   Gym: "bg-emerald-500/20 text-emerald-300",
   Tenis: "bg-amber-500/20 text-amber-300",
   Universidad: "bg-sky-500/20 text-sky-300",
+  // Color propio, distinto del de las clases: una clase es una franja fija de
+  // la semana y una tarea es algo que vence ese día. Mezclarlas de color hacía
+  // que el plazo pasara desapercibido entre el horario.
+  Tarea: "bg-violet-500/20 text-violet-300",
+  // Y las sesiones de estudio son una tercera cosa: un rato que TÚ te reservas,
+  // ni una clase impuesta ni un plazo que vence.
+  Estudio: "bg-orange-500/20 text-orange-300",
   Trabajo: "bg-indigo-500/20 text-indigo-300",
   Finanzas: "bg-rose-500/20 text-rose-300",
   "Inversión": "bg-teal-500/20 text-teal-300",
@@ -45,31 +58,13 @@ const ROUTINE_TYPES = ["Gym", "Tenis", "Universidad", "Trabajo", "Otro"];
 const INITIAL_ROUTINE = [];
 
 
-// --- Horario y exámenes UM · GCID 26/27 (1er cuatrimestre) ---
-// Mejor lectura de los PDF oficiales; revisa y ajusta si algo no cuadra.
-// dia: 0=Lunes ... 4=Viernes
-const UM_ROUTINE = [
-  // Fundamentos de Computadores (1º)
-  { dia: 1, hora: "10:00", titulo: "Fund. Computadores (teoría)", tipo: "Universidad" },
-  { dia: 2, hora: "12:00", titulo: "Fund. Computadores (prácticas)", tipo: "Universidad" },
-  // Deep Learning (3º)
-  { dia: 0, hora: "16:30", titulo: "Deep Learning (teoría)", tipo: "Universidad" },
-  { dia: 2, hora: "18:30", titulo: "Deep Learning (lab)", tipo: "Universidad" },
-  // Infraestructura Comp. Altas Prestaciones (3º)
-  { dia: 0, hora: "18:30", titulo: "Infra. Altas Prestaciones (teoría)", tipo: "Universidad" },
-  { dia: 1, hora: "18:30", titulo: "Infra. Altas Prestaciones (lab)", tipo: "Universidad" },
-  // Empresa y Emprendimiento (4º)
-  { dia: 0, hora: "15:00", titulo: "Empresa y Emprendimiento (teoría)", tipo: "Universidad" },
-  { dia: 0, hora: "17:00", titulo: "Empresa y Emprendimiento (prácticas)", tipo: "Universidad" },
-  // Ciberseguridad (4º)
-  { dia: 2, hora: "15:00", titulo: "Ciberseguridad (teoría)", tipo: "Universidad" },
-  { dia: 2, hora: "17:00", titulo: "Ciberseguridad (prácticas)", tipo: "Universidad" },
-  // Gestión de Proyectos en Ing. de Datos (4º)
-  { dia: 1, hora: "17:00", titulo: "Gestión de Proyectos (teoría)", tipo: "Universidad" },
-  { dia: 2, hora: "19:00", titulo: "Gestión de Proyectos (prácticas)", tipo: "Universidad" },
-];
 /*
   Fechas de examen por asignatura.
+
+  El horario semanal ya no está aquí: sale de `clasesSemanales()`, que lo deriva
+  del mismo horario que pinta Universidad. La copia que había en este archivo se
+  desajustó del original (las prácticas de Gestión de Proyectos salían un
+  miércoles a las 19:00, que no existe en ninguno de los dos subgrupos).
 
   OJO: tres de estas seis caen FUERA de las convocatorias oficiales del
   calendario académico (Convocatoria I: 14–16 de diciembre y 8–16 de enero):
@@ -100,21 +95,88 @@ export default function Calendario() {
   const [work] = usePersisted("lh_work_log", []);
   const [finance] = usePersisted("lh_finance", []);
   const [contribs] = usePersisted("lh_contribs", []);
+  /*
+    Las entregas salen del Aula Virtual, no de una lista propia. Se quitó la de
+    Universidad: las tareas de la carrera son las de la UMU, ya vienen con su
+    plazo y se actualizan solas al sincronizar, así que llevar una copia a mano
+    era trabajo doble y se desajustaba en cuanto allí cambiaba una fecha.
+  */
+  const [aulaCrudo] = usePersisted("lh_aula_tareas", []);
+  const [estudio] = usePersisted("lh_study_log", []);
+  const [lugar] = usePersisted("lh_tiempo_lugar", LUGAR_POR_DEFECTO);
+
+  const { prevision } = useTiempo(lugar);
+
+  /*
+    Festivos oficiales del país y de la comunidad. Se piden también los del año
+    anterior y el siguiente porque la rejilla de enero arranca en diciembre y la
+    de diciembre termina en enero (ver `aniosNecesarios`).
+  */
+  const { festivos } = useFestivos(aniosNecesarios(year));
+
+  /*
+    Qué hay ese día, juntando las dos fuentes. Manda el calendario ACADÉMICO:
+    es más específico y sabe de días que ninguna API conoce (la Romería, San
+    Alberto Magno). Los festivos oficiales rellenan el hueco de fuera del curso
+    2026/2027, donde `queHayEl` no tiene nada que decir y el 15 de agosto salía
+    como un miércoles cualquiera.
+  */
+  const contextoDe = (fechaISO) => {
+    const academico = queHayEl(fechaISO);
+    if (academico) return academico;
+    const oficial = festivoDe(festivos, fechaISO);
+    return oficial ? { tipo: "festivo", titulo: oficial.titulo } : null;
+  };
+
+  const uniTasks = useMemo(
+    () =>
+      tareasParaLaApp(
+        normalizarTareas(Array.isArray(aulaCrudo) ? { tareas: aulaCrudo, sitios: [] } : aulaCrudo),
+        SUBJECTS
+      ),
+    [aulaCrudo]
+  );
 
   // Eventos con fecha concreta
   const byDate = useMemo(() => {
     const map = {};
     const push = (fecha, tipo, label) => {
       if (!fecha) return;
-      (map[fecha] = map[fecha] || []).push({ tipo, label });
+      // Las tareas del Aula Virtual guardan la entrega con hora ("...T23:59"),
+      // así que se recorta al día o no casaría con ninguna casilla.
+      (map[String(fecha).slice(0, 10)] = map[String(fecha).slice(0, 10)] || []).push({ tipo, label });
     };
     gym.forEach((g) => push(g.fecha, "Gym", g.ejercicio));
     work.forEach((w) => push(w.fecha, "Trabajo", `${w.actividad} (${w.horas}h)`));
     finance.forEach((f) => push(f.fecha, "Finanzas", `${f.concepto} ${f.monto > 0 ? "+" : ""}${f.monto}€`));
     contribs.forEach((c) => push(c.fecha, "Inversión", `${c.destino} +${c.monto}€`));
     events.forEach((e) => push(e.fecha, "Evento", e.titulo));
+
+    /*
+      Las tareas de Universidad que tienen fecha. Es el motivo de poder ponerles
+      fecha y hora: que se vean aquí y no haya que acordarse de mirar la lista.
+
+      Las ya hechas no se pintan: el calendario es para lo que queda por hacer, y
+      un mes lleno de tareas tachadas tapa lo que sí importa.
+    */
+    uniTasks.forEach((t) => {
+      if (t.done || !t.entrega) return;
+      push(t.entrega, "Tarea", t.hora ? `${t.hora} ${t.text}` : t.text);
+    });
+
+    /*
+      Las sesiones de estudio, que son ratos que uno se reserva: "el jueves de
+      16:00 a 18:00, Deep Learning". Salen aquí porque es donde se mira lo que
+      hay ese día; si solo estuvieran en Universidad no servirían para
+      planificar.
+    */
+    estudio.forEach((s) => {
+      if (!s?.fecha || !s?.subject) return;
+      push(s.fecha, "Estudio", s.desde ? `${s.desde} ${s.subject}` : s.subject);
+    });
+
     return map;
-  }, [gym, work, finance, contribs, events]);
+  }, [gym, work, finance, contribs, events, uniTasks, estudio]);
 
   // Rutina indexada por día de la semana (0 = lunes)
   const routineByDay = useMemo(() => {
@@ -159,12 +221,12 @@ export default function Calendario() {
 
   const addEvent = () => {
     if (!form.fecha || !form.titulo.trim()) return;
-    setEvents([...events, { id: Date.now(), fecha: form.fecha, titulo: form.titulo }]);
+    setEvents([...events, { id: nuevoId(), fecha: form.fecha, titulo: form.titulo }]);
     setForm({ fecha: "", titulo: "" });
   };
   const addRoutine = () => {
     if (!rForm.titulo.trim()) return;
-    setRoutine([...routine, { id: Date.now(), dia: Number(rForm.dia), hora: rForm.hora, titulo: rForm.titulo, tipo: rForm.tipo }]);
+    setRoutine([...routine, { id: nuevoId(), dia: Number(rForm.dia), hora: rForm.hora, titulo: rForm.titulo, tipo: rForm.tipo }]);
     setRForm({ dia: 0, hora: "18:00", titulo: "", tipo: "Gym" });
   };
 
@@ -176,10 +238,27 @@ export default function Calendario() {
     porque se compara por fecha + título.
   */
   const cargarUM = () => {
+    const clases = clasesSemanales();
     const rKey = (x) => `${x.dia}-${x.hora}-${x.titulo}`;
-    const exist = new Set(routine.map(rKey));
-    const nuevas = UM_ROUTINE.filter((x) => !exist.has(rKey(x))).map((x, i) => ({ id: Date.now() + i, ...x }));
-    if (nuevas.length) setRoutine([...routine, ...nuevas]);
+
+    /*
+      Fuera las clases del curso que se hayan movido de sitio. Sin esto, cambiar
+      una hora o un subgrupo dejaba la vieja en la rutina y la misma clase salía
+      dos veces, en dos días distintos.
+
+      Se reconocen por la forma del título —"... (teoría)", "(prácticas ...)",
+      "(lab)"— y no por su texto exacto, porque el nombre de la asignatura
+      también cambia (era "Infra. Altas Prestaciones" y ahora es el nombre
+      completo). Con lista de títulos exactos, las viejas se habrían quedado
+      todas. Lo que hayas añadido tú a mano no encaja en ese patrón y se queda.
+    */
+    const pareceClase = (r) => r.tipo === "Universidad" && /\((teoría|prácticas|lab)\b/i.test(r.titulo);
+    const vigentes = new Set(clases.map(rKey));
+    const limpia = routine.filter((r) => !pareceClase(r) || vigentes.has(rKey(r)));
+
+    const exist = new Set(limpia.map(rKey));
+    const nuevas = clases.filter((x) => !exist.has(rKey(x))).map((x) => ({ id: nuevoId(), ...x }));
+    if (nuevas.length || limpia.length !== routine.length) setRoutine([...limpia, ...nuevas]);
 
     const eKey = (x) => `${x.fecha}-${x.titulo}`;
     const evExist = new Set(events.map(eKey));
@@ -188,12 +267,15 @@ export default function Calendario() {
     const vistos = new Set();
     const nuevosEv = porMeter
       .filter((x) => !vistos.has(eKey(x)) && vistos.add(eKey(x)))
-      .map((x, i) => ({ id: Date.now() + 1000 + i, ...x }));
+      .map((x) => ({ id: nuevoId(), ...x }));
     if (nuevosEv.length) setEvents([...events, ...nuevosEv]);
 
+    const quitadas = routine.length - limpia.length;
     alert(
       `Cargado: ${nuevas.length} clases y ${nuevosEv.length} fechas del curso ${CURSO} ` +
-        `(exámenes, cuatrimestres, convocatorias, festivos y vacaciones).\n\n` +
+        `(exámenes, cuatrimestres, convocatorias, festivos y vacaciones).` +
+        (quitadas ? `\nQuitadas ${quitadas} clases que ya no están en el horario.` : "") +
+        `\n\n` +
         `Aviso: tres de las fechas de examen (17 y 21 de diciembre, 7 de enero) caen fuera de las ` +
         `convocatorias oficiales. Contrástalas con la web de la Facultad.`
     );
@@ -207,7 +289,16 @@ export default function Calendario() {
     const isoD = todayISO(d);
     const rout = rutinaDe(isoD, i).map((r) => ({ hora: r.hora, tipo: r.tipo, label: r.titulo }));
     const ev = (byDate[isoD] || []).map((e) => ({ hora: "", tipo: e.tipo, label: e.label }));
-    return { fecha: isoD, dia: d.getDate(), nombre: WEEKDAYS_FULL[i], esHoy: isoD === todayISO(now), items: [...rout, ...ev].sort((a, b) => (a.hora || "99").localeCompare(b.hora || "99")) };
+    return {
+      fecha: isoD,
+      dia: d.getDate(),
+      nombre: WEEKDAYS_FULL[i],
+      esHoy: isoD === todayISO(now),
+      // Open-Meteo da 7 días desde hoy, así que los días ya pasados de esta
+      // semana vienen vacíos. Es correcto: no hay previsión del martes pasado.
+      tiempo: diaDe(prevision, isoD),
+      items: [...rout, ...ev].sort((a, b) => (a.hora || "99").localeCompare(b.hora || "99")),
+    };
   });
 
   const inputCls =
@@ -223,12 +314,12 @@ export default function Calendario() {
           <Repeat size={18} className="text-indigo-400" /> Rutina semanal fija
         </h2>
         <div className="mb-4 flex flex-wrap items-end gap-2">
-          <select value={rForm.dia} onChange={(e) => setRForm({ ...rForm, dia: e.target.value })} className={inputCls}>
+          <select aria-label="Día de la semana" value={rForm.dia} onChange={(e) => setRForm({ ...rForm, dia: e.target.value })} className={inputCls}>
             {WEEKDAYS_FULL.map((d, i) => <option key={i} value={i}>{d}</option>)}
           </select>
-          <input type="time" value={rForm.hora} onChange={(e) => setRForm({ ...rForm, hora: e.target.value })} className={inputCls} />
+          <input type="time" aria-label="Hora de la rutina" value={rForm.hora} onChange={(e) => setRForm({ ...rForm, hora: e.target.value })} className={inputCls} />
           <input placeholder="Actividad (Gym piernas, clases...)" value={rForm.titulo} onChange={(e) => setRForm({ ...rForm, titulo: e.target.value })} className={`flex-1 ${inputCls}`} />
-          <select value={rForm.tipo} onChange={(e) => setRForm({ ...rForm, tipo: e.target.value })} className={inputCls}>
+          <select aria-label="Tipo de rutina" value={rForm.tipo} onChange={(e) => setRForm({ ...rForm, tipo: e.target.value })} className={inputCls}>
             {ROUTINE_TYPES.map((t) => <option key={t}>{t}</option>)}
           </select>
           <button onClick={addRoutine} className="flex items-center gap-1 rounded-lg bg-indigo-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-400"><Plus size={15} /> Añadir</button>
@@ -274,7 +365,7 @@ export default function Calendario() {
       {/* Evento puntual */}
       <Card className="mb-4">
         <div className="flex flex-wrap items-end gap-2">
-          <input type="date" value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} className={inputCls} />
+          <input type="date" aria-label="Fecha del evento" value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} className={inputCls} />
           <input placeholder="Evento puntual (examen, cita, viaje...)" value={form.titulo} onChange={(e) => setForm({ ...form, titulo: e.target.value })} className={`flex-1 ${inputCls}`} />
           <button onClick={addEvent} className="flex items-center gap-1 rounded-lg bg-fuchsia-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-fuchsia-400"><Plus size={15} /> Añadir</button>
         </div>
@@ -286,11 +377,29 @@ export default function Calendario() {
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
           {semana.map((d) => (
             <div key={d.fecha} className={`rounded-xl border p-2 ${d.esHoy ? "border-indigo-500 bg-indigo-500/10" : "border-slate-800 bg-slate-800/30"}`}>
-              <p className="mb-2 text-xs font-semibold text-slate-400">{d.nombre} {d.dia}</p>
+              <p className="mb-2 flex items-center justify-between gap-1 text-xs font-semibold text-slate-400">
+                <span className="truncate">{d.nombre} {d.dia}</span>
+                {/* La previsión, donde de verdad sirve: mirando la semana para
+                    decidir si el sábado se puede jugar al tenis. */}
+                {d.tiempo && (
+                  <span
+                    className="flex shrink-0 items-center gap-1 font-normal"
+                    title={`${d.tiempo.texto} · máx. ${fmtTemp(d.tiempo.tmax)}, mín. ${fmtTemp(d.tiempo.tmin)}${
+                      d.tiempo.lluvia !== null ? ` · ${d.tiempo.lluvia}% de lluvia` : ""
+                    }`}
+                  >
+                    <IconoTiempo icono={d.tiempo.icono} size={13} />
+                    <span className="tabular-nums text-slate-400">{fmtTemp(d.tiempo.tmax)}</span>
+                    {d.tiempo.lluvia >= 30 && (
+                      <span className="tabular-nums text-sky-300">{d.tiempo.lluvia}%</span>
+                    )}
+                  </span>
+                )}
+              </p>
               <div className="space-y-1">
-                {d.items.length === 0 && <p className="text-[10px] text-slate-600">—</p>}
+                {d.items.length === 0 && <p className="text-3xs text-slate-600">—</p>}
                 {d.items.map((it, j) => (
-                  <div key={j} className={`truncate rounded px-1.5 py-0.5 text-[10px] ${TYPE_STYLE[it.tipo] || TYPE_STYLE.Otro}`} title={`${it.hora} ${it.label}`}>
+                  <div key={j} className={`truncate rounded px-1.5 py-0.5 text-3xs ${TYPE_STYLE[it.tipo] || TYPE_STYLE.Otro}`} title={`${it.hora} ${it.label}`}>
                     {it.hora && <span className="font-semibold">{it.hora} </span>}{it.label}
                   </div>
                 ))}
@@ -303,9 +412,11 @@ export default function Calendario() {
       {/* Calendario mensual */}
       <Card>
         <div className="mb-4 flex items-center justify-between">
-          <button onClick={prev} className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700"><ChevronLeft size={18} /></button>
+          {/* Los dos únicos controles para moverse por el calendario, y un
+              lector de pantalla los anunciaba solo como "botón". */}
+          <button onClick={prev} aria-label="Mes anterior" className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700"><ChevronLeft size={18} aria-hidden="true" /></button>
           <h2 className="text-lg font-semibold text-slate-100">{MONTHS[month]} {year}</h2>
-          <button onClick={next} className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700"><ChevronRight size={18} /></button>
+          <button onClick={next} aria-label="Mes siguiente" className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700"><ChevronRight size={18} aria-hidden="true" /></button>
         </div>
 
         <div className="grid grid-cols-7 gap-1.5">
@@ -320,7 +431,7 @@ export default function Calendario() {
               evento más: si no, "1er cuatrimestre" ocuparía una línea en cada
               una de las 65 casillas y taparía lo que de verdad pasa ese día.
             */
-            const academico = queHayEl(iso(d));
+            const academico = contextoDe(iso(d));
             return (
               <div
                 key={d}
@@ -333,7 +444,7 @@ export default function Calendario() {
               >
                 <div className="mb-1 flex items-center justify-between gap-1">
                   {academico && academico.tipo !== "clases" && (
-                    <span className="truncate text-[9px] uppercase tracking-wide text-slate-500">
+                    <span className="truncate text-3xs uppercase tracking-wide text-slate-500">
                       {ETIQUETA_ACADEMICA[academico.tipo]}
                     </span>
                   )}
@@ -341,9 +452,9 @@ export default function Calendario() {
                 </div>
                 <div className="space-y-1">
                   {list.slice(0, 4).map((ev, j) => (
-                    <div key={j} title={`${ev.tipo}: ${ev.label}`} className={`truncate rounded px-1 py-0.5 text-[10px] ${TYPE_STYLE[ev.tipo] || TYPE_STYLE.Otro}`}>{ev.label}</div>
+                    <div key={j} title={`${ev.tipo}: ${ev.label}`} className={`truncate rounded px-1 py-0.5 text-3xs ${TYPE_STYLE[ev.tipo] || TYPE_STYLE.Otro}`}>{ev.label}</div>
                   ))}
-                  {list.length > 4 && <div className="text-[10px] text-slate-500">+{list.length - 4} más</div>}
+                  {list.length > 4 && <div className="text-3xs text-slate-500">+{list.length - 4} más</div>}
                 </div>
               </div>
             );
@@ -366,7 +477,7 @@ export default function Calendario() {
             {events.slice().sort((a, b) => a.fecha.localeCompare(b.fecha)).map((e) => (
               <li key={e.id} className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-800/40 px-3 py-2 text-sm">
                 <span className="text-slate-200"><span className="text-slate-500">{e.fecha}</span> · {e.titulo}</span>
-                <button onClick={() => removeWithUndo(events, setEvents, e.id, "Evento")} className="text-slate-500 hover:text-rose-400"><Trash2 size={15} /></button>
+                <button onClick={() => removeWithUndo(events, setEvents, e.id, "Evento")} aria-label={`Borrar ${e.titulo}`} className="text-slate-500 hover:text-rose-400"><Trash2 size={15} aria-hidden="true" /></button>
               </li>
             ))}
           </ul>

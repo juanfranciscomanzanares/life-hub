@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase, cloudEnabled } from "./lib/supabase";
+import { sincronizarDueno, clavesDeDatos } from "./lib/sesionLocal";
 import LifeDashboard from "./LifeDashboard.jsx";
 import AppLock from "./AppLock.jsx";
 import { reiniciarApp } from "./ErrorBoundary.jsx";
@@ -80,6 +81,13 @@ export default function App() {
       .then(({ data, error }) => {
         if (!vivo) return;
         if (error) setAviso(traducirError(error.message));
+        /*
+          ANTES de guardar la sesión en el estado: si los datos que hay en este
+          navegador son de otra cuenta, se borran. Si se dejaran, las secciones
+          los leerían como propios y, al primer cambio, se subirían a la cuenta
+          equivocada (ver src/lib/sesionLocal.js).
+        */
+        sincronizarDueno(data?.session?.user?.id ?? null);
         setSession(data?.session ?? null);
       })
       .catch((e) => {
@@ -93,6 +101,17 @@ export default function App() {
 
     const { data: sub } = supabase.auth.onAuthStateChange((evento, s) => {
       if (!vivo) return;
+
+      /*
+        Cambio de cuenta en caliente (entra otra persona sin recargar). Aquí no
+        basta con borrar: los componentes montados siguen teniendo en memoria
+        los datos del anterior y los volverían a guardar. Por eso se recarga.
+      */
+      if (sincronizarDueno(s?.user?.id ?? null)) {
+        window.location.reload();
+        return;
+      }
+
       setSession(s);
       setChecking(false);
       if (s) {
@@ -296,12 +315,30 @@ export default function App() {
       </div>
     );
   }
+  /*
+    Al cerrar sesión se borran los datos de este navegador.
+
+    No es solo higiene: en un dispositivo compartido, dejarlos ahí significa
+    que la siguiente persona los ve en la pantalla antes de identificarse. Lo
+    que hay en la nube no se toca, así que al volver a entrar se descargan
+    enteros; en la práctica cerrar sesión no pierde nada.
+
+    Se recarga para no dejar en memoria lo que se acaba de borrar.
+  */
+  const cerrarSesion = async () => {
+    await supabase.auth.signOut();
+    try {
+      clavesDeDatos().forEach((c) => window.localStorage.removeItem(c));
+      window.localStorage.removeItem("lh_usuario_datos");
+    } catch {
+      /* Safari en privado puede fallar al escribir; salir es lo importante. */
+    }
+    window.location.reload();
+  };
+
   return (
     <AppLock>
-      <LifeDashboard
-        userEmail={session.user.email}
-        onSignOut={() => supabase.auth.signOut()}
-      />
+      <LifeDashboard userEmail={session.user.email} onSignOut={cerrarSesion} />
     </AppLock>
   );
 }

@@ -1,5 +1,6 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { Search, CornerDownLeft } from "lucide-react";
+import { useDialogo } from "./lib/useDialogo";
 
 function read(key, fb) {
   try {
@@ -18,7 +19,19 @@ function buildIndex() {
   read("lh_gym", []).forEach((g) => add(g.ejercicio, "gimnasio", "Gym"));
   read("lh_work_log", []).forEach((w) => add(w.actividad, "trabajo", "Trabajo"));
   read("lh_runbooks", []).forEach((r) => add(r.titulo, "trabajo", "Procedimiento"));
-  read("lh_uni_tasks", []).forEach((t) => add(t.text, "universidad", "Uni"));
+  /*
+    Las tareas de la carrera son las del Aula Virtual. Se lee el crudo tal cual
+    en vez de normalizarlo: aquí solo hace falta el título para buscar, y
+    normalizar traería toda la lógica de estados a un índice que se reconstruye
+    cada vez que se abre la paleta.
+  */
+  const aula = read("lh_aula_tareas", []);
+  (Array.isArray(aula) ? aula : aula?.tareas || []).forEach((t) =>
+    add(t.titulo, "universidad", "Uni")
+  );
+  read("lh_study_log", []).forEach((s) =>
+    add(s.nota || s.subject, "universidad", "Estudio")
+  );
   read("lh_finance", []).forEach((f) => add(f.concepto, "finanzas", "Finanzas"));
   read("lh_investments", []).forEach((i) => add(i.nombre, "inversiones", "Inversión"));
   read("lh_notes", []).forEach((n) => add(n.title, "cerebro", "Nota"));
@@ -38,13 +51,10 @@ export default function CommandPalette({ open, setOpen, sections, onNavigate }) 
     }
   }, [open]);
 
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    if (open) window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, setOpen]);
+  // Escape y el foco atrapado los lleva useDialogo, que además devuelve el
+  // foco al botón de buscar cuando se cierra la paleta.
+  const cerrar = useCallback(() => setOpen(false), [setOpen]);
+  const refDialogo = useDialogo(open, cerrar);
 
   const ql = q.trim().toLowerCase();
   const secciones = sections.filter((s) => s.label.toLowerCase().includes(ql)).slice(0, 6);
@@ -63,8 +73,15 @@ export default function CommandPalette({ open, setOpen, sections, onNavigate }) 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 p-4 pt-24" onClick={() => setOpen(false)}>
-      <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+    <div className="lh-velo fixed inset-0 z-50 flex items-start justify-center p-4 pt-24" onClick={cerrar}>
+      <div
+        ref={refDialogo}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Buscar en Life Hub"
+        className="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
         <form onSubmit={onSubmit} className="flex items-center gap-2 border-b border-slate-800 px-4">
           <Search size={18} className="text-slate-500" />
           <input
@@ -74,11 +91,11 @@ export default function CommandPalette({ open, setOpen, sections, onNavigate }) 
             placeholder="Buscar secciones, tareas, notas, ejercicios..."
             className="w-full bg-transparent py-3.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none"
           />
-          <kbd className="hidden rounded bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-400 sm:block">Esc</kbd>
+          <kbd className="hidden rounded bg-slate-800 px-1.5 py-0.5 text-3xs text-slate-400 sm:block">Esc</kbd>
         </form>
 
         <div className="max-h-80 overflow-y-auto p-2">
-          {secciones.length > 0 && <p className="px-2 py-1 text-[10px] font-semibold uppercase text-slate-500">Secciones</p>}
+          {secciones.length > 0 && <p className="px-2 py-1 text-3xs font-semibold uppercase text-slate-500">Secciones</p>}
           {secciones.map((s) => {
             const Icon = s.icon;
             return (
@@ -89,11 +106,11 @@ export default function CommandPalette({ open, setOpen, sections, onNavigate }) 
             );
           })}
 
-          {datos.length > 0 && <p className="mt-2 px-2 py-1 text-[10px] font-semibold uppercase text-slate-500">Resultados</p>}
+          {datos.length > 0 && <p className="mt-2 px-2 py-1 text-3xs font-semibold uppercase text-slate-500">Resultados</p>}
           {datos.map((d, i) => (
             <button key={i} onClick={() => go(d.seccion)} className="flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-sm text-slate-200 hover:bg-slate-800">
               <span className="truncate">{d.texto}</span>
-              <span className="shrink-0 rounded bg-slate-800 px-2 py-0.5 text-[10px] text-slate-400">{d.tipo}</span>
+              <span className="shrink-0 rounded bg-slate-800 px-2 py-0.5 text-3xs text-slate-400">{d.tipo}</span>
             </button>
           ))}
 
@@ -102,7 +119,7 @@ export default function CommandPalette({ open, setOpen, sections, onNavigate }) 
           )}
         </div>
 
-        <div className="flex items-center gap-2 border-t border-slate-800 px-4 py-2 text-[10px] text-slate-500">
+        <div className="flex items-center gap-2 border-t border-slate-800 px-4 py-2 text-3xs text-slate-500">
           <CornerDownLeft size={12} /> Enter para abrir el primero
         </div>
       </div>

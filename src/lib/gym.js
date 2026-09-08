@@ -18,6 +18,18 @@
   cambio no las afecta.
 */
 
+/*
+  El generador de ids vive en src/lib/id.js y se reexporta aquí porque varios
+  módulos ya lo importaban de gym.js.
+
+  El de antes (Date.now() * 1000 + contador) resolvía las colisiones DENTRO de
+  un dispositivo —crear varias series de golpe—, pero no entre dispositivos:
+  dos móviles en el mismo milisegundo daban el mismo id. Con la sincronización
+  por elemento, eso hacía desaparecer uno de los dos.
+*/
+import { nuevoId } from "./id";
+export { nuevoId };
+
 export const EJERCICIOS = {
   Pecho: ["Press banca", "Press inclinado", "Press declinado", "Press mancuernas", "Aperturas", "Aperturas en polea", "Fondos en paralelas", "Pullover", "Press máquina"],
   Espalda: ["Dominadas", "Jalón al pecho", "Jalón tras nuca", "Remo con barra", "Remo con mancuerna", "Remo en polea", "Remo en máquina", "Pullover en polea", "Peso muerto", "Hiperextensiones"],
@@ -81,14 +93,6 @@ export function esPersonalizado(nombre, personalizados = []) {
 }
 
 const num = (v) => Number(v) || 0;
-
-let contador = 0;
-// Date.now() se repite si generas varios ids en el mismo milisegundo, cosa que
-// pasa al crear varias series de golpe.
-export function nuevoId() {
-  contador += 1;
-  return Date.now() * 1000 + (contador % 1000);
-}
 
 export function nuevaSerie(peso = 0, reps = 0) {
   return { id: nuevoId(), peso: num(peso), reps: num(reps) };
