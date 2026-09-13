@@ -88,7 +88,7 @@ describe("colocación en la rejilla", () => {
 describe("agrupar por días", () => {
   it("ordena las clases del día por hora de inicio", () => {
     const lunes = clasesDe(SCHEDULE_C1, "lunes").map((c) => c.hora);
-    expect(lunes).toEqual(["15:00 - 17:00", "17:00 - 18:00", "18:30 - 20:30"]);
+    expect(lunes).toEqual(["15:00 - 17:00", "17:00 - 19:00", "18:30 - 20:30"]);
   });
 
   it("la agenda deja fuera los días sin clase", () => {

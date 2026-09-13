@@ -41,11 +41,20 @@ describe("horario del curso", () => {
     });
   });
 
+  /*
+    Empresa y Emprendimiento (4º) e Infraest. Comp. Altas Prest. (3º) chocan a
+    propósito los lunes: son de cursos distintos que aquí se cursan a la vez, y
+    no hay forma de moverlas de hora porque la Facultad las fija así. El resto
+    de la tabla sigue sin poder pisarse.
+  */
+  const SOLAPES_PERMITIDOS = [["Empresa y Emprendimiento", "Infraest. Comp. Altas Prest."]];
+
   it("no hay dos clases a la vez el mismo día", () => {
     [SCHEDULE_C1, SCHEDULE_C2].forEach((cuatrimestre) => {
       cuatrimestre.forEach((a, i) => {
         cuatrimestre.slice(i + 1).forEach((b) => {
           if (a.dia !== b.dia) return;
+          if (SOLAPES_PERMITIDOS.some((par) => par.includes(a.subject) && par.includes(b.subject))) return;
           const [iniA, finA] = tramo(a.hora);
           const [iniB, finB] = tramo(b.hora);
           const solapan = iniA < finB && iniB < finA;

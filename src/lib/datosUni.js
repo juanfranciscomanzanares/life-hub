@@ -32,9 +32,9 @@ export const SCHEDULE_C1 = [
 
   { hora: "12:20 - 14:20", dia: "miercoles", subject: "Fund. Computadores", curso: "1º", aula: "Lab 2.1", practicas: true, subgrupo: "1.2" },
   { hora: "16:30 - 18:30", dia: "jueves", subject: "Infraest. Comp. Altas Prest.", curso: "3º", aula: "Lab 2.8", practicas: true, subgrupo: "1.2" },
-  { hora: "17:00 - 18:00", dia: "lunes", subject: "Empresa y Emprendimiento", curso: "4º", practicas: true, subgrupo: "1.1" },
-  { hora: "17:00 - 18:00", dia: "miercoles", subject: "Ciberseguridad", curso: "4º", practicas: true, subgrupo: "1.1" },
-  { hora: "19:00 - 20:00", dia: "martes", subject: "Gestión de Proyectos", curso: "4º", practicas: true, subgrupo: "1.1" },
+  { hora: "17:00 - 19:00", dia: "lunes", subject: "Empresa y Emprendimiento", curso: "4º", practicas: true, subgrupo: "1.1" },
+  { hora: "17:00 - 19:00", dia: "miercoles", subject: "Ciberseguridad", curso: "4º", practicas: true, subgrupo: "1.1" },
+  { hora: "19:00 - 21:00", dia: "martes", subject: "Gestión de Proyectos", curso: "4º", practicas: true, subgrupo: "1.1" },
 ];
 
 export const SCHEDULE_C2 = [
