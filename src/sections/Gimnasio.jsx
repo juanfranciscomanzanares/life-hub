@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Dumbbell, CalendarDays, ListChecks, TrendingUp, BookOpen } from "lucide-react";
+import { Dumbbell, CalendarDays, ListChecks, TrendingUp, BookOpen, Flag } from "lucide-react";
 import { usePersisted } from "../lib/store";
 import { SectionTitle, todayISO } from "../lib/ui";
 import { nuevoId, nuevaSerie, setsDe, abrirSesion } from "../lib/gym";
@@ -7,6 +7,8 @@ import Sesion from "./gym/Sesion.jsx";
 import Rutinas from "./gym/Rutinas.jsx";
 import Progreso from "./gym/Progreso.jsx";
 import Ejercicios from "./gym/Ejercicios.jsx";
+import Plan from "./gym/Plan.jsx";
+import { semanaDelPlan, dentroDelPlan, objetivoDe, notaObjetivo } from "../lib/planFisico";
 
 /*
   Gimnasio en tres pestañas:
@@ -16,6 +18,8 @@ import Ejercicios from "./gym/Ejercicios.jsx";
   - Rutinas: tus propias rutinas. Al empezar una, vuelca sus ejercicios en el
     día actual con las series objetivo listas para rellenar.
   - Progreso: gráficas por ejercicio, récords personales e historial por día.
+  - Plan: el plan físico de tenis de mesa de 12 semanas (src/lib/planFisico.js),
+    con lo que toca hoy, las guías y los tests.
 
   Los datos siguen en la clave `lh_gym`, una fila por ejercicio y día, porque
   otras seis secciones (Analítica, Calendario, Coach, Logros, Metas, Resumen)
@@ -24,6 +28,7 @@ import Ejercicios from "./gym/Ejercicios.jsx";
 */
 const PESTANAS = [
   { id: "sesion", nombre: "Sesión", icono: CalendarDays },
+  { id: "plan", nombre: "Plan", icono: Flag },
   { id: "rutinas", nombre: "Rutinas", icono: ListChecks },
   { id: "ejercicios", nombre: "Ejercicios", icono: BookOpen },
   { id: "progreso", nombre: "Progreso", icono: TrendingUp },
@@ -32,6 +37,7 @@ const PESTANAS = [
 export default function Gimnasio() {
   const [filas, setFilas] = usePersisted("lh_gym", []);
   const [sesiones, setSesiones] = usePersisted("lh_gym_sesiones", []);
+  const [planFisico] = usePersisted("lh_plan_fisico", {});
   const [pestana, setPestana] = useState("sesion");
   const [fecha, setFecha] = useState(todayISO());
 
@@ -42,6 +48,15 @@ export default function Gimnasio() {
     Los ejercicios ya registrados hoy no se duplican.
   */
   const empezarRutina = (rutina) => {
+    /*
+      Las rutinas del plan físico cambian según la semana (descarga, una serie
+      menos de pierna en potencia, la sentadilla a 4 series...). Fuera de las
+      12 semanas, o si el plan no está activo, se usan las series base.
+    */
+    const semanaPlan =
+      rutina.plan && planFisico?.inicio ? semanaDelPlan(planFisico.inicio, fecha) : null;
+    const semana = dentroDelPlan(semanaPlan) ? semanaPlan : null;
+
     const yaHoy = new Set(filas.filter((f) => f.fecha === fecha).map((f) => f.ejercicio));
 
     const nuevas = rutina.ejercicios
@@ -56,13 +71,18 @@ export default function Gimnasio() {
           ? Math.max(0, ...setsDe(anterior).map((s) => Number(s.peso) || 0))
           : 0;
 
+        const { series, reps } = rutina.plan ? objetivoDe(ej, semana) : ej;
+
         return {
           id: nuevoId(),
           fecha,
           ejercicio: ej.nombre,
-          nota: "",
+          // En las del plan, el objetivo de la semana queda escrito en la nota
+          // ("Objetivo: 4×6-8 · RIR 3 → 2 · descanso 2 min"): las reps de un
+          // rango no caben en un solo número.
+          nota: rutina.plan ? notaObjetivo(ej, semana) : "",
           rutina: rutina.nombre,
-          sets: Array.from({ length: Math.max(1, ej.series) }, () => nuevaSerie(pesoPrevio, ej.reps)),
+          sets: Array.from({ length: Math.max(1, series) }, () => nuevaSerie(pesoPrevio, reps)),
         };
       });
 
@@ -116,6 +136,7 @@ export default function Gimnasio() {
           setSesiones={setSesiones}
         />
       )}
+      {pestana === "plan" && <Plan filas={filas} onEmpezar={empezarRutina} />}
       {pestana === "rutinas" && <Rutinas onEmpezar={empezarRutina} />}
       {pestana === "ejercicios" && <Ejercicios />}
       {pestana === "progreso" && <Progreso filas={filas} onVerDia={verDia} />}

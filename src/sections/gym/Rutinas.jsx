@@ -124,6 +124,7 @@ export default function Rutinas({ onEmpezar }) {
 
                 {abierta && (
                   <div className="border-t border-slate-800 px-5 py-4">
+                    {rutina.nota && <p className="mb-3 text-xs text-slate-400">{rutina.nota}</p>}
                     {rutina.ejercicios.length > 0 && (
                       <div className="mb-5 space-y-2">
                         {rutina.ejercicios.map((ej) => (
@@ -132,6 +133,13 @@ export default function Rutinas({ onEmpezar }) {
                               <p className="truncate text-sm font-medium text-slate-100">{ej.nombre}</p>
                               <p className="text-xs text-slate-500">
                                 {ej.grupo}
+                                {/* Las del plan físico traen el rango, el
+                                    descanso y el RIR, que no caben en los dos
+                                    números de la derecha. */}
+                                {ej.repsTexto && ej.repsTexto !== String(ej.reps) && ` · ${ej.series}×${ej.repsTexto}`}
+                                {ej.dosis && ` · ${ej.dosis}`}
+                                {ej.descanso && ` · descanso ${ej.descanso}`}
+                                {ej.rir && ` · RIR ${ej.rir}`}
                                 {descripcionDe(ej.nombre, propios) &&
                                   ` · ${descripcionDe(ej.nombre, propios)}`}
                               </p>

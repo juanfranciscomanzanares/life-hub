@@ -24,6 +24,7 @@ import {
   CalendarDays,
   Database,
   HeartPulse,
+  Utensils,
   Timer,
   Sun,
   Moon,
@@ -76,6 +77,7 @@ const SegundoCerebro = lazy(() => import("./sections/SegundoCerebro.jsx"));
 const Inversiones = lazy(() => import("./sections/Inversiones.jsx"));
 const PlanFinanciero = lazy(() => import("./sections/PlanFinanciero.jsx"));
 const Salud = lazy(() => import("./sections/Salud.jsx"));
+const Alimentacion = lazy(() => import("./sections/Alimentacion.jsx"));
 const Gimnasio = lazy(() => import("./sections/Gimnasio.jsx"));
 const Foco = lazy(() => import("./sections/Foco.jsx"));
 const Analitica = lazy(() => import("./sections/Analitica.jsx"));
@@ -494,6 +496,7 @@ const NAV_GROUPS = [
       { id: "tenis", label: "Partidos", icon: Target },
       { id: "tenis-notas", label: "Entrenamientos", icon: Target },
       { id: "salud", label: "Salud", icon: HeartPulse },
+      { id: "alimentacion", label: "Alimentación", icon: Utensils },
     ],
   },
   {
@@ -884,6 +887,7 @@ export default function LifeDashboard({ userEmail = null, onSignOut = null }) {
           {active === "tenis" && <TenisMesa />}
           {active === "tenis-notas" && <TenisEntrenos />}
           {active === "salud" && <Salud perfilApp={perfil} />}
+          {active === "alimentacion" && <Alimentacion />}
           {active === "finanzas" && <Finanzas />}
           {active === "inversiones" && <Inversiones />}
           {active === "plan" && <PlanFinanciero />}

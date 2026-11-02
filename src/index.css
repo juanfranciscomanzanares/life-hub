@@ -608,7 +608,8 @@ html[data-theme="light"][data-accent="violeta"] {
   --c-seccion-400: 52 211 153;
   --c-seccion-500: 16 185 129;
 }
-[data-seccion="salud"] {
+[data-seccion="salud"],
+[data-seccion="alimentacion"] {
   --c-seccion-300: 240 171 252;
   --c-seccion-400: 232 121 249;
   --c-seccion-500: 217 70 239;
@@ -671,7 +672,8 @@ html[data-theme="light"] [data-seccion="inversiones"] {
   --c-seccion-300: 4 120 87;
   --c-seccion-400: 5 150 105;
 }
-html[data-theme="light"] [data-seccion="salud"] {
+html[data-theme="light"] [data-seccion="salud"],
+html[data-theme="light"] [data-seccion="alimentacion"] {
   --c-seccion-300: 162 28 175;
   --c-seccion-400: 192 38 211;
 }

@@ -62,7 +62,11 @@ export const PERFILES = {
       "tenis-notas" los entrenamientos. Quitar solo una dejaría media sección
       colgando en el menú de Deporte.
     */
-    sinSecciones: ["tenis", "tenis-notas"],
+    /*
+      Alimentación tampoco: es la parte de comida del plan físico de Quico
+      (raciones para sus 82 kg y sus días de tenis), no una guía general.
+    */
+    sinSecciones: ["tenis", "tenis-notas", "alimentacion"],
     saludo: "olaaaa tomta",
   },
 };

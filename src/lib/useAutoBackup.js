@@ -40,6 +40,7 @@ export const ALL_KEYS = [
   "lh_work_log", "lh_runbooks", "lh_trabajo_km_trayecto", "lh_trabajo_modalidad",
   // Gimnasio
   "lh_gym", "lh_gym_sesiones", "lh_gym_rutinas", "lh_gym_ejercicios",
+  "lh_plan_fisico", "lh_plan_mediciones",
   // Tenis de mesa
   "lh_tt_sesiones", "lh_tt_semanas", "lh_tt_mejoras",
   "lh_tenis_partidos", "lh_tenis_opens", "lh_tenis_rondas", "lh_tenis_oficiales",
@@ -51,6 +52,8 @@ export const ALL_KEYS = [
   "lh_plan_regimenes", "lh_plan_config",
   // Salud y hábitos
   "lh_health", "lh_salud_perfil", "lh_habits",
+  // Alimentación
+  "lh_comida_dias", "lh_comida_semana",
 ];
 
 const MAX_SNAPSHOTS = 6;
