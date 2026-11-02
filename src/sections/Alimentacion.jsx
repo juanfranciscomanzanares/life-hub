@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Utensils, Check, Ruler, ShoppingCart, ChefHat, Hand, Plus, RotateCcw } from "lucide-react";
+import { Utensils, Check, Ruler, ChefHat, Hand, Plus } from "lucide-react";
 import { usePersisted } from "../lib/store";
 import { Card, SectionTitle, todayISO } from "../lib/ui";
 import { lunesDe } from "../lib/fechas";
@@ -22,11 +22,9 @@ import {
   RECETAS,
   NOTAS_RECETAS,
   EJEMPLO_MARTES,
-  COMPRA,
-  NOTA_COMPRA,
-  TOTAL_ARTICULOS,
 } from "../lib/alimentacion";
 import { CampoNumero } from "./gym/CampoNumero";
+import MenuCompra from "./alimentacion/MenuCompra.jsx";
 
 /*
   Alimentación: la parte de comida del plan físico, sin contar calorías.
@@ -36,7 +34,9 @@ import { CampoNumero } from "./gym/CampoNumero";
   desayuno en el móvil y la cena en el PC perdía una de las dos al sincronizar).
 
     - `lh_comida_dias`   { "aaaa-mm-dd|proteina|0": true, "aaaa-mm-dd|fruta": 2, ... }
-    - `lh_comida_semana` { "<lunes>|compra|huevos": true, "<lunes>|cocina|0": true, ... }
+    - `lh_comida_semana` { "<lunes>|compra|huevos": true, "<lunes>|cocina|0": true,
+                           "<lunes>|menu|<día>|<comida>": "id de receta", ... }
+      (el menú y la lista de la compra están en alimentacion/MenuCompra.jsx)
     - la cintura va a `lh_plan_mediciones`, la misma lista que la pestaña Plan
       del gimnasio: es una sola medida y no debe vivir en dos sitios.
 */
@@ -63,10 +63,7 @@ export default function Alimentacion() {
   const lunes = lunesDe(hoy);
 
   const registro = leerDia(dias, hoy);
-  const semana = {
-    compra: marcadosSemana(semanas, lunes, "compra"),
-    cocina: marcadosSemana(semanas, lunes, "cocina"),
-  };
+  const semana = { cocina: marcadosSemana(semanas, lunes, "cocina") };
 
   const estadoCintura = useMemo(() => evaluarCintura(mediciones), [mediciones]);
   const raciones = hidratosDelDia(diaSemana, {
@@ -77,11 +74,6 @@ export default function Alimentacion() {
 
   const guardarDia = (cambios) => setDias({ ...dias, ...marcarDia(hoy, cambios) });
   const marcar = (lista, id, valor) => setSemanas({ ...semanas, ...marcaSemana(lunes, lista, id, valor) });
-  const desmarcarCompra = () =>
-    setSemanas({
-      ...semanas,
-      ...Object.assign({}, ...semana.compra.map((id) => marcaSemana(lunes, "compra", id, false))),
-    });
 
   const alternarProteina = (i) => guardarDia({ proteina: [i, !registro.proteina[i]] });
 
@@ -264,8 +256,8 @@ export default function Alimentacion() {
         </div>
         {NOTAS_RECETAS[recetas] && <p className="mb-3 text-xs text-slate-400">{NOTAS_RECETAS[recetas]}</p>}
         <ul className="grid gap-2 sm:grid-cols-2">
-          {RECETAS[recetas].map(([nombre, como, tiempo]) => (
-            <li key={nombre} className="rounded-lg border border-slate-800 bg-slate-800/30 px-3 py-2">
+          {RECETAS[recetas].map(({ id, nombre, como, tiempo }) => (
+            <li key={id} className="rounded-lg border border-slate-800 bg-slate-800/30 px-3 py-2">
               <p className="flex items-baseline justify-between gap-2 text-sm font-semibold text-slate-100">
                 {nombre}
                 {tiempo && <span className="shrink-0 text-xs font-normal tabular-nums text-slate-500">{tiempo}</span>}
@@ -286,87 +278,41 @@ export default function Alimentacion() {
         </ol>
       </Card>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        {/* Cocina del domingo */}
-        <Card>
-          <div className="mb-3 flex items-center justify-between gap-2">
-            <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
-              <ChefHat size={18} className="text-seccion-400" aria-hidden="true" /> Cocina del domingo
-            </h2>
-            <span className="text-xs text-slate-500">1 h para media semana</span>
-          </div>
-          <ul className="space-y-2">
-            {COCINA_DOMINGO.map((paso, i) => {
-              const hecho = semana.cocina.includes(String(i));
-              return (
-                <li key={paso}>
-                  <label className="flex cursor-pointer items-start gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={hecho}
-                      onChange={() => marcar("cocina", i, !hecho)}
-                      className="mt-0.5 h-4 w-4 shrink-0 accent-indigo-500"
-                    />
-                    <span className={hecho ? "text-slate-500 line-through" : "text-slate-300"}>{paso}</span>
-                  </label>
-                </li>
-              );
-            })}
-          </ul>
-          <p className="mt-3 text-xs text-slate-500">{NOTA_COCINA}</p>
-        </Card>
+      {/* Cocina del domingo */}
+      <Card className="mb-4">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
+            <ChefHat size={18} className="text-seccion-400" aria-hidden="true" /> Cocina del domingo
+          </h2>
+          <span className="text-xs text-slate-500">1 h para media semana</span>
+        </div>
+        <ul className="space-y-2">
+          {COCINA_DOMINGO.map((paso, i) => {
+            const hecho = semana.cocina.includes(String(i));
+            return (
+              <li key={paso}>
+                <label className="flex cursor-pointer items-start gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={hecho}
+                    onChange={() => marcar("cocina", i, !hecho)}
+                    className="mt-0.5 h-4 w-4 shrink-0 accent-indigo-500"
+                  />
+                  <span className={hecho ? "text-slate-500 line-through" : "text-slate-300"}>{paso}</span>
+                </label>
+              </li>
+            );
+          })}
+        </ul>
+        <p className="mt-3 text-xs text-slate-500">{NOTA_COCINA}</p>
+      </Card>
 
-        {/* Lista de la compra */}
-        <Card>
-          <div className="mb-3 flex items-center justify-between gap-2">
-            <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
-              <ShoppingCart size={18} className="text-seccion-400" aria-hidden="true" /> Lista de la compra
-            </h2>
-            <div className="flex items-center gap-2">
-              <span className="text-xs tabular-nums text-slate-500">
-                {semana.compra.length} / {TOTAL_ARTICULOS}
-              </span>
-              {semana.compra.length > 0 && (
-                <button
-                  onClick={desmarcarCompra}
-                  aria-label="Desmarcar toda la lista de la compra"
-                  title="Desmarcar todo"
-                  className="p-1 text-slate-500 transition hover:text-indigo-400"
-                >
-                  <RotateCcw size={14} aria-hidden="true" />
-                </button>
-              )}
-            </div>
-          </div>
-          <p className="mb-3 text-2xs text-slate-500">Se vacía sola cada lunes.</p>
-          <div className="space-y-3">
-            {COMPRA.map((g) => (
-              <div key={g.grupo}>
-                <p className="mb-1 text-2xs font-semibold uppercase tracking-[0.08em] text-slate-500">{g.grupo}</p>
-                <ul className="space-y-1">
-                  {g.articulos.map(([id, texto]) => {
-                    const cogido = semana.compra.includes(id);
-                    return (
-                      <li key={id}>
-                        <label className="flex cursor-pointer items-center gap-2 text-sm">
-                          <input
-                            type="checkbox"
-                            checked={cogido}
-                            onChange={() => marcar("compra", id, !cogido)}
-                            className="h-4 w-4 shrink-0 accent-indigo-500"
-                          />
-                          <span className={cogido ? "text-slate-500 line-through" : "text-slate-300"}>{texto}</span>
-                        </label>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            ))}
-          </div>
-          <p className="mt-3 text-xs text-slate-500">{NOTA_COMPRA}</p>
-        </Card>
-      </div>
+      <MenuCompra
+        semanas={semanas}
+        setSemanas={setSemanas}
+        lunesHoy={lunes}
+        estancada={estadoCintura.estado === "estancada"}
+      />
     </div>
   );
 }

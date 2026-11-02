@@ -131,37 +131,84 @@ export const COCINA_DOMINGO = [
 export const NOTA_COCINA =
   "Guárdalo en tuppers en la nevera y cómetelo en 3 días. El arroz, enfríalo rápido antes de guardarlo. Lo que no vayas a comer en ese plazo, congélalo en raciones.";
 
-// [nombre, qué lleva / cómo, tiempo]
+/*
+  Recetas del plan, con los ingredientes que llevan para la lista de la compra.
+
+  `id` fijo y no `nuevoId`: es catálogo, y el menú de la semana guarda ids de
+  receta, que tienen que significar lo mismo en todos los dispositivos.
+
+  `ing` es solo QUÉ lleva, sin cantidades: el plan no da la ración de todo (el
+  pollo va "a palmas", la verdura "a puños") y una lista con gramos inventados
+  daría una falsa precisión. Los ingredientes están en src/lib/compra.js.
+
+  Las recetas con alternativa ("bocadillo de tortilla, o de pavo y queso")
+  llevan `variantes`: cada una quita unos ingredientes y pone otros, y en el
+  menú se elige como una opción más ("bocadillo:pavo"). Sin eso la lista
+  contaba siempre la primera opción. `variante` es el nombre de la de serie, y
+  `corto`, el nombre de la receta en el menú cuando el largo ya enumera las
+  alternativas.
+*/
 export const RECETAS = {
   desayunos: [
-    ["Avena de microondas", "1 puño de avena + 1 vaso de leche, 2 min al micro. Encima, un plátano y 1 cucharada de crema de cacahuete", "3 min"],
-    ["Tostadas con huevos", "2 rebanadas con tomate y aceite + 3 huevos revueltos", "7 min"],
-    ["Bol de skyr", "1 tarrina grande de skyr o queso fresco batido 0% + 1 puñado de avena + fruta", "2 min"],
-    ["Batido para llevar", "Leche + plátano + 3 cucharadas de avena + cacao, en batidora", "2 min"],
-    ["Bocadillo", "Media barra con tortilla francesa de 2 huevos, o con pavo y queso, + café con leche", "5 min"],
+    { id: "avena", nombre: "Avena de microondas", como: "1 puño de avena + 1 vaso de leche, 2 min al micro. Encima, un plátano y 1 cucharada de crema de cacahuete", tiempo: "3 min",
+      ing: ["avena", "leche", "platano", "cacahuete"] },
+    { id: "tostadas-huevos", nombre: "Tostadas con huevos", como: "2 rebanadas con tomate y aceite + 3 huevos revueltos", tiempo: "7 min",
+      ing: ["pan-molde", "tomate", "huevos", "aceite"] },
+    { id: "bol-skyr", nombre: "Bol de skyr", como: "1 tarrina grande de skyr o queso fresco batido 0% + 1 puñado de avena + fruta", tiempo: "2 min",
+      ing: ["skyr", "avena", "fruta"] },
+    { id: "batido", nombre: "Batido para llevar", como: "Leche + plátano + 3 cucharadas de avena + cacao, en batidora", tiempo: "2 min",
+      ing: ["leche", "platano", "avena", "cacao"] },
+    { id: "bocadillo", nombre: "Bocadillo", como: "Media barra con tortilla francesa de 2 huevos, o con pavo y queso, + café con leche", tiempo: "5 min",
+      ing: ["barra", "huevos", "leche", "cafe"],
+      variante: "de tortilla", variantes: [{ id: "pavo", nombre: "de pavo y queso", quita: ["huevos"], pone: ["pavo", "queso-lonchas"] }] },
   ],
   comidas: [
-    ["Arroz salteado con pollo", "Arroz del domingo + pollo en tacos + verdura congelada a la sartén con salsa de soja", "15 min"],
-    ["Pasta con atún", "Pasta + 2 latas de atún + tomate triturado + orégano + maíz", "12 min"],
-    ["Muslos al horno", "Los del domingo, con su patata, + ensalada", "3 min"],
-    ["Macarrones a la boloñesa", "Pasta + la boloñesa del domingo + queso rallado", "10 min"],
-    ["Lentejas rápidas", "Bote de lentejas escurrido con sofrito de cebolla y pimiento, tomate y pimentón. Un huevo encima o arroz al lado", "15 min"],
-    ["Garbanzos con espinacas", "Bote de garbanzos + espinacas congeladas + ajo + comino, con 2 huevos o una lata de atún", "12 min"],
+    { id: "arroz-pollo", nombre: "Arroz salteado con pollo", como: "Arroz del domingo + pollo en tacos + verdura congelada a la sartén con salsa de soja", tiempo: "15 min",
+      ing: ["arroz", "pollo", "congelada", "soja"] },
+    { id: "pasta-atun", nombre: "Pasta con atún", como: "Pasta + 2 latas de atún + tomate triturado + orégano + maíz", tiempo: "12 min",
+      ing: ["pasta", "atun", "triturado", "maiz", "especias"] },
+    { id: "muslos", nombre: "Muslos al horno", como: "Los del domingo, con su patata, + ensalada", tiempo: "3 min",
+      ing: ["muslos", "patatas", "cebollas", "ensalada", "aceite", "especias"] },
+    { id: "bolonesa", nombre: "Macarrones a la boloñesa", como: "Pasta + la boloñesa del domingo + queso rallado", tiempo: "10 min",
+      ing: ["pasta", "picada", "cebollas", "triturado", "queso-rallado"] },
+    { id: "lentejas", nombre: "Lentejas rápidas", como: "Bote de lentejas escurrido con sofrito de cebolla y pimiento, tomate y pimentón. Un huevo encima o arroz al lado", tiempo: "15 min",
+      ing: ["lentejas", "cebollas", "pimientos", "triturado", "huevos", "especias"],
+      variante: "con huevo", variantes: [{ id: "arroz", nombre: "con arroz", quita: ["huevos"], pone: ["arroz"] }] },
+    { id: "garbanzos", nombre: "Garbanzos con espinacas", como: "Bote de garbanzos + espinacas congeladas + ajo + comino, con 2 huevos o una lata de atún", tiempo: "12 min",
+      ing: ["garbanzos", "espinacas", "huevos", "especias"],
+      variante: "con huevos", variantes: [{ id: "atun", nombre: "con atún", quita: ["huevos"], pone: ["atun"] }] },
   ],
   meriendas: [
-    ["Media barra con atún, pavo o tortilla + 1 fruta", "Antes del tenis o de la pierna", ""],
-    ["Skyr o queso fresco batido + fruta", "Días normales", ""],
-    ["Plátano + puñado de frutos secos", "Para llevar a la facultad", ""],
-    ["2 tostadas con queso fresco y pavo", "Días normales", ""],
-    ["Vaso de leche con cacao + 1 fruta", "Cuando vas con prisa", ""],
+    { id: "barra-atun", nombre: "Media barra con atún, pavo o tortilla + 1 fruta", como: "Antes del tenis o de la pierna", tiempo: "",
+      ing: ["barra", "atun", "fruta"],
+      corto: "Media barra", variante: "de atún + fruta", variantes: [
+        { id: "pavo", nombre: "de pavo + fruta", quita: ["atun"], pone: ["pavo"] },
+        { id: "tortilla", nombre: "de tortilla + fruta", quita: ["atun"], pone: ["huevos"] },
+      ] },
+    { id: "skyr-fruta", nombre: "Skyr o queso fresco batido + fruta", como: "Días normales", tiempo: "",
+      ing: ["skyr", "fruta"] },
+    { id: "platano-frutos", nombre: "Plátano + puñado de frutos secos", como: "Para llevar a la facultad", tiempo: "",
+      ing: ["platano", "frutos-secos"] },
+    { id: "tostadas-pavo", nombre: "2 tostadas con queso fresco y pavo", como: "Días normales", tiempo: "",
+      ing: ["pan-molde", "queso-fresco", "pavo"] },
+    { id: "leche-cacao", nombre: "Vaso de leche con cacao + 1 fruta", como: "Cuando vas con prisa", tiempo: "",
+      ing: ["leche", "fruta", "cacao"] },
   ],
   cenas: [
-    ["Tortilla francesa", "3 huevos + ensalada + pan", "8 min"],
-    ["Revuelto", "3 huevos con champiñones o espinacas + pan", "10 min"],
-    ["Pescado con patata", "Merluza o abadejo congelado a la plancha + patata pinchada, 8-10 min al micro, + verdura", "15 min"],
-    ["Lata y ensalada", "Caballa o sardinas en lata + ensalada + pan, sin cocinar", "3 min"],
-    ["Pizza de tortilla", "Tortilla de trigo + tomate triturado + atún + queso rallado + orégano, en la sartén tapada 8 min", "10 min"],
-    ["Wraps", "2 tortillas de trigo con pollo del domingo o atún, lechuga, tomate y queso fresco", "5 min"],
+    { id: "tortilla", nombre: "Tortilla francesa", como: "3 huevos + ensalada + pan", tiempo: "8 min",
+      ing: ["huevos", "ensalada", "pan-molde"] },
+    { id: "revuelto", nombre: "Revuelto", como: "3 huevos con champiñones o espinacas + pan", tiempo: "10 min",
+      ing: ["huevos", "champinones", "pan-molde"],
+      variante: "con champiñones", variantes: [{ id: "espinacas", nombre: "con espinacas", quita: ["champinones"], pone: ["espinacas"] }] },
+    { id: "pescado", nombre: "Pescado con patata", como: "Merluza o abadejo congelado a la plancha + patata pinchada, 8-10 min al micro, + verdura", tiempo: "15 min",
+      ing: ["merluza", "patatas", "congelada"] },
+    { id: "lata-ensalada", nombre: "Lata y ensalada", como: "Caballa o sardinas en lata + ensalada + pan, sin cocinar", tiempo: "3 min",
+      ing: ["caballa", "ensalada", "pan-molde"] },
+    { id: "pizza-tortilla", nombre: "Pizza de tortilla", como: "Tortilla de trigo + tomate triturado + atún + queso rallado + orégano, en la sartén tapada 8 min", tiempo: "10 min",
+      ing: ["tortillas", "triturado", "atun", "queso-rallado", "especias"] },
+    { id: "wraps", nombre: "Wraps", como: "2 tortillas de trigo con pollo del domingo o atún, lechuga, tomate y queso fresco", tiempo: "5 min",
+      ing: ["tortillas", "pollo", "ensalada", "tomate", "queso-fresco"],
+      variante: "de pollo", variantes: [{ id: "atun", nombre: "de atún", quita: ["pollo"], pone: ["atun"] }] },
   ],
 };
 
